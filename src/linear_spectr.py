@@ -8,6 +8,7 @@ Kb = 0.695034800 #Boltzmann constant in p.cm per Kelvin
 wn2ips = 0.188495559215
 
 class LinearSpectraCalculator():
+    "Class for calculations of all linear spectra"
     
     def __init__(self,rel_tensor,RWA=None,dephasing=True):
         """initialize the class
