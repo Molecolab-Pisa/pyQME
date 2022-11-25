@@ -10,7 +10,7 @@ wn2ips = 0.188495559215
 class LinearSpectraCalculator():
     "Class for calculations of all linear spectra"
     
-    def __init__(self,rel_tensor,RWA=None,dephasing=True):
+    def __init__(self,rel_tensor,RWA=None,include_dephasing=True):
         """initialize the class
         
         rel_tensor: Class
@@ -26,7 +26,7 @@ class LinearSpectraCalculator():
         self.weight = self.rel_tensor.weight_kkkk
         
         self.specden = self.rel_tensor.specden
-        self.include_dephasing = dephasing
+        self.include_dephasing= include_dephasing
         
         # Get RWA frequ
         self.RWA = RWA
@@ -88,7 +88,7 @@ class LinearSpectraCalculator():
         partition = np.sum(boltz)
         return boltz/partition
     
-    def calc_OD(self,dipoles,freq=None,dephasing=True):
+    def calc_OD(self,dipoles,freq=None):
         """Compute absorption spectrum
         
         dipoles: np.array(dtype = np.float)
