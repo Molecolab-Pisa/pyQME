@@ -107,7 +107,7 @@ class LinearSpectraCalculator():
         
         self._initialize()
         t = self.time
-       
+        
         self.excdip = self.rel_tensor.transform(dipoles,dim=1)
         self.excd2 = np.sum(self.excdip**2,axis=1)
         
@@ -116,6 +116,7 @@ class LinearSpectraCalculator():
             d_k = self.excd2[k]
             time_OD += d_k*np.exp(1j*(-e_k+self.RWA)*t - self.rel_tensor.g_exc_kkkk[k] + self.dephasing[k]*t)
         
+                
         # Do hermitian FFT (-> real output)
         factFT = (t[1]-t[0])/(2*np.pi)
         factOD = 108.86039

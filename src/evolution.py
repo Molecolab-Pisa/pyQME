@@ -6,7 +6,6 @@ from scipy.interpolate import UnivariateSpline
 from scipy.linalg import expm
 import numpy.fft as fft
 import scipy.fftpack as fftpack
-from numba import guvectorize
 import os
 import matplotlib.pyplot as plt
 
@@ -314,25 +313,34 @@ class SpectralDensity():
         time: np.array(dtype=np.float)
             timaxis on which g(t) will be computed
             """
-
-        if hasattr(self,'time'):
-            if time is None:
-                time = self.time
-
-            self._calc_gt(time)
-            
+        
+        if hasattr(self,'gt') and (time is None or np.all(time == self.time)):
             if derivs > 1:
                 return self.gt,self.g_dot,self.g_ddot
             elif derivs == 1:
                 return self.gt,self.g_dot
             else:
                 return self.gt
-
-
-        else:
-            if time is None:
-                raise ValueError('No time axis present')        
         
+        else:
+            if hasattr(self,'time'):
+                if time is None:
+                    time = self.time
+
+                self._calc_gt(time)
+
+                if derivs > 1:
+                    return self.gt,self.g_dot,self.g_ddot
+                elif derivs == 1:
+                    return self.gt,self.g_dot
+                else:
+                    return self.gt
+
+
+            else:
+                if time is None:
+                    raise ValueError('No time axis present')        
+
 
         
         
@@ -988,7 +996,6 @@ class ModifiedRedfieldTensor(RelTensor):
         
 
         self.RTen = RTen
-        self.secularize()
 
         pass
 
