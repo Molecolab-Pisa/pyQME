@@ -326,6 +326,8 @@ class SpectralDensity():
             if hasattr(self,'time'):
                 if time is None:
                     time = self.time
+                else:
+                    self.time = time
 
                 self._calc_gt(time)
 

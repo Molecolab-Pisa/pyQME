@@ -39,8 +39,12 @@ class LinearSpectraCalculator():
         
         # Heuristics
         reorg = [self.specden.Reorg[SD_id] for SD_id in self.rel_tensor.SD_id_list]
+        
         dwmax = np.max(self.rel_tensor.ene + reorg)
-        dt = 1/dwmax
+        dwmax = 10**(1.1*int(np.log10(dwmax))) #FIXME TROVA QUALCOSA DI PIU ROBUSTO
+        
+        dt = 1.0/dwmax
+
         tmax = wn2ips*2.0 # 2 ps
         self.time = np.arange(0.,tmax+dt,dt)
         pass
