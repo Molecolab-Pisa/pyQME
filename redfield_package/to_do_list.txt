@@ -1,2 +1,0 @@
-evolution:
-fare in modo che gli spettri siano calcolati con il timeaxis fornito dall'utente a LinearSpectraCalculator e, se non viene fornito, viene calcolato con il timeaxis di SDobj
