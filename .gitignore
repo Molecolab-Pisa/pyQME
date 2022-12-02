@@ -1,0 +1,4 @@
+develop_test/
+.ipynb_checkpoints/
+to_do_list.txt
+__pycache__/
