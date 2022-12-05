@@ -6,6 +6,7 @@ import os
 
 Kb = 0.695034800 #Boltzmann constant in p.cm per Kelvin
 wn2ips = 0.188495559215
+factOD = 108.86039
 
 class LinearSpectraCalculator():
     "Class for calculations of all linear spectra"
@@ -71,9 +72,9 @@ class LinearSpectraCalculator():
     
     def _initialize(self):
         "This function initializes some variables needed for spectra"
+        if not hasattr(self,'time'):
+            self.time = self.specden.time
         if not hasattr(self,'g'):
-            if not hasattr(self,'time'):
-                self._get_timeaxis()
             self.rel_tensor._calc_g_exc_kkkk(self.time)
         if not hasattr(self,'dephasing'):
             self._get_dephasing()
@@ -118,13 +119,10 @@ class LinearSpectraCalculator():
         time_OD = np.zeros(self.time.shape,dtype=np.complex128)
         for (k,e_k) in enumerate(self.rel_tensor.ene):
             d_k = self.excd2[k]
-            time_OD += d_k*np.exp(1j*(-e_k+self.RWA)*t - self.rel_tensor.g_exc_kkkk[k] + self.dephasing[k]*t)
+            time_OD += d_k*np.exp(1j*(-e_k + self.RWA + self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k])
         
-                
         # Do hermitian FFT (-> real output)
-        factFT = (t[1]-t[0])/(2*np.pi)
-        factOD = 108.86039
-        self.OD = np.flipud(np.fft.fftshift(np.fft.hfft(time_OD)))*factFT
+        self.OD = np.flipud(np.fft.fftshift(np.fft.hfft(time_OD)))*self.factFT
         self.OD = self.OD * self.freq * factOD
                 
         if freq is not None:
@@ -133,7 +131,33 @@ class LinearSpectraCalculator():
             return freq,OD
         else:
             return self.freq,self.OD
+        
+    def calc_OD_k(self,dipoles,freq = None):
 
+        self._initialize()
+
+        self.excdip = self.rel_tensor.transform(dipoles,dim=1)
+        self.excd2 = np.sum(self.excdip**2,axis=1)
+
+        t = self.time
+        self.OD_k = np.empty([self.rel_tensor.dim,self.freq.size])
+        for (k,e_k) in enumerate(self.rel_tensor.ene):
+            d_k = self.excd2[k]
+            time_OD = d_k*np.exp(1j*(-e_k + self.RWA + self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k])
+        
+            # Do hermitian FFT (-> real output)
+            self.OD_k[k] = np.flipud(np.fft.fftshift(np.fft.hfft(time_OD)))*self.factFT
+            self.OD_k[k] = self.OD_k[k] * self.freq * factOD
+        
+        if freq is not None:
+            OD_k = np.empty([self.rel_tensor.dim,freq.size])
+            for k in range(self.rel_tensor.dim):
+                ODspl = UnivariateSpline(self.freq,self.OD_k[k],s=0)
+                OD_k[k] = ODspl(freq)
+            return freq,OD_k
+        else:
+            return self.freq,self.OD_k
+        
     def calc_FL(self,dipoles,freq=None):
         """Compute fluorescence spectrum
         
@@ -160,14 +184,11 @@ class LinearSpectraCalculator():
         for (k,e_k) in enumerate(self.rel_tensor.ene):
             d_k = self.excd2[k]
             e0_k = e_k - 2*self.rel_tensor.reorg_exc_kkkk[k]
-            time_FL += eqpop[k]*d_k*np.exp(1j*(-e0_k+self.RWA)*t - self.rel_tensor.g_exc_kkkk[k].conj() + self.dephasing[k]*t)
+            time_FL += eqpop[k]*d_k*np.exp(1j*(-e0_k+self.RWA+self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k].conj())
         
         # Do hermitian FFT (-> real output)
-        fact = (t[1]-t[0])/(2*np.pi)
-        factFT = (t[1]-t[0])/(2*np.pi)
-        factOD = 108.86039 #FIXME GIUSTO?
-        self.FL = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*fact
-        self.FL = self.FL * self.freq**3 * factOD #here quantarhei uses the first power of the frequency (spontaneous emission) 
+        self.FL = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self.factFT
+        self.FL = self.FL * self.freq**3 * factOD #here quantarhei uses the first power of the frequency (spontaneous emission)             #FIXME E' GIUSTO USARE FACT OD QUI?
                 
         if freq is not None:
             FLspl = UnivariateSpline(self.freq,self.FL,s=0)
@@ -175,3 +196,9 @@ class LinearSpectraCalculator():
             return freq,FL
         else:
             return self.freq,self.FL
+        
+    @property
+    def factFT(self):
+        return (self.time[1]-self.time[0])/(2*np.pi)
+
+    

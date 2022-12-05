@@ -4,14 +4,31 @@ import numpy as np
 import sys
 from scipy.interpolate import UnivariateSpline
 from scipy.linalg import expm
-import numpy.fft as fft
 import scipy.fftpack as fftpack
+from scipy.integrate import simps
+import numpy.fft as fft
 import os
 import matplotlib.pyplot as plt
 
 Kb = 0.695034800 #Boltzmann constant in p.cm per Kelvin
 wn2ips = 0.188495559215
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
+
+def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
+    dim = np.shape(OD_k)[0]
+    rho0 = np.zeros([dim,dim])
+    freq_step = freq_axis[1]-freq_axis[0]
+    
+    for k,OD in enumerate(OD_k):
+        overlap = simps(OD*pulse) * freq_step  # Overlap of the abs with the pump
+        rho0[k,k] = overlap
+    return rho0
+
+def gauss_pulse(freq_axis,center,fwhm,amp):
+    factor = (2.0/fwhm)*np.sqrt(np.log(2.0)/np.pi)*amp
+    exponent =-4.0*np.log(2.0)*((freq_axis-center)/fwhm)**2
+    pulse = factor*np.exp(exponent)
+    return pulse
 
 def partition_by_cutoff(H,cutoff,RF=True):
     dim = np.shape(H)[0]
@@ -314,7 +331,7 @@ class SpectralDensity():
             timaxis on which g(t) will be computed
             """
         
-        if hasattr(self,'gt') and (time is None or np.all(time == self.time)):
+        if hasattr(self,'gt') and (time is None or np.all(time == self.time)) and self.gt[0].size == self.time.size:
             if derivs > 1:
                 return self.gt,self.g_dot,self.g_ddot
             elif derivs == 1:
@@ -566,9 +583,11 @@ class RelTensor():
             A = Liouv.reshape(self.dim**2,self.dim**2)
             rho_ = rho.reshape(self.dim**2)
 
-            rhot = expm_multiply(A,rho_,
-                 start=t[0],stop=t[-1],num=len(t) )
-        
+            rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
+            
+            if type(rho[0,0])==np.float64 and np.all(np.imag(rhot)==0):
+                rhot = np.real(rhot)
+            
             return rhot.reshape(-1,self.dim,self.dim)
         
     def get_g_exc_kkkk(self,time=None):
