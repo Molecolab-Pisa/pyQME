@@ -11,7 +11,7 @@ factOD = 108.86039
 class LinearSpectraCalculator():
     "Class for calculations of all linear spectra"
     
-    def __init__(self,rel_tensor,RWA=None,include_dephasing=True):
+    def __init__(self,rel_tensor,RWA=None,include_dephasing=True,time=None):
         """initialize the class
         
         rel_tensor: Class
@@ -20,6 +20,7 @@ class LinearSpectraCalculator():
         RWA:  np.float
             order of magnitude of frequencies at which the spectrum will be evaluted"""
         
+        self.time = time
         self.rel_tensor = rel_tensor
         self.H = self.rel_tensor.H
         self.coef = self.rel_tensor.U.T
@@ -72,8 +73,11 @@ class LinearSpectraCalculator():
     
     def _initialize(self):
         "This function initializes some variables needed for spectra"
-        if not hasattr(self,'time'):
+        if self.time is None:
             self.time = self.specden.time
+        else:
+            self.specden.time = self.time
+            
         if not hasattr(self,'g'):
             self.rel_tensor._calc_g_exc_kkkk(self.time)
         if not hasattr(self,'dephasing'):
@@ -107,7 +111,7 @@ class LinearSpectraCalculator():
         freq: np.array
             frequency axis of the spectrum in cm^-1
             
-        FL: np.array
+        OD: np.array
             absorption spectrum"""
         
         self._initialize()
@@ -133,6 +137,21 @@ class LinearSpectraCalculator():
             return self.freq,self.OD
         
     def calc_OD_k(self,dipoles,freq = None):
+        """Compute absorption spectrum separately for each exciton
+        
+        dipoles: np.array(dtype = np.float)
+            array of transition dipoles coordinates in debye. Each row corresponds to a different chromophore
+            
+        freq: np.array(dtype = np.folat)
+            array of frequencies at which the spectrum will be evaluated in cm^-1
+            
+        Return
+        
+        freq: np.array
+            frequency axis of the spectrum in cm^-1
+            
+        OD_k: np.array
+            absorption spectrum of each exciton"""
 
         self._initialize()
 
@@ -198,7 +217,7 @@ class LinearSpectraCalculator():
             return self.freq,self.FL
         
     @property
-    def factFT(self):
-        return (self.time[1]-self.time[0])/(2*np.pi)
-
     
+    def factFT(self):
+        """Fourier Transform factor used to compute spectra"""
+        return (self.time[1]-self.time[0])/(2*np.pi)
