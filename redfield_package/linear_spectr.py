@@ -123,7 +123,7 @@ class LinearSpectraCalculator():
         time_OD = np.zeros(self.time.shape,dtype=np.complex128)
         for (k,e_k) in enumerate(self.rel_tensor.ene):
             d_k = self.excd2[k]
-            time_OD += d_k*np.exp(1j*(-e_k + self.RWA + self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k])
+            time_OD += d_k*np.exp((1j*(-e_k+self.RWA) + self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k])
         
         # Do hermitian FFT (-> real output)
         self.OD = np.flipud(np.fft.fftshift(np.fft.hfft(time_OD)))*self.factFT
@@ -162,7 +162,7 @@ class LinearSpectraCalculator():
         self.OD_k = np.empty([self.rel_tensor.dim,self.freq.size])
         for (k,e_k) in enumerate(self.rel_tensor.ene):
             d_k = self.excd2[k]
-            time_OD = d_k*np.exp(1j*(-e_k + self.RWA + self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k])
+            time_OD = d_k*np.exp((1j*(-e_k+self.RWA) + self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k])
         
             # Do hermitian FFT (-> real output)
             self.OD_k[k] = np.flipud(np.fft.fftshift(np.fft.hfft(time_OD)))*self.factFT
@@ -203,7 +203,7 @@ class LinearSpectraCalculator():
         for (k,e_k) in enumerate(self.rel_tensor.ene):
             d_k = self.excd2[k]
             e0_k = e_k - 2*self.rel_tensor.reorg_exc_kkkk[k]
-            time_FL += eqpop[k]*d_k*np.exp(1j*(-e0_k+self.RWA+self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k].conj())
+            time_FL += eqpop[k]*d_k*np.exp((1j*(-e0_k+self.RWA)+self.dephasing[k])*t - self.rel_tensor.g_exc_kkkk[k].conj())
         
         # Do hermitian FFT (-> real output)
         self.FL = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self.factFT
