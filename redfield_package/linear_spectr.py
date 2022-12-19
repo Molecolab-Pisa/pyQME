@@ -24,9 +24,7 @@ class LinearSpectraCalculator():
         self.rel_tensor = rel_tensor
         self.H = self.rel_tensor.H
         self.coef = self.rel_tensor.U.T
-                
-        self.weight = self.rel_tensor.weight_kkkk
-        
+                        
         self.specden = self.rel_tensor.specden
         self.include_dephasing= include_dephasing
         
@@ -85,7 +83,7 @@ class LinearSpectraCalculator():
         if not hasattr(self,'freq'):
             self._get_freqaxis()
         if not hasattr(self,'reorg'):
-            self.rel_tensor._calc_exc_reorg_kkkk()
+            self.rel_tensor._calc_reorg_exc_kkkk()
         
         pass
     
@@ -169,11 +167,11 @@ class LinearSpectraCalculator():
             self.OD_k[k] = self.OD_k[k] * self.freq * factOD
         
         if freq is not None:
-            OD_k = np.empty([self.rel_tensor.dim,freq.size])
+            OD_k = np.empty([self.rel_tensor.dim,freq_axis.size])
             for k in range(self.rel_tensor.dim):
                 ODspl = UnivariateSpline(self.freq,self.OD_k[k],s=0)
-                OD_k[k] = ODspl(freq)
-            return freq,OD_k
+                OD_k[k] = ODspl(freq_axis)
+            return freq_axis,OD_k
         else:
             return self.freq,self.OD_k
         

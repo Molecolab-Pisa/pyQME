@@ -12,21 +12,8 @@ import matplotlib.pyplot as plt
 from .RelTensor import RelTensor
 from .RedfieldTensor import RedfieldTensorReal,RedfieldTensorComplex
 
-def partition_by_cutoff(H,cutoff,RF=True):
-    dim = np.shape(H)[0]
-    H_part = H.copy()
-    for raw in range(dim):
-        for col in range(raw+1,dim):
-            if np.abs(H[raw,col])>=cutoff:
-                H_part[raw,col] = np.sign(H_part[raw,col])*(np.abs(H_part[raw,col]) - cutoff)
-                H_part[col,raw] = H_part[raw,col]
-            elif np.abs(H[raw,col]) < cutoff:
-                H_part[raw,col] = 0.0
-                H_part[col,raw] = 0.0
-    V = H - H_part
-    if not RF:
-        V [H_part!=0] = 0.0
-    return H_part,V
+wn2ips = 0.188495559215
+h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
 
 class RealRedfieldForsterTensor(RedfieldTensorReal):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
@@ -108,7 +95,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates
-        return super().dephasing + 0.5* np.diag(self.forster_rates)
+        return super().dephasing + np.diag(self.forster_rates)
     
     
 
@@ -179,6 +166,7 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
 
         if not hasattr(self,'RTen'):
             super()._calc_tensor()
+            
 
         self.RTen = self.RTen + Forster_Tensor
         
@@ -192,4 +180,4 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates
-        return super().dephasing + 0.5* np.diag(self.forster_rates)
+        return super().dephasing + np.diag(self.forster_rates)

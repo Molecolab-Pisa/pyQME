@@ -18,12 +18,12 @@ class ForsterTensor(RelTensor):
     """Forster Tensor class where Forster Resonance Energy Transfer (FRET) Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,Ham,*args):
+    def __init__(self,Ham,*args,SD_id_list=None,initialize=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V = Ham.copy()
         np.fill_diagonal(self.V,0.0)
         self.H = np.diag(np.diag(Ham))
-        super().__init__(*args)
+        super().__init__(*args,SD_id_list,initialize=False)
     
     def _calc_rates(self):
         """This function computes the Forster energy transfer rates
@@ -77,8 +77,8 @@ class ForsterTensor(RelTensor):
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if hasattr(self,'RTen'):
-            return 0.5* np.einsum('aaaa->a',self.RTen)
+            return np.einsum('aaaa->a',self.RTen)
         else:
             if not hasattr(self,'rates'):
                 self._calc_rates()
-            return 0.5* np.diag(self.rates)
+            return np.diag(self.rates)

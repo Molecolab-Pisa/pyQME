@@ -28,16 +28,16 @@ class RedfieldTensor(RelTensor):
             
             coef2 = self.U**2
             
-            SD_id_list = self.SD_id_list
+            SD_id_list  = self.SD_id_list
             
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-                Cw_matrix = self.specden(self.Om.T,SD_id=SD_id)
+                Cw_matrix = self.evaluate_SD_in_freq(SD_id)
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
                 if SD_idx == 0:
                     rates = np.einsum('ka,kb,ba->ab',coef2[mask,:],coef2[mask,:],Cw_matrix.T)
                 else:
                     rates = rates + np.einsum('ka,kb,ba->ab',coef2[mask,:],coef2[mask,:],Cw_matrix.T)
-                    
+                
         else:
             rates = np.einsum('aabb->ab',self.RTen)
         
@@ -60,28 +60,15 @@ class RedfieldTensor(RelTensor):
                 GammF  = np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
             else:
                 GammF = GammF + np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
-                                
+
         self.GammF = GammF
-        RTen = self._from_GammaF_to_RTen(GammF)
-        
+
+        RTen = self._from_GammaF_to_RTen(GammF)        
+
         self.RTen = RTen
         if secularize:
             self.secularize()
         pass
-    
-    def get_Cw_matrix(self):
-        """Returns a matrix containing the spectral density computed at frequencies corresponding to the differences between exciton energies"""
-        return self.specden(self.Om)
-    
-    @property
-    def dephasing(self):
-        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
-        if hasattr(self,'RTen'):
-            return 0.5* np.einsum('aaaa->a',self.RTen)
-        else:
-            if not hasattr(self,'rates'):
-                self._calc_rates()
-            return 0.5* np.diag(self.rates)
     
 
 
@@ -108,7 +95,7 @@ class RedfieldTensorReal(RedfieldTensor):
         RTen = np.zeros(GammF.shape,dtype=np.float64)
         
         RTen[:] = np.einsum('cabd->abcd',GammF) + np.einsum('dbac->abcd',GammF)
-
+        
         # delta part
         eye = np.eye(self.dim)
         tmpac = np.einsum('akkc->ac',GammF)
@@ -123,6 +110,18 @@ class RedfieldTensorReal(RedfieldTensor):
             index of the spectral density which will be evaluated referring to the list of spectral densities passed to the SpectralDensity class"""
         return self.specden(self.Om.T,SD_id=SD_id,imag=False)
 
+    @property
+    def dephasing(self):
+        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        if hasattr(self,'RTen'):
+            return np.einsum('aaaa->a',self.RTen)
+        else:
+            if not hasattr(self,'rates'):
+                self._calc_rates()
+            return np.diag(self.rates)
+        
+        
+        
     
 class RedfieldTensorComplex(RedfieldTensor):
     "Real Redfield Tensor class"
@@ -136,10 +135,11 @@ class RedfieldTensorComplex(RedfieldTensor):
         RTen = np.zeros(GammF.shape,dtype=np.complex128)
         
         RTen[:] = np.einsum('cabd->abcd',GammF) + np.einsum('dbac->abcd',GammF.conj())
-
+            
         # delta part
         eye = np.eye(self.dim)
         tmpac = np.einsum('akkc->ac',GammF)
+                    
         RTen -= np.einsum('ac,bd->abcd',eye,tmpac.conj()) + np.einsum('ac,bd->abcd',tmpac,eye)
         
         return RTen
@@ -155,7 +155,7 @@ class RedfieldTensorComplex(RedfieldTensor):
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if hasattr(self,'GammF'):
-            return np.einsum('aaaa->a',self.GammF) - np.einsum('akka->a',self.GammF)
+            return 2*(np.einsum('aaaa->a',self.GammF) - np.einsum('akka->a',self.GammF))
         else:
             SD_id_list = self.SD_id_list
 
@@ -165,10 +165,10 @@ class RedfieldTensorComplex(RedfieldTensor):
 
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
                 if SD_idx == 0:
-                    GammF_aaaa  = np.einsum('jaa,jaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
-                    GammF_akka =  np.einsum('jab,jba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
+                    GammF_aaaa  = np.einsum('jaa,jaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
+                    GammF_akka =  np.einsum('jab,jba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
                 else:
-                    GammF_aaaa = GammF_aaaa + np.einsum('jaa,jaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
-                    GammF_akka = GammF_aaaa + np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
+                    GammF_aaaa = GammF_aaaa + np.einsum('jaa,jaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
+                    GammF_akka = GammF_akka + np.einsum('jab,jba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
 
             return GammF_aaaa - np.einsum('ak->a',GammF_akka)
