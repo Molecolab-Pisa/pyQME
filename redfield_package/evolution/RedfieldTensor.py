@@ -33,10 +33,10 @@ class RedfieldTensor(RelTensor):
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
                 Cw_matrix = self.evaluate_SD_in_freq(SD_id)
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-                if SD_idx == 0:
-                    rates = np.einsum('ka,kb,ba->ab',coef2[mask,:],coef2[mask,:],Cw_matrix.T)
+                if SD_idx == 0:             #fixme inizializza rates
+                    rates = np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)
                 else:
-                    rates = rates + np.einsum('ka,kb,ba->ab',coef2[mask,:],coef2[mask,:],Cw_matrix.T)
+                    rates = rates + np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)
                 
         else:
             rates = np.einsum('aabb->ab',self.RTen)
@@ -57,7 +57,7 @@ class RedfieldTensor(RelTensor):
             
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             if SD_idx == 0:
-                GammF  = np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
+                GammF  = np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)            #fixme inizializza gammF
             else:
                 GammF = GammF + np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
 

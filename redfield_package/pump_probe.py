@@ -26,6 +26,12 @@ class PumpProbeSpectraCalculator():
         self.rel_tensor_double = rel_tensor_double
         self.specden = self.rel_tensor_single.specden
         
+        if rel_tensor_single.SD_id_list == rel_tensor_double.SD_id_list:
+            self.SD_id_list = rel_tensor_single.SD_id_list
+        else:
+            raise ValueError('Sigle and double excitation relaxation tensor must share the same list of SD ID.')
+            
+            
         self.dim_single = self.rel_tensor_single.dim
         self.dim_double = self.rel_tensor_double.dim
         
@@ -39,6 +45,8 @@ class PumpProbeSpectraCalculator():
         self.ene_single = self.rel_tensor_single.ene
         self.ene_double = self.rel_tensor_double.ene
         self._calc_w_kq()
+        
+        self._calc_weight_kkqq()
         
         self.lambda_k = self.rel_tensor_single.get_reorg_exc_kkkk()
         self._calc_lambda_kq()
@@ -106,148 +114,30 @@ class PumpProbeSpectraCalculator():
         
         self.w_kq = w_kq
                 
+    def _calc_weight_kkqq(self):
+        
+        c_nmq = self.c_nmq
+        c_nk = self.c_nk
+        SD_id_list = self.SD_id_list
+        weight_kkqq = np.zeros([len([*set(SD_id_list)]),self.dim_single,self.dim_double])
+        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
+            weight_kkqq[SD_idx] = np.einsum('nmq,nk->kq',c_nmq[mask,:,:]**2,c_nk[mask,:]**2)
+            weight_kkqq[SD_idx] = weight_kkqq[SD_idx] + np.einsum('nmq,mk->kq',c_nmq[:,mask,:]**2,c_nk[mask,:]**2)
+        self.weight_kkqq = weight_kkqq
+                
     def _calc_lambda_kq(self):
         reorg_site = self.specden.Reorg
-        c_nmq = self.c_nmq
-        lambda_kq = np.zeros([self.dim_single,self.dim_double])
-        c_nk = self.c_nk
-        SD_id_list = self.rel_tensor_single.SD_id_list
-        for k in range(self.dim_single):
-            for q in range(self.dim_double):
-                for n in range(self.dim_single):
-                    for m in range(n+1,self.dim_single):
-                        lambda_kq[k,q] = lambda_kq[k,q] + reorg_site[SD_id_list[n]]*((c_nmq[n,m,q]*c_nk[n,k])**2)
-                        lambda_kq[k,q] = lambda_kq[k,q] + reorg_site[SD_id_list[m]]*((c_nmq[n,m,q]*c_nk[m,k])**2)   #FIXME OTTIMIZZA
-        self.lambda_kq = lambda_kq
-        
-    def _calc_g_q(self):
-        g_site = self.specden.get_gt(self.time)
-        g_q = np.zeros([self.dim_double,self.specden.time.size],dtype=np.complex128) #FIXME OTTIMIZZA
-        c_nmq = self.c_nmq
-        SD_id_list = self.rel_tensor_single.SD_id_list
-        
-        
-        for q in range(self.dim_double):
-            for n in range(self.dim_single):
-                #g_q[q] = g_q[q] + (c_nmq[n,n,q]**4)*g_site[SD_id_list[n]]   # NO NEED BECAUSE WE DON'T CONSIDER S2 LIKE STATES
-                for m in range(n+1,self.dim_single):
-                    for n_pr in range(self.dim_single):
-                        for m_pr in range(n_pr+1,self.dim_single):
-                            tmp = (c_nmq[n,m,q]*c_nmq[n_pr,m_pr,q])**2
-                            if n == n_pr:
-                                g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if m == m_pr:
-                                g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if n == m_pr:
-                               g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if m == n_pr:
-                                g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-#                            if n != m_pr and m!=n_pr and m != m_pr and n!=n_pr:
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m_pr]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n_pr]]
-
-       #                        tmp_q[q] = tmp_q[q] + tmp
-#    g_q[q] = tmp_q[q]*g_site[0]
-
-
-#        pairs = self.pairs
-#        c_Qq = self.c_Qq
-#        for q in range(self.dim_double):
-#            for Q1 in range(self.dim_double):
-#                n,m = pairs[Q1]
-#                for Q2 in range(self.dim_double):
-#                    n_pr,m_pr = pairs[Q2]
-#                    tmp = (c_nmq[n,m,q]*c_nmq[n_pr,m_pr,q])**2
-#                    if n == n_pr and m==m_pr:
-#                        g_q[q] = g_q[q] + 2*tmp*g_site[SD_id_list[m]]
-#                    elif n != n_pr and m==m_pr:
-#                        g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-#                    elif n == n_pr and m!=m_pr: 
-#                        g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-#                    elif n == m_pr and m!=n_pr:
-#                        g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-#                    elif n != m_pr and m==n_pr:
-#                        g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-#                    elif n != m_pr and m!=n_pr:
-#                        g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m]]
-#                        g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n]]
-#                        g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m_pr]]
-#                        g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n_pr]]
-                                
-#                    else:
-#                        if n == n_pr:
-#                            g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-#    #                        tmp_q[q] = tmp_q[q] + tmp
-#                        if m == m_pr:
-#                            g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-#    #                        tmp_q[q] = tmp_q[q] + tmp
-#                        if n == m_pr:
-#                           g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-#    #                        tmp_q[q] = tmp_q[q] + tmp
-#                        if m == n_pr:
-#                            g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-#   #                        tmp_q[q] = tmp_q[q] + tmp
-#                        g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-                        
-#                        tmp_q[q] = tmp_q[q] + tmp
-#                    if m == m_pr:
-#                        g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-#                        tmp_q[q] = tmp_q[q] + tmp
-#                    if n == m_pr:
-#                       g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-#                        tmp_q[q] = tmp_q[q] + tmp
-#                    if m == n_pr:
-#                        g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-                
-
-
-#        c_Qq = self.c_Qq
-#        for q in range(self.dim_double):
-#            for Q1 in range(self.dim_double):
-#                for Q2 in range(self.dim_double):
-#                    tmp = (c_Qq[Q1,q]*c_Qq[Q2,q])**2
-#                    if Q1 == Q2:
-#                        g_q[q] = g_q[q] + 2*tmp*g_site[0]
-#                    else:
-#                        g_q[q] = g_q[q] + tmp*g_site[0]              
-
-
-        self.g_q = g_q
+        self.lambda_kq = np.dot(self.weight_kkqq.T,reorg_site).T
     
     def _calc_g_kq(self):
         g_site = self.specden.get_gt(self.time)
-        g_kq = np.zeros([self.dim_single,self.dim_double,self.specden.time.size],dtype=np.complex128)
-        c_nmq = self.c_nmq
-        c_nk = self.c_nk
-        SD_id_list = self.rel_tensor_single.SD_id_list
-        #lambda_kq = np.zeros([self.dim_single,N_double],dtype=type(reorg_site[0]))
-
-        for k in range(self.dim_single):
-            for q in range(self.dim_double):
-                for n in range(self.dim_single):
-                    for m in range(n+1,self.dim_single):
-                        g_kq[k,q] = g_kq[k,q] + g_site[SD_id_list[n]]*((c_nmq[n,m,q]*c_nk[n,k])**2)
-                        g_kq[k,q] = g_kq[k,q] + g_site[SD_id_list[m]]*((c_nmq[n,m,q]*c_nk[m,k])**2)   #FIXME OTTIMIZZA
-                        #tmp = tmp + ((c_nmq[n,m,q]*c_nk[n,k])**2)+((c_nmq[n,m,q]*c_nk[m,k])**2)
-                #g_kq[k,q] = tmp * g_site[0]
-                #lambda_kq[k,q] = tmp * reorg_site[0]
-        self.g_kq = g_kq
+        self.g_kq = np.transpose(np.dot(self.weight_kkqq.T,g_site),(1,0,2))
 
     def build_d_qk(self,dipoles):
-        d_qk = np.zeros([self.dim_double,self.dim_single,3]) #FIXME OTTIMIZZA
         c_nmq = self.c_nmq
         c_nk = self.c_nk
-        for q in range(self.dim_double):
-            for k in range(self.dim_single):
-                for n in range(self.dim_single):
-                    for m in range(n+1,self.dim_single):
-                        d_qk [q,k] = d_qk [q,k] + c_nmq[n,m,q]*(c_nk[n,k]*dipoles[m]+c_nk[m,k]*dipoles[n])
-        return d_qk
+        return np.einsum('nmq,nk,mx->qkx',c_nmq,c_nk,dipoles) + np.einsum('nmq,mk,nx->qkx',c_nmq,c_nk,dipoles)
     
     def _initialize(self):
         "This function initializes some variables needed for spectra"
@@ -261,9 +151,8 @@ class PumpProbeSpectraCalculator():
             self.g_k = self.rel_tensor_single.get_g_exc_kkkk(self.time)
             
         if not hasattr(self,'g_q'):
-            #self._calc_g_q()
             self.g_q = self.rel_tensor_double.get_g_q(self.time)
-        
+            #self.g_q = np.load('/home/p.saraceno/redfield_package/develop_test/data/quantarhei/pump-probe/chla_sd/g_q.npy')
         if not hasattr(self,'g_kq'):
             self._calc_g_kq()
         
@@ -306,11 +195,6 @@ class PumpProbeSpectraCalculator():
         d_qk = self.build_d_qk(dipoles)
         d2_qk = np.sum(d_qk**2,axis=2)
 
-        self.d_k = d_k
-        self.d2_k = d2_k
-        self.d_qk = d_qk
-        self.d2_qk = d2_qk
-        
         g_k = self.g_k
         g_q = self.g_q
         g_kq = self.g_kq
@@ -318,6 +202,7 @@ class PumpProbeSpectraCalculator():
         lambda_k = self.rel_tensor_single.get_reorg_exc_kkkk()
         lambda_kq = self.lambda_kq
                 
+            
         #GSB LINESHAPE
         W_gk = np.empty([self.dim_single,self.freq.size])
         for k in range(self.dim_single):
@@ -349,9 +234,9 @@ class PumpProbeSpectraCalculator():
                 Wp_k[k] = Wp_k[k] + integral * self.freq* factOD
         
         time_axis_prop_size = pop_t.shape[0]
-        self.GSB_k = - W_gk                             #FIXME CALCOLA E SALVA GLI SPETTRI DEI SINGOLI ECCITONI SOLO SE RICHIERSTO
+        self.GSB_k = - W_gk
         self.GSB = np.sum(self.GSB_k,axis=0)
-        
+
         self.SE_k = np.einsum('tk,kw->ktw',pop_t,-W_kg)
         self.SE = np.dot(pop_t,-W_kg)
 
@@ -361,6 +246,7 @@ class PumpProbeSpectraCalculator():
         self.PP_k = np.empty([self.dim_single,time_axis_prop_size,self.freq.size])
         for time_idx in range(time_axis_prop_size):
             self.PP_k[:,time_idx] = self.GSB_k + self.ESA_k [:,time_idx] + self.SE_k [:,time_idx]   #FIXME IMPLEMENTA ONESHOT
+        #self.PP_k = np.transpose(np.asarray([self.GSB_k]*time_axis_prop_size),(1,0,2)) + self.ESA_k + self.SE_k #CRASHA SE TIME_AXIS_CORR E' MOLTO LUNGO
         self.PP = np.sum(self.PP_k,axis=0)
         
         if freq is not None:

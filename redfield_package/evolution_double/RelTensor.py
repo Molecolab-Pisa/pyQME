@@ -55,6 +55,8 @@ class RelTensorDouble():
         self._calc_c_nmq()
         self.Om = self.ene[:,None] - self.ene[None,:]
 
+        self._calc_weight_qqqq()
+
         if initialize:
             self.calc_rates()
         
@@ -74,7 +76,7 @@ class RelTensorDouble():
             for Q in range(self.dim): #double excited localized state
                 n,m = pairs[Q]
                 c_nmq[n,m,q] = self.U[Q,q]
-                c_nmq[m,n,q] = self.U[Q,q]
+                #c_nmq[m,n,q] = self.U[Q,q]
         self.c_nmq = c_nmq
         
         
@@ -128,81 +130,49 @@ class RelTensorDouble():
             self._calc_rates()
         return self.rates
     
+    def _calc_weight_qqqq(self):
+        c_nmq = self.c_nmq
+        SD_id_list = self.SD_id_list
+        weight_qqqq = np.zeros([len([*set(SD_id_list)]),self.dim])
+        eye = np.eye(self.dim_single)
+        
+        eye_tensor = np.zeros([self.dim_single,self.dim_single,self.dim_single,self.dim_single])
+        for n in range(self.dim_single):
+            for m in range(self.dim_single):
+                for o in range(self.dim_single):
+                    for p in range(self.dim_single):
+                        if n != p and m!=o and m != p and n!=o:
+                            eye_tensor[n,m,o,p] = 1.0
+                            
+        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
+            eye_mask = eye[mask,:][:,mask]
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('no,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[mask,:,:]**2)   #delta_no
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mp,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[:,mask,:]**2)   #delta_mp
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2)   #delta_np
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mo,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[mask,:,:]**2)   #delta_mo
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[mask,:,:,:],c_nmq[mask,:,:]**2,c_nmq[:,:,:]**2)
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,mask,:,:],c_nmq[:,mask,:]**2,c_nmq[:,:,:]**2)
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,mask,:],c_nmq[:,:,:]**2,c_nmq[mask,:,:]**2)
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,:,mask],c_nmq[:,:,:]**2,c_nmq[:,mask,:]**2)
+        self.weight_qqqq = weight_qqqq
+        
     def get_g_q(self,time=None): #GENERAL
         if not hasattr(self,'g_q'):
             self._calc_g_q(time)
         return self.g_q
     
-    def _calc_g_q(self,time): 
-        "Compute g_q(t) in excitonic basis"
-        
+    def _calc_g_q(self,time):
         g_site = self.specden.get_gt(time)
-        g_q = np.zeros([self.dim,np.shape(g_site)[-1]],dtype=np.complex128) #FIXME OTTIMIZZA
-        c_nmq = self.c_nmq
-        SD_id_list = self.SD_id_list
-        
-        for q in range(self.dim):
-            for n in range(self.dim_single):
-                #g_q[q] = g_q[q] + (c_nmq[n,n,q]**4)*g_site[SD_id_list[n]]   # NO NEED BECAUSE WE DON'T CONSIDER S2 LIKE STATES
-                for m in range(n+1,self.dim_single):
-                    for n_pr in range(self.dim_single):
-                        for m_pr in range(n_pr+1,self.dim_single):
-                            tmp = (c_nmq[n,m,q]*c_nmq[n_pr,m_pr,q])**2
-                            if n == n_pr:
-                                g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if m == m_pr:
-                                g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if n == m_pr:
-                               g_q[q] = g_q[q] + tmp*g_site[SD_id_list[n]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if m == n_pr:
-                                g_q[q] = g_q[q] + tmp*g_site[SD_id_list[m]]
-#                            if n != m_pr and m!=n_pr and m != m_pr and n!=n_pr:
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m_pr]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n_pr]]
+        weight = self.weight_qqqq
+        self.g_q = np.dot(weight.T,g_site)
 
-       #                        tmp_q[q] = tmp_q[q] + tmp
-#    g_q[q] = tmp_q[q]*g_site[0]
+    def get_lambda_q(self): #GENERAL
+        if not hasattr(self,'lambda_q'):
+            self._calc_lambda_q()
+        return self.lambda_q
 
-        self.g_q = g_q
-    
-    def _calc_lambda_q(self): 
-        "Compute lambda_q(t) in excitonic basis"
-        
+    def _calc_lambda_q(self):
         lambda_site = self.specden.Reorg
-        lambda_q = np.zeros(self.dim) #FIXME OTTIMIZZA
-        c_nmq = self.c_nmq
-        SD_id_list = self.SD_id_list
-        
-        for q in range(self.dim):
-            for n in range(self.dim_single):
-                #g_q[q] = g_q[q] + (c_nmq[n,n,q]**4)*g_site[SD_id_list[n]]   # NO NEED BECAUSE WE DON'T CONSIDER S2 LIKE STATES
-                for m in range(n+1,self.dim_single):
-                    for n_pr in range(self.dim_single):
-                        for m_pr in range(n_pr+1,self.dim_single):
-                            tmp = (c_nmq[n,m,q]*c_nmq[n_pr,m_pr,q])**2
-                            if n == n_pr:
-                                lambda_q[q] = lambda_q[q] + tmp*lambda_site[SD_id_list[n]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if m == m_pr:
-                                lambda_q[q] = lambda_q[q] + tmp*lambda_site[SD_id_list[m]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if n == m_pr:
-                               lambda_q[q] = lambda_q[q] + tmp*lambda_site[SD_id_list[n]]
-        #                        tmp_q[q] = tmp_q[q] + tmp
-                            if m == n_pr:
-                                lambda_q[q] = lambda_q[q] + tmp*lambda_site[SD_id_list[m]]
-#                            if n != m_pr and m!=n_pr and m != m_pr and n!=n_pr:
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[m_pr]]
-#                                g_q[q] = g_q[q] + 0.25*tmp*g_site[SD_id_list[n_pr]]
-
-       #                        tmp_q[q] = tmp_q[q] + tmp
-#    g_q[q] = tmp_q[q]*g_site[0]
-
-        self.lambda_q = lambda_q
+        weight = self.weight_qqqq
+        self.lambda_q = np.dot(weight.T,lambda_site)

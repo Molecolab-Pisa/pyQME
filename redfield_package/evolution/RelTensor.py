@@ -81,7 +81,7 @@ class RelTensor():
     def _calc_weight_kkkk(self):       #NON SO (PER ORA SINGLE)
         "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
         X =self.X
-        self.weight_kkkk = []
+        self.weight_kkkk = []        #FIXME EVITA DI USARE APPEND
         SD_id_list = self.SD_id_list
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
@@ -92,7 +92,7 @@ class RelTensor():
     def _calc_weight_kkll(self):       #NON SO (PER ORA SINGLE)
         "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
         X =self.X
-        self.weight_kkll = []
+        self.weight_kkll = []           #FIXME EVITA DI USARE APPEND
         SD_id_list = self.SD_id_list
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
@@ -103,7 +103,7 @@ class RelTensor():
     def _calc_weight_kkkl(self):          #NON SO (PER ORA SINGLE)
         "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
         X =self.X
-        self.weight_kkkl = []
+        self.weight_kkkl = []              #FIXME EVITA DI USARE APPEND
         SD_id_list = self.SD_id_list
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
