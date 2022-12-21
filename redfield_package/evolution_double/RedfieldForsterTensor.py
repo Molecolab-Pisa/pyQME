@@ -23,15 +23,8 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
 
     def __init__(self,Ham_part,V,SDobj,SD_id_list = None,initialize=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        
-        self.dim_single = np.shape(Ham_part)[0]
-        self.H,self.pairs = get_H_double(Ham_part)
-        
-        self.V = self.H.copy()
-        np.fill_diagonal(self.V,0.0)
-        
-        self.H = np.diag(np.diag(self.H))
-        
+        self.V,pairs = get_H_double(Ham_part)
+        np.fill_diagonal(self.V,0.0)        
         super().__init__(Ham_part,SDobj,SD_id_list=SD_id_list,initialize=initialize)
 
     def _calc_forster_rates(self):
@@ -84,33 +77,11 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
             super()._calc_rates()
         self.rates = self.forster_rates + self.rates
 
-    def _calc_tensor(self,secularize=True):
-        """Computes the tensor of Redfield-Forster energy transfer rates
-        
-        secularize: Bool
-            if True, the relaxation tensor will be secularized"""
-
-        if not hasattr(self, 'forster_rates'):
-            self._calc_forster_rates()
-
-        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
-        np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
-
-        if not hasattr(self,'RTen'):
-            super()._calc_tensor()
-
-        self.RTen = self.RTen + Forster_Tensor
-        
-        if secularize:
-            self.secularize()
-
-        pass
-
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates
+            self._calc_forster_rates()
         return super().dephasing + np.diag(self.forster_rates)
     
     
@@ -121,15 +92,8 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
 
     def __init__(self,Ham_part,V,SDobj,SD_id_list = None,initialize=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        
-        self.dim_single = np.shape(Ham_part)[0]
-        self.H,self.pairs = get_H_double(Ham_part)
-        
-        self.V = self.H.copy()
+        self.V,pairs = get_H_double(Ham_part)
         np.fill_diagonal(self.V,0.0)
-        
-        self.H = np.diag(np.diag(self.H))
-        
         super().__init__(Ham_part,SDobj,SD_id_list=SD_id_list,initialize=initialize)
 
     def _calc_forster_rates(self):
@@ -182,32 +146,10 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
             super()._calc_rates()
         self.rates = self.forster_rates + self.rates
 
-    def _calc_tensor(self,secularize=True):
-        """Computes the tensor of Redfield-Forster energy transfer rates
-        
-        secularize: Bool
-            if True, the relaxation tensor will be secularized"""
-
-        if not hasattr(self, 'forster_rates'):
-            self._calc_forster_rates()
-
-        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
-        np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
-
-        if not hasattr(self,'RTen'):
-            super()._calc_tensor()
-            
-
-        self.RTen = self.RTen + Forster_Tensor
-        
-        if secularize:
-            self.secularize()
-
-        pass
-
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates
+            self._calc_forster_rates()
+        #return 1j*np.imag(super().dephasing + np.diag(self.forster_rates))
         return super().dephasing + np.diag(self.forster_rates)

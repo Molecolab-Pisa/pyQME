@@ -167,11 +167,11 @@ class LinearSpectraCalculator():
             self.OD_k[k] = self.OD_k[k] * self.freq * factOD
         
         if freq is not None:
-            OD_k = np.empty([self.rel_tensor.dim,freq_axis.size])
+            OD_k = np.empty([self.rel_tensor.dim,freq.size])
             for k in range(self.rel_tensor.dim):
                 ODspl = UnivariateSpline(self.freq,self.OD_k[k],s=0)
-                OD_k[k] = ODspl(freq_axis)
-            return freq_axis,OD_k
+                OD_k[k] = ODspl(freq)
+            return freq,OD_k
         else:
             return self.freq,self.OD_k
         

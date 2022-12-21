@@ -17,19 +17,19 @@ class RedfieldTensorDouble(RelTensorDouble):
     """Redfield Tensor class where Redfield Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,Ham,*args):
+    def __init__(self,Ham,SD_id_list,*args):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         
         self.dim_single = np.shape(Ham)[0]
         self.H,self.pairs = get_H_double(Ham)
         
-        super().__init__(*args)
+        super().__init__(SD_id_list,*args)
     
     def get_rates(self):
         if not hasattr(self,'rates'):
             self._calc_rates()
         return self.rates
-           
+
     def _calc_rates(self):
         """This function computes the Redfield energy transfer rates
         """
@@ -61,11 +61,14 @@ class RedfieldTensorDouble(RelTensorDouble):
             rates = rates + np.einsum('np,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],Cw_matrix)   #delta_np
             rates = rates + np.einsum('np,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],Cw_matrix)   #delta_np
 
-            rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[mask,:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],Cw_matrix)
-            rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,mask,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],Cw_matrix)
-            rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,:,mask,:],c_nmq[:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],c_nmq[mask,:,:],Cw_matrix)
-            rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,:,:,mask],c_nmq[:,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],c_nmq[:,mask,:],Cw_matrix)
-
+            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[mask,:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],Cw_matrix)
+            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,mask,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],Cw_matrix)
+            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,:,mask,:],c_nmq[:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],c_nmq[mask,:,:],Cw_matrix)
+            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,:,:,mask],c_nmq[:,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],c_nmq[:,mask,:],Cw_matrix)
+        
+        rates[np.diag_indices_from(rates)] = 0.0
+        rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
+        self.rates = rates
         
     @property
     def dephasing(self):

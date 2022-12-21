@@ -151,10 +151,10 @@ class RelTensorDouble():
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mp,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[:,mask,:]**2)   #delta_mp
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2)   #delta_np
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mo,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[mask,:,:]**2)   #delta_mo
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[mask,:,:,:],c_nmq[mask,:,:]**2,c_nmq[:,:,:]**2)
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,mask,:,:],c_nmq[:,mask,:]**2,c_nmq[:,:,:]**2)
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,mask,:],c_nmq[:,:,:]**2,c_nmq[mask,:,:]**2)
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,:,mask],c_nmq[:,:,:]**2,c_nmq[:,mask,:]**2)
+            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[mask,:,:,:],c_nmq[mask,:,:]**2,c_nmq[:,:,:]**2)
+            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,mask,:,:],c_nmq[:,mask,:]**2,c_nmq[:,:,:]**2)
+            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,mask,:],c_nmq[:,:,:]**2,c_nmq[mask,:,:]**2)
+            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,:,mask],c_nmq[:,:,:]**2,c_nmq[:,mask,:]**2)
         self.weight_qqqq = weight_qqqq
         
     def get_g_q(self,time=None): #GENERAL

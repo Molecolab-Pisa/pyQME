@@ -86,11 +86,17 @@ class PumpProbeSpectraCalculator():
         self.freq = w
         pass
         
-    def _get_dephasing(self):
+    def _get_dephasing(self,include_deph_real):
         "Get dephasing lifetime rates in cm from tensor"
         if self.include_dephasing:
-            self.deph_k = self.rel_tensor_single.dephasing
-            self.deph_q = self.rel_tensor_double.dephasing
+            if include_deph_real:
+                self.deph_k = self.rel_tensor_single.dephasing
+                self.deph_q = self.rel_tensor_double.dephasing
+            elif not include_deph_real:
+                self.deph_k = 1j*np.imag(self.rel_tensor_single.dephasing)
+                self.deph_q = 1j*np.imag(self.rel_tensor_double.dephasing)
+            else:
+                raise ValueError('include_deph_real must be Boolean')
             deph_kq = np.zeros([self.dim_single,self.dim_double],dtype=type(self.deph_k[0]))
             for q in range(self.dim_double): #double exciton
                 for k in range(self.dim_single):
@@ -139,7 +145,7 @@ class PumpProbeSpectraCalculator():
         c_nk = self.c_nk
         return np.einsum('nmq,nk,mx->qkx',c_nmq,c_nk,dipoles) + np.einsum('nmq,mk,nx->qkx',c_nmq,c_nk,dipoles)
     
-    def _initialize(self):
+    def _initialize(self,include_deph_real):
         "This function initializes some variables needed for spectra"
         
         if self.time is None:
@@ -156,7 +162,7 @@ class PumpProbeSpectraCalculator():
         if not hasattr(self,'g_kq'):
             self._calc_g_kq()
         
-        self._get_dephasing()
+        self._get_dephasing(include_deph_real)
         
         if not hasattr(self,'freq'):
             self._get_freqaxis()
@@ -164,7 +170,7 @@ class PumpProbeSpectraCalculator():
         
         pass
     
-    def calc_pump_probe(self,dipoles,pop_t,freq=None):
+    def calc_pump_probe(self,dipoles,pop_t,freq=None,include_deph_real=True):
         """Compute absorption spectrum
         
         dipoles: np.array(dtype = np.float)
@@ -181,7 +187,7 @@ class PumpProbeSpectraCalculator():
         OD: np.array
             absorption spectrum"""
         
-        self._initialize()
+        self._initialize(include_deph_real)
         
         t = self.time
         
