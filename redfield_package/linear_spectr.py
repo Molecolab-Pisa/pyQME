@@ -1,8 +1,6 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
-import sys
-import numpy.fft as fft
-import os
+from .utils import factOD,Kb
 
 Kb = 0.695034800 #Boltzmann constant in p.cm per Kelvin
 wn2ips = 0.188495559215

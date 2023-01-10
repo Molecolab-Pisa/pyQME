@@ -1,16 +1,7 @@
-from scipy.sparse.linalg import LinearOperator,expm_multiply
 from scipy.interpolate import UnivariateSpline
 import numpy as np
-import sys
-from scipy.interpolate import UnivariateSpline
-from scipy.linalg import expm
 import scipy.fftpack as fftpack
-from scipy.integrate import simps
-import numpy.fft as fft
-import os
-import matplotlib.pyplot as plt
-
-Kb = 0.695034800 #Boltzmann constant in p.cm per Kelvin
+from .utils import Kb
 
 def do_ifft_complete(omega,spec,t):
     """

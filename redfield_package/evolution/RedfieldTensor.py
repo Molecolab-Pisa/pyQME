@@ -1,65 +1,50 @@
-from scipy.sparse.linalg import LinearOperator,expm_multiply
-from scipy.interpolate import UnivariateSpline
 import numpy as np
-import sys
-from scipy.interpolate import UnivariateSpline
-from scipy.linalg import expm
-import scipy.fftpack as fftpack
-from scipy.integrate import simps
-import numpy.fft as fft
-import os
-import matplotlib.pyplot as plt
 from .RelTensor import RelTensor
 
 class RedfieldTensor(RelTensor):
     """Redfield Tensor class where Redfield Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,Ham,*args):
+    def __init__(self,H,specden,SD_id_list,initialize,specden_adiabatic):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        self.H = Ham.copy()
-        super().__init__(*args)
+        self.H = H.copy()
+        super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
     
     def _calc_rates(self):
         """This function computes the Redfield energy transfer rates
         """
-        
+
         if not hasattr(self,'RTen'):
-            
+
             coef2 = self.U**2
-            
+
             SD_id_list  = self.SD_id_list
-            
+
+            rates = np.zeros([self.dim,self.dim],dtype=type(self.evaluate_SD_in_freq(0)[0,0]))
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
                 Cw_matrix = self.evaluate_SD_in_freq(SD_id)
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-                if SD_idx == 0:             #fixme inizializza rates
-                    rates = np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)
-                else:
-                    rates = rates + np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)
-                
+                rates = rates + np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)                
         else:
             rates = np.einsum('aabb->ab',self.RTen)
-        
+
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
-        
+
         self.rates = rates   
-    
+
     def _calc_tensor(self,secularize=True):
         "Computes the tensor of Redfield energy transfer rates"
-        
+
         SD_id_list = self.SD_id_list
-        
+
+        GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(0)[0,0]))
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-            
+
             Cw_matrix = self.evaluate_SD_in_freq(SD_id)
-            
+
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-            if SD_idx == 0:
-                GammF  = np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)            #fixme inizializza gammF
-            else:
-                GammF = GammF + np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
+            GammF = GammF + np.einsum('jab,jcd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
 
         self.GammF = GammF
 
@@ -69,16 +54,15 @@ class RedfieldTensor(RelTensor):
         if secularize:
             self.secularize()
         pass
-    
 
 
 class RedfieldTensorReal(RedfieldTensor):
     """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes
     This class is a subclass of RedfieldTensor Class"""
 
-    def __init__(self,*args,SD_id_list=None,initialize=False):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        super().__init__(*args,SD_id_list,initialize)
+        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic)
         
         
     def _from_GammaF_to_RTen(self,GammF):
@@ -121,15 +105,14 @@ class RedfieldTensorReal(RedfieldTensor):
             return np.diag(self.rates)
         
         
-        
     
 class RedfieldTensorComplex(RedfieldTensor):
     "Real Redfield Tensor class"
 
-    def __init__(self,*args,SD_id_list=None,initialize=False):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         
-        super().__init__(*args,SD_id_list,initialize)
+        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic)
         
     def _from_GammaF_to_RTen(self,GammF):
         RTen = np.zeros(GammF.shape,dtype=np.complex128)

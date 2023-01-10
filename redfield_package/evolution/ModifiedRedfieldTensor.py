@@ -1,14 +1,4 @@
-from scipy.sparse.linalg import LinearOperator,expm_multiply
-from scipy.interpolate import UnivariateSpline
 import numpy as np
-import sys
-from scipy.interpolate import UnivariateSpline
-from scipy.linalg import expm
-import scipy.fftpack as fftpack
-from scipy.integrate import simps
-import numpy.fft as fft
-import os
-import matplotlib.pyplot as plt
 from .RelTensor import RelTensor
 
 
@@ -16,12 +6,12 @@ class ModifiedRedfieldTensor(RelTensor):
     """Generalized Forster Tensor class where Modfied Redfield Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,Ham,*args):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        self.H = Ham.copy()
-        super().__init__(*args)
+        self.H = H.copy()
+        super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
         
-    def _calc_rates(self,):
+    def _calc_rates(self):
         """This function computes the Modified Redfield energy transfer rates
         """
         
@@ -70,44 +60,54 @@ class ModifiedRedfieldTensor(RelTensor):
 
         self.rates = rates
 
-    def _calc_tensor(self):
+
+    def _calc_tensor(self,secularize=True):
         "Computes the tensor of Modified energy transfer rates"
+
+ 
 
         if not hasattr(self, 'rates'):
             self._calc_rates()
-        
+
         #diagonal part
         RTen = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
         np.einsum('iijj->ij',RTen) [...] = self.rates
-        
+
         #dephasing
-        for K in range(self.dim):   #FIXME IMPLEMENTA MODO ONESHOT SOMMANDO LIFETIMES E LIFETIMES.T E POI SOTTRAENDO LA DIAGONALE
-            for L in range(K+1,self.dim):
-                dephasing = (RTen[K,K,K,K]+RTen[L,L,L,L])/2.
-                RTen[K,L,K,L] = dephasing
-                RTen[L,K,L,K] = dephasing
-        
+        diagonal = np.einsum ('iiii->i',RTen)
+        dephasing = diagonal.T[:,None] + diagonal.T[None,:]
+        np.einsum('ijij->ij',RTen)[...] = dephasing/2
+
         #pure dephasing
         time_axis = self.specden.time
         gdot_KKKK = self.get_g_exc_kkkk()
-         
+
         if not hasattr(self,'weight_kkll'):
             self._calc_weight_kkll()
-                
+
         _,gdot_site = self.specden.get_gt(derivs=1)
         gdot_KKLL = np.dot(self.weight_kkll.T,gdot_site)
-        
-        for K in range(self.dim):
+
+        #real = -0.5*np.real(gdot_KKKK[:,-1][:,None] + gdot_KKKK[:,-1][None,:] - 2*gdot_KKLL[:,:,-1])
+        #imag = -0.5*np.imag(gdot_KKKK[:,-1][:,None] - gdot_KKKK[:,-1][None,:])
+        #np.einsum('ijij->ij',RTen)[...] = np.einsum('ijij->ij',RTen) + real + 1j*imag
+        for K in range(self.dim):        #FIXME IMPLEMENTA MODO ONESHOT
             for L in range(K+1,self.dim):
                 real = -0.5*np.real(gdot_KKKK[K,-1] + gdot_KKKK[L,-1] - 2*gdot_KKLL[K,L,-1])
                 imag = -0.5*np.imag(gdot_KKKK[K,-1] - gdot_KKKK[L,-1])
                 RTen[K,L,K,L] = RTen[K,L,K,L] + real + 1j*imag
                 RTen[L,K,L,K] = RTen[K,L,K,L] + real - 1j*imag
-        
+
+        #fix diagonal
+        np.einsum('iiii->i',RTen)[...] = np.diag(self.rates)
 
         self.RTen = RTen
 
+        if secularize:
+            self.secularize()
         pass
+
+
 
     @property
     def dephasing(self):

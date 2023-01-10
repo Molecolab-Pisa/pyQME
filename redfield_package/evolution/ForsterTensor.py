@@ -1,29 +1,17 @@
-from scipy.sparse.linalg import LinearOperator,expm_multiply
-from scipy.interpolate import UnivariateSpline
 import numpy as np
-import sys
-from scipy.interpolate import UnivariateSpline
-from scipy.linalg import expm
-import scipy.fftpack as fftpack
-from scipy.integrate import simps
-import numpy.fft as fft
-import os
-import matplotlib.pyplot as plt
 from .RelTensor import RelTensor
-
-wn2ips = 0.188495559215
-h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
+from ..utils import h_bar
 
 class ForsterTensor(RelTensor):
     """Forster Tensor class where Forster Resonance Energy Transfer (FRET) Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,Ham,*args,SD_id_list=None,initialize=False):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        self.V = Ham.copy()
+        self.V = H.copy()
         np.fill_diagonal(self.V,0.0)
-        self.H = np.diag(np.diag(Ham))
-        super().__init__(*args,SD_id_list,initialize=False)
+        self.H = np.diag(np.diag(H))
+        super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
     
     def _calc_rates(self):
         """This function computes the Forster energy transfer rates

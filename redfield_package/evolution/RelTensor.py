@@ -1,35 +1,10 @@
-from scipy.sparse.linalg import LinearOperator,expm_multiply
-from scipy.interpolate import UnivariateSpline
 import numpy as np
-import sys
-from scipy.interpolate import UnivariateSpline
-from scipy.linalg import expm
-import scipy.fftpack as fftpack
-from scipy.integrate import simps
-import numpy.fft as fft
-import os
-import matplotlib.pyplot as plt
-
-def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
-    dim = np.shape(OD_k)[0]
-    rho0 = np.zeros([dim,dim])
-    freq_step = freq_axis[1]-freq_axis[0]
-    
-    for k,OD in enumerate(OD_k):
-        overlap = simps(OD*pulse) * freq_step  # Overlap of the abs with the pump
-        rho0[k,k] = overlap
-    return rho0
-
-def gauss_pulse(freq_axis,center,fwhm,amp):
-    factor = (2.0/fwhm)*np.sqrt(np.log(2.0)/np.pi)*amp
-    exponent =-4.0*np.log(2.0)*((freq_axis-center)/fwhm)**2
-    pulse = factor*np.exp(exponent)
-    return pulse
+from scipy.sparse.linalg import expm_multiply
 
 class RelTensor():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list=None,initialize=False):   
+    def __init__(self,specden,SD_id_list,initialize,specden_adiabatic):
         """
         This function initializes the Relaxation tensor class
         
@@ -42,9 +17,14 @@ class RelTensor():
             must be of same length than the number of SDs in the specden Class
         initialize: Bool
             If True, the tensor will be computed at once.
-        """    
+        specden_adiabatic: class
+            SpectralDensity class
+            if not None, it will be used to compute the reorganization energy that will be subtracted from exciton Hamiltonian diagonal before its diagonalization
+
+        """
         
         self.specden = specden
+        self.specden_adiabatic = specden_adiabatic
         
         if SD_id_list is None:
             self.SD_id_list = [0]*self.dim
@@ -58,60 +38,67 @@ class RelTensor():
 
         if initialize:
             self.calc_tensor()
-            self.secularize()
         
     @property
-    def dim(self):      #GENERAL
+    def dim(self):
         """Dimension of Hamiltonian system
         
         returns the order of the Hamiltonian matrix"""
         
         return self.H.shape[0]
        
-    def _diagonalize_ham(self):      #GENERAL
-        "This function diagonalized the hamiltonian"
+    def _diagonalize_ham(self):
+        "This function diagonalizes the hamiltonian"
         
-        self.ene, self.U = np.linalg.eigh(self.H)
-        
-    def _calc_X(self):           #NON SO (PER ORA SINGLE)
+        if self.specden_adiabatic is None:
+            self.ene, self.U = np.linalg.eigh(self.H)
+        elif self.specden_adiabatic is not None:
+            reorg_site = np.asarray([self.specden_adiabatic.Reorg[SD_id] for SD_id in self.SD_id_list])
+            np.fill_diagonal(self.H,np.diag(self.H)-reorg_site)
+            self.ene, self.U = np.linalg.eigh(self.H)
+            self._calc_X()
+            self._calc_weight_kkkk()
+            self.lambda_k_no_bath = np.dot(self.weight_kkkk.T,self.specden_adiabatic.Reorg)
+            self.ene = self.ene + self.lambda_k_no_bath 
+            
+    def _calc_X(self):
         "This function computes the matrix self-product of the Hamiltonian eigenvectors that will be used in order to build the weights" 
         X = np.einsum('ja,jb->jab',self.U,self.U)
         self.X = X
         
-    def _calc_weight_kkkk(self):       #NON SO (PER ORA SINGLE)
-        "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
-        X =self.X
-        self.weight_kkkk = []        #FIXME EVITA DI USARE APPEND
-        SD_id_list = self.SD_id_list
-        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
-            self.weight_kkkk.append(np.einsum('jaa,jaa->a',X[mask,:,:],X[mask,:,:]))
-            
-        self.weight_kkkk = np.asarray(self.weight_kkkk)
-                
-    def _calc_weight_kkll(self):       #NON SO (PER ORA SINGLE)
-        "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
-        X =self.X
-        self.weight_kkll = []           #FIXME EVITA DI USARE APPEND
-        SD_id_list = self.SD_id_list
-        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
-            self.weight_kkll.append(np.einsum('jab,jab->ab',X[mask,:,:],X[mask,:,:]))
-            
-        self.weight_kkll = np.asarray(self.weight_kkll)
         
-    def _calc_weight_kkkl(self):          #NON SO (PER ORA SINGLE)
+    def _calc_weight_kkkk(self):
         "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
         X =self.X
-        self.weight_kkkl = []              #FIXME EVITA DI USARE APPEND
         SD_id_list = self.SD_id_list
+        self.weight_kkkk = np.zeros([len([*set(SD_id_list)]),self.dim])
+
+ 
+
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
-            self.weight_kkkl.append(np.einsum('jaa,jab->ab',X[mask,:,:],X[mask,:,:]))
+            self.weight_kkkk [SD_idx] = np.einsum('jaa,jaa->a',X[mask,:,:],X[mask,:,:])
+
+    def _calc_weight_kkll(self):
+        "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
+        X =self.X
+        SD_id_list = self.SD_id_list
+        self.weight_kkll = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
+        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
+            self.weight_kkll [SD_idx] = np.einsum('jab,jab->ab',X[mask,:,:],X[mask,:,:])
+
+    def _calc_weight_kkkl(self):
+        "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
+        X =self.X
+        SD_id_list = self.SD_id_list
+        self.weight_kkkl = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
+        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
+            self.weight_kkkl [SD_idx] = np.einsum('jaa,jab->ab',X[mask,:,:],X[mask,:,:])
             
-        self.weight_kkkl = np.asarray(self.weight_kkkl)
     
-    def transform(self,arr,dim=None,inverse=False):            #SINGLE
+    def transform(self,arr,dim=None,inverse=False):
         """Transform state or operator to eigenstate basis
         
         arr: np.array
@@ -139,14 +126,14 @@ class RelTensor():
         else:
             raise NotImplementedError
     
-    def transform_back(self,*args,**kwargs):        #SINGLE
+    def transform_back(self,*args,**kwargs):
         """This function transforms state or operator from eigenstate basis to site basis
         
         See "transform" function for input and output"""
         return self.transform(*args,**kwargs,inverse=True)
     
-    def secularize(self):           #GENERAL
-        "This function secularizes the Redfield Tensor (i.e. simmetrizes with respect to permutation of the second index with the third one)" #FIXME GIUSTO?
+    def secularize(self):
+        "This function secularizes the Redfield Tensor (i.e. neglect the coherence dynamics but consider only its effect on coherence and population decay)"
         eye = np.eye(self.dim)
         
         tmp1 = np.einsum('abcd,ab,cd->abcd',self.RTen,eye,eye)
@@ -158,7 +145,7 @@ class RelTensor():
         
         pass
     
-    def get_rates(self):    #GENERAL
+    def get_rates(self):
         """This function returns the energy transfer rates
         
         Return
@@ -169,13 +156,13 @@ class RelTensor():
             self._calc_rates()
         return self.rates
     
-    def get_tensor(self):    #GENERAL
+    def get_tensor(self):
         "This function returns the tensor of energy transfer rates"
         if not hasattr(self, 'Rten'):
             self._calc_tensor()
         return self.RTen
     
-    def apply_diss(self,rho):    #GENERAL
+    def apply_diss(self,rho):
         """This function lets the Tensor to act on rho matrix
         
         rho: np.array
@@ -206,7 +193,7 @@ class RelTensor():
         
         return R_rho.reshape(shape_)
     
-    def _propagate_exp(self,rho,t,only_diagonal=False): #GENERAL
+    def _propagate_exp(self,rho,t,only_diagonal=False):
         """This function time-propagates the density matrix rho due to the Redfield energy transfer
         
         rho: np.array
@@ -235,7 +222,6 @@ class RelTensor():
         else:
             if not hasattr(self,'RTen'):
                 self._calc_tensor()
-                self.secularize()
                 
             assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
 
@@ -247,17 +233,17 @@ class RelTensor():
 
             rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
             
-            if type(rho[0,0])==np.float64 and np.all(np.imag(rhot)==0):
+            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
                 rhot = np.real(rhot)
             
             return rhot.reshape(-1,self.dim,self.dim)
-        
-    def get_g_exc_kkkk(self,time=None): #GENERAL
+                
+    def get_g_exc_kkkk(self,time=None):
         if not hasattr(self,'g_exc_kkkk'):
             self._calc_g_exc_kkkk(time)
         return self.g_exc_kkkk
     
-    def _calc_g_exc_kkkk(self,time): #GENERAL
+    def _calc_g_exc_kkkk(self,time):
         "Compute g_kkkk(t) in excitonic basis"
         
         gt_site = self.specden.get_gt(time)
@@ -265,12 +251,12 @@ class RelTensor():
         W = self.weight_kkkk
         self.g_exc_kkkk = np.dot(W.T,gt_site)
         
-    def get_reorg_exc_kkkk(self):     #GENERAL
+    def get_reorg_exc_kkkk(self):
         if not hasattr(self,'reorg_exc_kkkk'):
             self._calc_reorg_exc_kkkk()
         return self.reorg_exc_kkkk
     
-    def _calc_reorg_exc_kkkk(self):       #GENERAL
+    def _calc_reorg_exc_kkkk(self):
         "Compute lambda_kkkk"
 
         W = self.weight_kkkk
