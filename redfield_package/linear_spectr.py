@@ -9,7 +9,7 @@ factOD = 108.86039
 class LinearSpectraCalculator():
     "Class for calculations of all linear spectra"
     
-    def __init__(self,rel_tensor,RWA=None,include_dephasing=True,time=None):
+    def __init__(self,rel_tensor,RWA=None,include_dephasing=False,time=None):
         """initialize the class
         
         rel_tensor: Class

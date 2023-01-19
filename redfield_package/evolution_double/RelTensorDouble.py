@@ -1,10 +1,9 @@
 import numpy as np
-from tqdm import tqdm
 
 class RelTensorDouble():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list,initialize,specden_adiabatic):
+    def __init__(self,specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term):
         """
         This function initializes the Relaxation tensor class
         
@@ -22,6 +21,7 @@ class RelTensorDouble():
             if not None, it will be used to compute the reorganization energy that will be subtracted from exciton Hamiltonian diagonal before its diagonalization
         """    
         
+        self.include_no_delta_term = include_no_delta_term
         self.specden = specden
         self.specden_adiabatic = specden_adiabatic
         
@@ -71,9 +71,6 @@ class RelTensorDouble():
             self.ene, self.U = np.linalg.eigh(self.H)
             
             self._calc_c_nmq()
-            #self._calc_weight_qqqq()
-            #self.lambda_q = self.get_lambda_q()
-            #self.lamda_q_no_bath = self.subtract_bath_from_lambda_q(self.lambda_q)
             self.lambda_q_no_bath = self.get_lambda_q_no_bath()
                         
             self.ene = self.ene + self.lambda_q_no_bath
@@ -131,6 +128,16 @@ class RelTensorDouble():
         weight_qqqq = np.zeros([len([*set(SD_id_list)]),self.dim])
         eye = np.eye(self.dim_single)
         
+        if self.include_no_delta_term:
+            eye_tensor = np.zeros([self.dim_single,self.dim_single,self.dim_single,self.dim_single])
+            for n in range(self.dim_single):
+                for m in range(self.dim_single):
+                    for o in range(self.dim_single):
+                        for p in range(self.dim_single):
+                            if n != p and m!=o and m != p and n!=o:
+                                eye_tensor[n,m,o,p] = 1.0
+
+        
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             eye_mask = eye[mask,:][:,mask]
@@ -138,10 +145,11 @@ class RelTensorDouble():
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mp,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[:,mask,:]**2)   #delta_mp
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2)   #delta_np
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mo,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[mask,:,:]**2)   #delta_mo
-            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[mask,:,:,:],c_nmq[mask,:,:]**2,c_nmq[:,:,:]**2)
-            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,mask,:,:],c_nmq[:,mask,:]**2,c_nmq[:,:,:]**2)
-            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,mask,:],c_nmq[:,:,:]**2,c_nmq[mask,:,:]**2)
-            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,:,mask],c_nmq[:,:,:]**2,c_nmq[:,mask,:]**2)
+            if self.include_no_delta_term:
+                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[mask,:,:,:],c_nmq[mask,:,:]**2,c_nmq[:,:,:]**2)
+                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,mask,:,:],c_nmq[:,mask,:]**2,c_nmq[:,:,:]**2)
+                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,mask,:],c_nmq[:,:,:]**2,c_nmq[mask,:,:]**2)
+                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,:,mask],c_nmq[:,:,:]**2,c_nmq[:,mask,:]**2)
         self.weight_qqqq = weight_qqqq
 
     def _calc_weight_qqrr(self):
@@ -159,7 +167,6 @@ class RelTensorDouble():
 
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             eye_mask = np.eye(len(mask))
-            
             
             weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + np.einsum('no,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
             weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + np.einsum('mp,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
@@ -192,7 +199,7 @@ class RelTensorDouble():
         
     def get_g_q(self,time=None):
         "This function returns the double-exciton manifold linshape functions"
-        if not hasattr(self,'g_q'):
+        if not hasattr(self,'g_q') or not np.all(time!=self.specden.time):
             self._calc_g_q(time)
         return self.g_q
     
@@ -222,11 +229,11 @@ class RelTensorDouble():
         pairs = self.pairs
         c_nmq = self.c_nmq
         for q in range(self.dim):
-#           print('\nq: ',q)
+#            print('\nq: ',q)
             for Q1 in range(self.dim):
                 n,m = pairs[Q1]
                 reorg_bath = reorg_site[SD_id_list[n]]-reorg_site_adiabatic[SD_id_list[n]]+reorg_site[SD_id_list[m]]-reorg_site_adiabatic[SD_id_list[m]]
-#               print('\nQ1: ',Q1,'= (',n,m,')')
+#                print('\nQ1: ',Q1,'= (',n,m,')')
                 for Q2 in range(self.dim):
                     n_pr,m_pr = pairs[Q2]
                     reorg = 0.0
@@ -244,11 +251,15 @@ class RelTensorDouble():
                             index = np.where(msk2==True)[0][0]
                             i = pairs[Q1][index]
                             reorg = reorg + reorg_site[SD_id_list[i]]  - reorg_bath
-#                        else:
-#                            reorg = reorg + 0.25*reorg_site[SD_id_list[n]] - reorg_bath         # - 2*(reorg_site[SD_id_list[n]] - reorg_site_adiabatic[SD_id_list[n]])
-#                            reorg = reorg + 0.25*reorg_site[SD_id_list[n_pr]] - reorg_bath      # - 2*(reorg_site[SD_id_list[n_pr]] - reorg_site_adiabatic[SD_id_list[n_pr]]))
-#                            reorg = reorg + 0.25*reorg_site[SD_id_list[m]] - reorg_bath         # - 2*(reorg_site[SD_id_list[m]] - reorg_site_adiabatic[SD_id_list[m]]))
-#                            reorg = reorg + 0.25*reorg_site[SD_id_list[m_pr]] - reorg_bath      # - 2*(reorg_site[SD_id_list[m_pr]] - reorg_site_adiabatic[SD_id_list[m_pr]]))
+                        else:
+                            if self.include_no_delta_term:
+                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[n]] - reorg_bath)         # - 2*(reorg_site[SD_id_list[n]] - reorg_site_adiabatic[SD_id_list[n]])
+                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[n_pr]] - reorg_bath)      # - 2*(reorg_site[SD_id_list[n_pr]] - reorg_site_adiabatic[SD_id_list[n_pr]]))
+                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[m]] - reorg_bath)         # - 2*(reorg_site[SD_id_list[m]] - reorg_site_adiabatic[SD_id_list[m]]))
+                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[m_pr]] - reorg_bath)      # - 2*(reorg_site[SD_id_list[m_pr]] - reorg_site_adiabatic[SD_id_list[m_pr]]))
+                        if self.include_no_delta_term:
+                            reorg_old = reorg
+                                
                 
                 
                     lambda_q_no_bath[q] = lambda_q_no_bath[q] + reorg*(c_nmq[n,m,q]*c_nmq[n_pr,m_pr,q])**2

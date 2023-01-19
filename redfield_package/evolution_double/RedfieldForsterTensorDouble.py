@@ -8,11 +8,11 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None):
+    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_no_delta_term=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V,pairs = get_H_double(H_part)
         np.fill_diagonal(self.V,0.0)        
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
 
     def _calc_forster_rates(self):
         """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
@@ -77,11 +77,11 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None):
+    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_no_delta_term=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V,pairs = get_H_double(H_part)
         np.fill_diagonal(self.V,0.0)
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
 
     def _calc_forster_rates(self):
         """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
@@ -147,11 +147,11 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
     """Redfield Forster Tensor class where combined Modified Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None):
+    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_no_delta_term=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V,pairs = get_H_double(H_part)
         np.fill_diagonal(self.V,0.0)        
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
 
     def _calc_forster_rates(self):
         """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates

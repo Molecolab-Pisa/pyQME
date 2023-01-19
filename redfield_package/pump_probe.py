@@ -6,7 +6,7 @@ from .utils import factOD
 class PumpProbeSpectraCalculator():
     "Class for calculations of all linear spectra"
     
-    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_dephasing=True,include_deph_real=True,time=None):
+    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_dephasing=False,include_deph_real=True,time=None):
         """initialize the class
         
         rel_tensor_single: Class
@@ -75,11 +75,12 @@ class PumpProbeSpectraCalculator():
         # Heuristics
         reorg = self.specden.Reorg
         
-        dwmax = np.max(self.rel_tensor.ene + reorg)
+        dwmax = np.max(self.rel_tensor_single.ene + reorg)
         dwmax = 10**(1.1*int(np.log10(dwmax))) #FIXME TROVA QUALCOSA DI PIU ROBUSTO
         
         dt = 1.0/dwmax
         
+        wn2ips = 0.188495559215
         tmax = wn2ips*2.0 #2 ps
         self.time = np.arange(0.,tmax+dt,dt)
         pass
@@ -159,10 +160,9 @@ class PumpProbeSpectraCalculator():
             self.time = self.specden.time
         else:
             self.specden.time = self.time
-            
+        
         if not hasattr(self,'g_k'):
             self.g_k = self.rel_tensor_single.get_g_exc_kkkk(self.time)
-            
         if not hasattr(self,'g_q'):
             self.g_q = self.rel_tensor_double.get_g_q(self.time)
         if not hasattr(self,'g_kq'):
@@ -196,8 +196,6 @@ class PumpProbeSpectraCalculator():
             
         GSB,SE,ESA,PP: np.array([time.size,freq.size])
         components of the pump probe spectra"""
-        
-        from time import time
         
         
         self._initialize()
@@ -242,6 +240,12 @@ class PumpProbeSpectraCalculator():
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
             W_gk[k] = integral * self_freq* factOD
         
+        time_axis_prop_size = pop_t.shape[0]
+        pop_tot = np.sum(np.diag(pop_t[0]))
+        self.GSB_k = - W_gk*pop_tot
+        self.GSB = np.sum(self.GSB_k,axis=0)
+        del W_gk
+
         #SE LINESHAPE
         W_kg = np.empty([dim_single,self_freq.size])
         for k in range(dim_single):
@@ -252,6 +256,10 @@ class PumpProbeSpectraCalculator():
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
             W_kg[k] = integral * self_freq * factOD
 
+        self.SE_k = np.einsum('tk,kw->ktw',pop_t,-W_kg)
+        self.SE = np.dot(pop_t,-W_kg)
+        del W_kg
+        
         #ESA LINESHAPE
         Wp_k = np.zeros([dim_single,self_freq.size])
         for k in range(dim_single):
@@ -262,16 +270,10 @@ class PumpProbeSpectraCalculator():
                 integrand = d2_qk[q,k]*Wp  #FIXME: AGGIUNGI ENVELOPE
                 integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))
                 Wp_k[k] = Wp_k[k] + integral * self_freq* factOD*factFT
-        
-        time_axis_prop_size = pop_t.shape[0]
-        self.GSB_k = - W_gk
-        self.GSB = np.sum(self.GSB_k,axis=0)
-
-        self.SE_k = np.einsum('tk,kw->ktw',pop_t,-W_kg)
-        self.SE = np.dot(pop_t,-W_kg)
 
         self.ESA_k = np.einsum('tk,kw->ktw',pop_t,Wp_k)
         self.ESA = np.dot(pop_t,Wp_k)
+        del Wp_k
 
         self.PP_k = np.empty([dim_single,time_axis_prop_size,self_freq.size])
         for time_idx in range(time_axis_prop_size):
@@ -280,20 +282,27 @@ class PumpProbeSpectraCalculator():
         self.PP = np.sum(self.PP_k,axis=0)
         
         if freq is not None:
+            
             time_axis_prop_dummy = np.linspace(0.,1.,num=time_axis_prop_size)
             time_mesh, freq_mesh = np.meshgrid(time_axis_prop_dummy, freq)
 
-            GSB_spl = UnivariateSpline(self_freq,self.GSB) 
-            GSB = GSB_spl(freq)
-            
-            SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.SE)
-            SE = SE_spl((time_mesh, freq_mesh)).T
+            import matplotlib.pyplot as plt
 
-            ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.ESA)
-            ESA = ESA_spl((time_mesh, freq_mesh)).T
+            norm = -np.min(self.GSB)
+            GSB_spl = UnivariateSpline(self_freq,self.GSB/norm,s=0)
+            GSB = GSB_spl(freq)*norm
             
-            PP_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.PP)
-            PP = PP_spl((time_mesh, freq_mesh)).T
+            norm = -np.min(self.SE)
+            SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.SE/norm)
+            SE = SE_spl((time_mesh, freq_mesh)).T*norm
+
+            norm = np.max(self.ESA)            
+            ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.ESA/norm)
+            ESA = ESA_spl((time_mesh, freq_mesh)).T*norm
+            
+            norm = -np.min(self.PP)            
+            PP_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.PP/norm)
+            PP = PP_spl((time_mesh, freq_mesh)).T*norm
 
             return freq,GSB,SE,ESA,PP
         else:
