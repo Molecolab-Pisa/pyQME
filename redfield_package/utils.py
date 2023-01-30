@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 import sys
-sys.path.append('/home/p.saraceno/CP29/linear_spectrum/src')
+sys.path.append('/home/p.saraceno/CP29/src')
 import utils
 
 wn2ips = 0.188495559215
@@ -212,3 +212,17 @@ def underdamped_brownian(freq_axis,gamma,lambd,omega):
     num = 2*lambd*(omega**2)*freq_axis*gamma
     den = (omega**2-freq_axis**2)**2 + (freq_axis*gamma)**2
     return num/den
+
+def get_timeaxis(reorg,ene_list,maxtime):    #maxtime in ps
+    "Get time axis"
+        
+    wmax = np.max([np.max(ene + reorg) for ene in ene_list])
+
+    #wmax = 10**(1.1*int(np.log10(wmax))) #FIXME TROVA QUALCOSA DI PIU ROBUSTO
+
+    dt = 1.0/wmax
+
+    tmax = wn2ips*maxtime #2 ps
+    time = np.arange(0.,tmax+dt,dt)
+
+    return time

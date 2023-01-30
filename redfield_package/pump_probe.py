@@ -1,12 +1,14 @@
 from scipy.interpolate import UnivariateSpline,RegularGridInterpolator
 import numpy as np
 from .utils import factOD
+from memory_profiler import profile
 
 
 class PumpProbeSpectraCalculator():
     "Class for calculations of all linear spectra"
-    
-    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_dephasing=False,include_deph_real=True,time=None):
+
+#    @profile    
+    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_dephasing=False,include_deph_real=True):
         """initialize the class
         
         rel_tensor_single: Class
@@ -30,11 +32,10 @@ class PumpProbeSpectraCalculator():
         """
         
         
-        self.time = time
         
         self.rel_tensor_single = rel_tensor_single
         self.rel_tensor_double = rel_tensor_double
-        self.specden = self.rel_tensor_single.specden
+        self.time = self.rel_tensor_single.specden.time
         
         if rel_tensor_single.SD_id_list == rel_tensor_double.SD_id_list:
             self.SD_id_list = rel_tensor_single.SD_id_list
@@ -58,7 +59,7 @@ class PumpProbeSpectraCalculator():
         
         self._calc_weight_kkqq()
         
-        self.lambda_k = self.rel_tensor_single.get_reorg_exc_kkkk()
+        self.lambda_k = self.rel_tensor_single.get_lambda_k()
         self._calc_lambda_kq()
      
         self.include_dephasing= include_dephasing
@@ -68,22 +69,6 @@ class PumpProbeSpectraCalculator():
         self.RWA = RWA
         if self.RWA is None:
             self.RWA = self.rel_tensor_single.H.diagonal().min()
-    
-    def _get_timeaxis(self):
-        "Get time axis"
-        
-        # Heuristics
-        reorg = self.specden.Reorg
-        
-        dwmax = np.max(self.rel_tensor_single.ene + reorg)
-        dwmax = 10**(1.1*int(np.log10(dwmax))) #FIXME TROVA QUALCOSA DI PIU ROBUSTO
-        
-        dt = 1.0/dwmax
-        
-        wn2ips = 0.188495559215
-        tmax = wn2ips*2.0 #2 ps
-        self.time = np.arange(0.,tmax+dt,dt)
-        pass
 
     def _get_freqaxis(self):
         "Get freq axis for FFT"
@@ -139,12 +124,12 @@ class PumpProbeSpectraCalculator():
                 
     def _calc_lambda_kq(self):
         "This function computes the combined single-double exciton reorganization energies"
-        reorg_site = self.specden.Reorg
+        reorg_site = self.rel_tensor_single.specden.Reorg
         self.lambda_kq = np.dot(self.weight_kkqq.T,reorg_site).T
     
     def _calc_g_kq(self):
         "This function computes the combined single-double exciton lineshape functions"
-        g_site = self.specden.get_gt(self.time)
+        g_site = self.rel_tensor_single.specden.get_gt()
         self.g_kq = np.transpose(np.dot(self.weight_kkqq.T,g_site),(1,0,2))
 
     def build_d_qk(self,dipoles):
@@ -156,27 +141,17 @@ class PumpProbeSpectraCalculator():
     def _initialize(self):
         "This function initializes some variables needed for spectra"
         
-        if self.time is None:
-            self.time = self.specden.time
-        else:
-            self.specden.time = self.time
-        
-        if not hasattr(self,'g_k'):
-            self.g_k = self.rel_tensor_single.get_g_exc_kkkk(self.time)
-        if not hasattr(self,'g_q'):
-            self.g_q = self.rel_tensor_double.get_g_q(self.time)
-        if not hasattr(self,'g_kq'):
-            self._calc_g_kq()
+        self.g_k = self.rel_tensor_single.get_g_k()
+        self.g_q = self.rel_tensor_double.get_g_q()
+        self._calc_g_kq()
         
         self._get_dephasing()
-        
 
         if not hasattr(self,'freq'):
             self._get_freqaxis()
-        
-        
         pass
-    
+
+#    @profile
     def calc_pump_probe(self,dipoles,pop_t,freq=None):
         """Compute absorption spectrum
         
@@ -203,7 +178,6 @@ class PumpProbeSpectraCalculator():
         dim_double = self.dim_double
         dim_single = self.dim_single
         
-        
         t = self.time
         factFT = self.factFT
         self_freq = self.freq
@@ -224,7 +198,7 @@ class PumpProbeSpectraCalculator():
         g_q = self.g_q
         g_kq = self.g_kq
 
-        lambda_k = self.rel_tensor_single.get_reorg_exc_kkkk()
+        lambda_k = self.rel_tensor_single.get_lambda_k()
 
         lambda_kq = self.lambda_kq
                 
@@ -240,7 +214,6 @@ class PumpProbeSpectraCalculator():
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
             W_gk[k] = integral * self_freq* factOD
         
-        time_axis_prop_size = pop_t.shape[0]
         pop_tot = np.sum(np.diag(pop_t[0]))
         self.GSB_k = - W_gk*pop_tot
         self.GSB = np.sum(self.GSB_k,axis=0)
@@ -275,6 +248,7 @@ class PumpProbeSpectraCalculator():
         self.ESA = np.dot(pop_t,Wp_k)
         del Wp_k
 
+        time_axis_prop_size = pop_t.shape[0]
         self.PP_k = np.empty([dim_single,time_axis_prop_size,self_freq.size])
         for time_idx in range(time_axis_prop_size):
             self.PP_k[:,time_idx] = self.GSB_k + self.ESA_k [:,time_idx] + self.SE_k [:,time_idx]   #FIXME IMPLEMENTA ONESHOT

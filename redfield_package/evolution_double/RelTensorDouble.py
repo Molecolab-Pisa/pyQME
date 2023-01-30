@@ -197,15 +197,15 @@ class RelTensorDouble():
         
         self.weight_qqqr = weight_qqqr
         
-    def get_g_q(self,time=None):
+    def get_g_q(self):
         "This function returns the double-exciton manifold linshape functions"
-        if not hasattr(self,'g_q') or not np.all(time!=self.specden.time):
-            self._calc_g_q(time)
+        if not hasattr(self,'g_q'):
+            self._calc_g_q()
         return self.g_q
     
-    def _calc_g_q(self,time):
+    def _calc_g_q(self):
         "This function computes the double-exciton manifold linshape functions"
-        g_site = self.specden.get_gt(time)
+        g_site = self.specden.get_gt()
         weight = self.weight_qqqq
         self.g_q = np.dot(weight.T,g_site)
 

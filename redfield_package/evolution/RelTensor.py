@@ -230,35 +230,33 @@ class RelTensor():
 
             A = Liouv.reshape(self.dim**2,self.dim**2)
             rho_ = rho.reshape(self.dim**2)
-
             rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
             
             if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
                 rhot = np.real(rhot)
             
             return rhot.reshape(-1,self.dim,self.dim)
-                
-    def get_g_exc_kkkk(self,time=None):
-        if not hasattr(self,'g_exc_kkkk') or not np.all(time!=self.specden.time):
-            self._calc_g_exc_kkkk(time)
-        return self.g_exc_kkkk
-    
-    def _calc_g_exc_kkkk(self,time):
-        "Compute g_kkkk(t) in excitonic basis"
         
-        gt_site = self.specden.get_gt(time)
+    def get_g_k(self):
+        if not hasattr(self,'g_k'):
+            self._calc_g_k()
+        return self.g_k
+    
+    def _calc_g_k(self):
+        "Compute g_kkkk(t) in excitonic basis"
+        gt_site = self.specden.get_gt()
         # g_k = sum_i |C_ik|^4 g_i 
         W = self.weight_kkkk
-        self.g_exc_kkkk = np.dot(W.T,gt_site)
-        
-    def get_reorg_exc_kkkk(self):
-        if not hasattr(self,'reorg_exc_kkkk'):
-            self._calc_reorg_exc_kkkk()
-        return self.reorg_exc_kkkk
+        self.g_k = np.dot(W.T,gt_site)
+
+    def get_lambda_k(self):
+        if not hasattr(self,'lambda_k'):
+            self._calc_lambda_k()
+        return self.lambda_k
     
-    def _calc_reorg_exc_kkkk(self):
+    def _calc_lambda_k(self):
         "Compute lambda_kkkk"
 
         W = self.weight_kkkk
         
-        self.reorg_exc_kkkk = np.dot(W.T,self.specden.Reorg)
+        self.lambda_k = np.dot(W.T,self.specden.Reorg)

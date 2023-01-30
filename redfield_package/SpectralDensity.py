@@ -205,7 +205,7 @@ class SpectralDensity():
             hr.append(np.trapz( integ,self.omega[self.omega>0]))
         return np.asarray(hr)
     
-    def _calc_Ct(self,time):
+    def _calc_Ct(self):
         """
         Computes the correlation function
         
@@ -213,11 +213,13 @@ class SpectralDensity():
             timaxis on which C(t) will be computed
             """
         
-        self.time = time
 
         # Correlation function
-        Ct = [do_ifft_complete(self.omega,integ[::-1],self.time) for integ in self.ThermalSD_real]
-        self.Ct = np.asarray(Ct)
+        Ct_list = [do_ifft_complete(self.omega,integ[::-1],self.time) for integ in self.ThermalSD_real]
+        
+        self.Ct = np.asarray(Ct_list)
+        
+        pass
         
     def get_Ct(self,time=None):
         """
@@ -227,21 +229,12 @@ class SpectralDensity():
             timaxis on which C(t) will be computed
             """
         
-        if hasattr(self,'Ct'):
-            return self.Ct
-        
-        else:
-            if time is None:
-                if hasattr(self,'time'):
-                    time = self.time
-                else:
-                    raise ValueError('No time axis present')
-
-            self._calc_Ct(time)
-            return self.Ct
+        if not hasattr(self,'gt'):
+            self._calc_Ct()
+        return self.Ct
                 
                     
-    def _calc_gt(self,time):
+    def _calc_gt(self):
         """
         Computes the lineshape function
         
@@ -249,10 +242,10 @@ class SpectralDensity():
             timaxis on which g(t) will be computed
             """
         
-        self.time = time
+        time = self.time
         
         # Correlation function
-        self._calc_Ct(time)
+        self._calc_Ct()
 
         self.gt = []
         self.g_dot = []
@@ -267,6 +260,7 @@ class SpectralDensity():
             sp_Ct2_real = sp_Ct1_real.antiderivative()
             sp_Ct2_imag = sp_Ct1_imag.antiderivative()
 
+
             # Evaluate spline at time axis
             self.gt.append(sp_Ct2_real(time) + 1.j*sp_Ct2_imag(time))
 
@@ -280,40 +274,19 @@ class SpectralDensity():
                
         pass
     
-    
-    def get_gt(self,time=None,derivs=0):
+
+    def get_gt(self,derivs=0):
         """
         Returns the lineshape function
         
         time: np.array(dtype=np.float)
             timaxis on which g(t) will be computed
             """
-        
-        if hasattr(self,'gt') and (time is None or np.all(time == self.time)) and self.gt[0].size == self.time.size:
-            if derivs > 1:
-                return self.gt,self.g_dot,self.g_ddot
-            elif derivs == 1:
-                return self.gt,self.g_dot
-            else:
-                return self.gt
-        
+        if not hasattr(self,'gt'):
+            self._calc_gt()
+        if derivs > 1:
+            return self.gt,self.g_dot,self.g_ddot
+        elif derivs == 1:
+            return self.gt,self.g_dot
         else:
-            if hasattr(self,'time'):
-                if time is None:
-                    time = self.time
-                else:
-                    self.time = time
-
-                self._calc_gt(time)
-
-                if derivs > 1:
-                    return self.gt,self.g_dot,self.g_ddot
-                elif derivs == 1:
-                    return self.gt,self.g_dot
-                else:
-                    return self.gt
-
-
-            else:
-                if time is None:
-                    raise ValueError('No time axis present')
+            return self.gt

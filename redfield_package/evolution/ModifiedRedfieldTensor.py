@@ -1,14 +1,15 @@
 import numpy as np
 from .RelTensor import RelTensor
-
+from ..utils import wn2ips
 
 class ModifiedRedfieldTensor(RelTensor):           
     """Generalized Forster Tensor class where Modfied Redfield Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,damping_tau=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.H = H.copy()
+        self.damping_tau = damping_tau
         super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
         
     def _calc_rates(self):
@@ -16,8 +17,8 @@ class ModifiedRedfieldTensor(RelTensor):
         """
         
         time_axis = self.specden.time
-        gt_exc = self.get_g_exc_kkkk()
-        Reorg_exc = self.get_reorg_exc_kkkk()
+        gt_exc = self.get_g_k()
+        Reorg_exc = self.get_lambda_k()
         
         self._calc_weight_kkkl()
         self._calc_weight_kkll()
@@ -30,6 +31,11 @@ class ModifiedRedfieldTensor(RelTensor):
         g_KKLL = np.dot(self.weight_kkll.T,g_site)
         gdot_KLLL = np.dot(self.weight_kkkl.T,gdot_site)
         gddot_KLLK = np.dot(self.weight_kkll.T,gddot_site)
+        
+        if self.damping_tau is None:
+            damper = 1.0
+        else:
+            damper = np.exp(-(time_axis**2)/(2*(self.damping_tau**2))) 
         
         rates = np.empty([self.dim,self.dim])
         for D in range(self.dim):
@@ -44,15 +50,15 @@ class ModifiedRedfieldTensor(RelTensor):
                 exponent = 1j*energy*time_axis+gD+gA-2*g_KKLL[D,A]
                 g_derivatives_term = gddot_KLLK[D,A]-(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])*(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])
                 integrand = np.exp(-exponent)*g_derivatives_term
-                integral = np.trapz(integrand,time_axis)
+                integral = np.trapz(integrand*damper,time_axis)
                 rates[A,D] = 2.*integral.real
-
+                    
                 #rate A-->D
                 energy = self.Om[D,A]+2*(ReorgA-reorg_KKLL[A,D])
                 exponent = 1j*energy*time_axis+gD+gA-2*g_KKLL[A,D]
                 g_derivatives_term = gddot_KLLK[A,D]-(gdot_KLLL[A,D]-gdot_KLLL[D,A]-2*1j*reorg_KKKL[A,D])*(gdot_KLLL[A,D]-gdot_KLLL[D,A]-2*1j*reorg_KKKL[A,D])
                 integrand = np.exp(-exponent)*g_derivatives_term
-                integral = np.trapz(integrand,time_axis)
+                integral = np.trapz(integrand*damper,time_axis)
                 rates[D,A] = 2.*integral.real
 
         rates[np.diag_indices_from(rates)] = 0.0
@@ -68,7 +74,7 @@ class ModifiedRedfieldTensor(RelTensor):
 
         if not hasattr(self, 'rates'):
             self._calc_rates()
-
+            
         #diagonal part
         RTen = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
         np.einsum('iijj->ij',RTen) [...] = self.rates
@@ -80,7 +86,7 @@ class ModifiedRedfieldTensor(RelTensor):
 
         #pure dephasing
         time_axis = self.specden.time
-        gdot_KKKK = self.get_g_exc_kkkk()
+        gdot_KKKK = self.get_g_k()
 
         if not hasattr(self,'weight_kkll'):
             self._calc_weight_kkll()
