@@ -1,7 +1,6 @@
 from scipy.interpolate import UnivariateSpline,RegularGridInterpolator
 import numpy as np
 from .utils import factOD
-from memory_profiler import profile
 
 
 class PumpProbeSpectraCalculator():
