@@ -152,7 +152,7 @@ class PumpProbeSpectraCalculator():
         pass
 
 #    @profile
-    def calc_pump_probe(self,dipoles,pop_t,freq=None):
+    def calc_components_lineshape(self,dipoles):
         """Compute absorption spectrum
         
         dipoles: np.array(dtype = np.float)
@@ -214,11 +214,6 @@ class PumpProbeSpectraCalculator():
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
             W_gk[k] = integral * self_freq* factOD
         
-        pop_tot = np.sum(np.diag(pop_t[0]))
-        self.GSB_k = - W_gk*pop_tot
-        self.GSB = np.sum(self.GSB_k,axis=0)
-        del W_gk
-
         #SE LINESHAPE
         W_kg = np.empty([dim_single,self_freq.size])
         for k in range(dim_single):
@@ -228,10 +223,6 @@ class PumpProbeSpectraCalculator():
             integrand = d2_k[k]*W   #FIXME: AGGIUNGI ENVELOPE
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
             W_kg[k] = integral * self_freq * factOD
-
-        self.SE_k = np.einsum('tk,kw->ktw',pop_t,-W_kg)
-        self.SE = np.dot(pop_t,-W_kg)
-        del W_kg
         
         #ESA LINESHAPE
         Wp_k = np.zeros([dim_single,self_freq.size])
@@ -244,23 +235,27 @@ class PumpProbeSpectraCalculator():
                 integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))
                 Wp_k[k] = Wp_k[k] + integral * self_freq* factOD*factFT
 
-        self.ESA_k = np.einsum('tk,kw->ktw',pop_t,Wp_k)
-        self.ESA = np.dot(pop_t,Wp_k)
-        del Wp_k
-
+        
+        self.W_gk = W_gk
+        self.W_kg = W_kg
+        self.Wp_k = Wp_k
+             
+    def get_pump_probe(self,pop_t,freq=None):
+        
+        pop_tot = np.sum(np.diag(pop_t[0]))
         time_axis_prop_size = pop_t.shape[0]
-        self.PP_k = np.empty([dim_single,time_axis_prop_size,self_freq.size])
-        for time_idx in range(time_axis_prop_size):
-            self.PP_k[:,time_idx] = self.GSB_k + self.ESA_k [:,time_idx] + self.SE_k [:,time_idx]   #FIXME IMPLEMENTA ONESHOT
-        #self.PP_k = np.transpose(np.asarray([self.GSB_k]*time_axis_prop_size),(1,0,2)) + self.ESA_k + self.SE_k #CRASHA SE TIME_AXIS_CORR E' MOLTO LUNGO
-        self.PP = np.sum(self.PP_k,axis=0)
+        
+        self.GSB = -np.sum(self.W_gk,axis=0)*pop_tot
+        self.SE = -np.dot(pop_t,self.W_kg)
+        self.ESA = np.dot(pop_t,self.Wp_k)
+        self.PP = self.SE + self. ESA + np.asarray([self.GSB]*time_axis_prop_size)
         
         if freq is not None:
             
+            self_freq = self.freq
+            
             time_axis_prop_dummy = np.linspace(0.,1.,num=time_axis_prop_size)
             time_mesh, freq_mesh = np.meshgrid(time_axis_prop_dummy, freq)
-
-            import matplotlib.pyplot as plt
 
             norm = -np.min(self.GSB)
             GSB_spl = UnivariateSpline(self_freq,self.GSB/norm,s=0)
@@ -281,6 +276,18 @@ class PumpProbeSpectraCalculator():
             return freq,GSB,SE,ESA,PP
         else:
             return self.freq,self.GSB,self.SE,self.ESA,self.PP
+        
+    def get_pump_probe_k(self,pop_t):
+        
+        pop_tot = np.sum(np.diag(pop_t[0]))
+        time_axis_prop_size = pop_t.shape[0]
+        
+        self.GSB_k = - self.W_gk*pop_tot
+        self.SE_k = - np.einsum('tk,kw->ktw',pop_t,self.W_kg)
+        self.ESA_k = np.einsum('tk,kw->ktw',pop_t,self.Wp_k)
+        self.PP_k = self.SE_k + self.ESA_k + np.asarray([self.GSB_k]*time_axis_prop_size).transpose((1,0,2))
+        
+        return self.freq,self.GSB_k,self.SE_k,self.ESA_k,self.PP_k
         
     @property
     def factFT(self):

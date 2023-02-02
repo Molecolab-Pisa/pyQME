@@ -122,8 +122,8 @@ def get_H_double(H):
 
     return H_double,pairs
 
-def partition_by_cutoff(H,cutoff,RF=True):
-    """This function the excitonic Hamiltonian acccording to the cutoff given as input
+def partition_by_cutoff(H,cutoff,RF=True,subtract_cutoff=True):
+    """This function partitions the excitonic Hamiltonian acccording to the cutoff given as input
     
     H: np.array(dim = [n_exciton,n_exciton])
     exciton Hamiltonian
@@ -133,7 +133,7 @@ def partition_by_cutoff(H,cutoff,RF=True):
     
     RF: boolean
     optional key for Redfield-Forster partitions
-    if True, H_part will not be changed (Redfield-Forster)
+    if True, V will not be changed (Redfield-Forster)
     if False, the off-diagonal in the diagonal partitions of V will be set to zero (Generalized Forster)
     
     Returns:
@@ -155,7 +155,7 @@ def partition_by_cutoff(H,cutoff,RF=True):
     H_part = H.copy()
     for raw in range(dim):
         for col in range(raw+1,dim):
-            if np.abs(H[raw,col])>=cutoff:
+            if np.abs(H[raw,col])>=cutoff and subtract_cutoff:
                 H_part[raw,col] = np.sign(H_part[raw,col])*(np.abs(H_part[raw,col]) - cutoff)
                 H_part[col,raw] = H_part[raw,col]
             elif np.abs(H[raw,col]) < cutoff:
@@ -166,6 +166,46 @@ def partition_by_cutoff(H,cutoff,RF=True):
         V [H_part!=0] = 0.0
     return H_part,V
 
+def partition_by_clusters(H,cluster_list,RF=True):
+    """This function partitions the excitonic Hamiltonian acccording to the clusters given as input
+    
+    H: np.array(dim = [n_exciton,n_exciton])
+    exciton Hamiltonian
+    
+    cluster_list: lsit
+    List of clusters. Each element must be a list of indeces of chromophores in the same cluster.
+    
+    RF: boolean
+    optional key for Redfield-Forster partitions
+    if True, V will not be changed (Redfield-Forster)
+    if False, the off-diagonal in the diagonal partitions of V will be set to zero (Generalized Forster)
+    
+    Returns:
+    
+    H_part: np.array(dim = [n_exciton,n_exciton])
+    Partition Hamiltonian
+    
+    If RF is True:
+    The copulings between chromophores in different clusters are set to zero and moved in another array (V).
+    
+    V: np.array(dim = [n_exciton,n_exciton])
+    Residual couplings
+    V = H - H_part
+    
+    If RF is False, the off-diagonal in the diagonal partitions of V will be set to zero (Generalized Forster)
+    """
+    
+    dim = H.shape[0]
+    H_part = np.zeros([dim,dim])
+    for cluster in cluster_list:
+        for chrom_i in cluster:
+            H_part[chrom_i,chrom_i] = H[chrom_i,chrom_i]
+            for chrom_j in cluster:
+                H_part[chrom_i,chrom_j] = H[chrom_i,chrom_j]
+    V = H - H_part
+    if not RF:
+        V [H_part!=0] = 0.0
+    return H_part,V
 
 def plot_propagation(rho,timeaxis,excsystem,title,label_list = None,bbox_to_anchor=None,loc='best',only_real = True):
     

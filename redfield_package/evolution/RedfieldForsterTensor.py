@@ -17,8 +17,8 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         """
 
         time_axis = self.specden.time
-        gt_exc = self.get_g_exc_kkkk()
-        Reorg_exc = self.get_reorg_exc_kkkk()
+        gt_exc = self.get_g_k()
+        Reorg_exc = self.get_lambda_k()
         self.V_exc = self.transform(self.V)
 
         rates = np.empty([self.dim,self.dim])
@@ -100,8 +100,8 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
         """
 
         time_axis = self.specden.time
-        gt_exc = self.get_g_exc_kkkk()
-        Reorg_exc = self.get_reorg_exc_kkkk()
+        gt_exc = self.get_g_k()
+        Reorg_exc = self.get_lambda_k()
         self.V_exc = self.transform(self.V)
 
         rates = np.empty([self.dim,self.dim])
@@ -185,8 +185,8 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         """
 
         time_axis = self.specden.time
-        gt_exc = self.get_g_exc_kkkk()
-        Reorg_exc = self.get_reorg_exc_kkkk()
+        gt_exc = self.get_g_k()
+        Reorg_exc = self.get_lambda_k()
         self.V_exc = self.transform(self.V)
 
         rates = np.empty([self.dim,self.dim])
