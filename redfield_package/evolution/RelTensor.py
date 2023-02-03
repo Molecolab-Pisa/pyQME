@@ -158,7 +158,7 @@ class RelTensor():
     
     def get_tensor(self):
         "This function returns the tensor of energy transfer rates"
-        if not hasattr(self, 'Rten'):
+        if not hasattr(self, 'RTen'):
             self._calc_tensor()
         return self.RTen
     
