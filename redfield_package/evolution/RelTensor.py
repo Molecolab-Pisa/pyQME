@@ -37,7 +37,7 @@ class RelTensor():
         self.Om = self.ene[:,None] - self.ene[None,:]
 
         if initialize:
-            self.calc_tensor()
+            self._calc_tensor()
         
     @property
     def dim(self):
