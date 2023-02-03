@@ -98,11 +98,11 @@ class RedfieldTensorReal(RedfieldTensor):
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if hasattr(self,'RTen'):
-            return np.einsum('aaaa->a',self.RTen)
+            return -0.5*np.einsum('aaaa->a',self.RTen)
         else:
             if not hasattr(self,'rates'):
                 self._calc_rates()
-            return np.diag(self.rates)
+            return -0.5*np.diag(self.rates)
         
         
     
@@ -138,7 +138,7 @@ class RedfieldTensorComplex(RedfieldTensor):
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if hasattr(self,'GammF'):
-            return 2*(np.einsum('aaaa->a',self.GammF) - np.einsum('akka->a',self.GammF))
+            return -0.5*(np.einsum('aaaa->a',self.GammF) - np.einsum('akka->a',self.GammF))
         else:
             SD_id_list = self.SD_id_list
 
@@ -154,4 +154,4 @@ class RedfieldTensorComplex(RedfieldTensor):
                     GammF_aaaa = GammF_aaaa + np.einsum('jaa,jaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
                     GammF_akka = GammF_akka + np.einsum('jab,jba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
 
-            return GammF_aaaa - np.einsum('ak->a',GammF_akka)
+            return -0.5*(GammF_aaaa - np.einsum('ak->a',GammF_akka))

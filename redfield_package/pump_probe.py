@@ -207,7 +207,7 @@ class PumpProbeSpectraCalculator():
         #GSB LINESHAPE
         W_gk = np.empty([dim_single,self_freq.size])
         for k in range(dim_single):
-            exponent = (1j*(-w_k[k]+RWA)+deph_k[k])*t - g_k[k]
+            exponent = (1j*(-w_k[k]+RWA)-deph_k[k])*t - g_k[k]
             D = np.exp(exponent)
             integrand = d2_k[k]*D   #FIXME: AGGIUNGI ENVELOPE 
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
@@ -217,7 +217,7 @@ class PumpProbeSpectraCalculator():
         W_kg = np.empty([dim_single,self_freq.size])
         for k in range(dim_single):
             e0_k = w_k[k] - 2*lambda_k[k]
-            exponent = (1j*(-e0_k+RWA)+deph_k[k])*t - g_k[k].conj()
+            exponent = (1j*(-e0_k+RWA)-deph_k[k])*t - g_k[k].conj()
             W = np.exp(exponent)
             integrand = d2_k[k]*W   #FIXME: AGGIUNGI ENVELOPE
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
@@ -228,7 +228,7 @@ class PumpProbeSpectraCalculator():
         for k in range(dim_single):
             for q in range(dim_double):
                 e0_qk =  w_kq[k,q] + 2*(lambda_k[k]-lambda_kq[k,q])
-                exponent = (1j*(-e0_qk+RWA)+deph_kq[k,q])*t - g_k[k] - g_q[q] + 2*g_kq[k,q]
+                exponent = (1j*(-e0_qk+RWA)-deph_kq[k,q])*t - g_k[k] - g_q[q] + 2*g_kq[k,q]
                 Wp = np.exp(exponent)
                 integrand = d2_qk[q,k]*Wp  #FIXME: AGGIUNGI ENVELOPE
                 integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))

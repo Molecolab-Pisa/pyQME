@@ -119,8 +119,8 @@ class ModifiedRedfieldTensor(RelTensor):
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if hasattr(self,'RTen'):
-            return np.einsum('aaaa->a',self.RTen)
+            return -0.5*np.einsum('aaaa->a',self.RTen)
         else:
             if not hasattr(self,'rates'):
                 self._calc_rates()
-            return np.diag(self.rates)
+            return -0.5*np.diag(self.rates)

@@ -64,4 +64,4 @@ class ForsterTensorDouble(RelTensorDouble):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'rates'):
             self._calc_rates()
-        return np.diag(self.rates)
+        return -0.5*np.diag(self.rates)

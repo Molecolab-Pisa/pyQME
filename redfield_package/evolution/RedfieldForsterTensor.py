@@ -83,7 +83,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
-        return super().dephasing + np.diag(self.forster_rates)
+        return -(0.5*super().dephasing + 0.5*np.diag(self.forster_rates))
     
 
 class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
@@ -167,8 +167,7 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
-        #return 1j*np.imag(super().dephasing + np.diag(self.forster_rates))
-        return super().dephasing + np.diag(self.forster_rates)
+        return -(0.5*super().dephasing + 0.5*np.diag(self.forster_rates))
     
     
 class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
@@ -251,4 +250,4 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
-        return super().dephasing + np.diag(self.forster_rates)
+        return -(0.5*super().dephasing + 0.5*np.diag(self.forster_rates))

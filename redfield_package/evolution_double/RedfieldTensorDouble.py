@@ -63,7 +63,7 @@ class RedfieldTensorDouble(RelTensorDouble):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'rates'):
             self._calc_rates()
-        return np.diag(self.rates)
+        return -0.5*np.diag(self.rates)
     
 class RedfieldTensorRealDouble(RedfieldTensorDouble):
     """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes
