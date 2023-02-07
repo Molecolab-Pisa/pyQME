@@ -227,5 +227,3 @@ def get_timeaxis(reorg,ene_list,maxtime):    #maxtime in ps
 
     return time
 
-
-#git commit test
