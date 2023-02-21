@@ -209,7 +209,7 @@ class PumpProbeSpectraCalculator():
         for k in range(dim_single):
             exponent = (1j*(-w_k[k]+RWA)-deph_k[k])*t - g_k[k]
             D = np.exp(exponent)
-            integrand = d2_k[k]*D   #FIXME: AGGIUNGI ENVELOPE 
+            integrand = d2_k[k]*D   #FIXME: AGGIUNGI ENVELOPE
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
             W_gk[k] = integral * self_freq* factOD
         

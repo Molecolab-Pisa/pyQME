@@ -111,7 +111,7 @@ class LinearSpectraCalculator():
         else:
             return self.freq,self.OD
         
-    def calc_OD_k(self,dipoles,freq = None):
+    def calc_OD_k(self,dipoles=None,freq = None):
         """Compute absorption spectrum separately for each exciton
         
         dipoles: np.array(dtype = np.float)
@@ -130,8 +130,12 @@ class LinearSpectraCalculator():
 
         self._initialize()
 
-        self.excdip = self.rel_tensor.transform(dipoles,dim=1)
-        self.excd2 = np.sum(self.excdip**2,axis=1)
+        if dipoles is not None:
+            self.excdip = self.rel_tensor.transform(dipoles,dim=1)
+            self.excd2 = np.sum(self.excdip**2,axis=1)
+        else:
+            self.excd2 = np.ones((self.rel_tensor.dim)) 
+        
         g_k = self.g_k
         dephasing = self.dephasing
         RWA = self.RWA
@@ -155,6 +159,14 @@ class LinearSpectraCalculator():
             return freq,OD_k
         else:
             return self.freq,self.OD_k
+        
+    def calc_OD_i(self,dipoles,freq=None):
+        w,II_k = self.calc_OD_k(freq=freq) # Tensor, without dipoles
+        II_ij = np.einsum('ik,kp,jk->ijp',self.rel_tensor.U,II_k,self.rel_tensor.U)
+        M_ij = np.dot(dipoles,dipoles.T)
+        A_ij = M_ij[:,:,None]*II_ij
+        A_i = A_ij.sum(axis=0)
+        return w,A_i
         
     def calc_FL(self,dipoles,freq=None):
         """Compute fluorescence spectrum
