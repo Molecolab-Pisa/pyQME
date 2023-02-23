@@ -71,19 +71,19 @@ class RedfieldTensorReal(RedfieldTensor):
         GammF: np.array
             Four-indexes tensor, GammF(abcd) = sum_k c_ak c_bk c_ck c_dk Cw(w_ba)
         
-        Return:self
+        Returns:
         
         RTen: np.array
             Redfield Tensor"""
         
         RTen = np.zeros(GammF.shape,dtype=np.float64)
         
-        RTen[:] = np.einsum('cabd->abcd',GammF) + np.einsum('dbac->abcd',GammF)
+        RTen[:] = np.einsum('cabd->abcd',GammF) + np.einsum('dbca->abcd',GammF.conj())
         
         # delta part
         eye = np.eye(self.dim)
-        tmpac = np.einsum('akkc->ac',GammF)
-        RTen -= np.einsum('ac,bd->abcd',eye,tmpac) + np.einsum('ac,bd->abcd',tmpac,eye)
+        tmpac = np.einsum('ckka->ac',GammF)
+        RTen -= np.einsum('ac,bd->abcd',eye,tmpac.conj()) + np.einsum('ac,bd->abcd',tmpac,eye)
     
         return RTen
         
@@ -115,14 +115,14 @@ class RedfieldTensorComplex(RedfieldTensor):
         super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic)
         
     def _from_GammaF_to_RTen(self,GammF):
+        
         RTen = np.zeros(GammF.shape,dtype=np.complex128)
         
-        RTen[:] = np.einsum('cabd->abcd',GammF) + np.einsum('dbac->abcd',GammF.conj())
-            
+        RTen[:] = np.einsum('cabd->abcd',GammF) + np.einsum('dbca->abcd',GammF.conj())
+        
         # delta part
         eye = np.eye(self.dim)
-        tmpac = np.einsum('akkc->ac',GammF)
-                    
+        tmpac = np.einsum('ckka->ac',GammF)
         RTen -= np.einsum('ac,bd->abcd',eye,tmpac.conj()) + np.einsum('ac,bd->abcd',tmpac,eye)
         
         return RTen
