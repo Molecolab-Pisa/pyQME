@@ -226,7 +226,7 @@ class RelTensor():
             assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
 
             eye   = np.eye(self.dim)
-            Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om,eye,eye)
+            Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
 
             A = Liouv.reshape(self.dim**2,self.dim**2)
             rho_ = rho.reshape(self.dim**2)
