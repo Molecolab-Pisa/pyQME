@@ -151,7 +151,7 @@ class PumpProbeSpectraCalculator():
         pass
 
 #    @profile
-    def calc_components_lineshape(self,dipoles):
+    def calc_components_lineshape(self,dipoles=None):
         """Compute absorption spectrum
         
         dipoles: np.array(dtype = np.float)
@@ -186,12 +186,15 @@ class PumpProbeSpectraCalculator():
         w_q = self.ene_double
         w_kq = self.w_kq
         
-        d_k = self.rel_tensor_single.transform(dipoles,dim=1)
-        d2_k = np.sum(d_k**2,axis=1)
+        if dipoles is not None:
+            d_k = self.rel_tensor_single.transform(dipoles,dim=1)
+            d2_k = np.sum(d_k**2,axis=1)
 
-        d_qk = self.build_d_qk(dipoles)
-        d2_qk = np.sum(d_qk**2,axis=2)
-
+            d_qk = self.build_d_qk(dipoles)
+            d2_qk = np.sum(d_qk**2,axis=2)
+        else:
+            d2_k = np.ones(self.rel_tensor_single.dim)
+            d2_qk = np.ones([self.rel_tensor_double.dim,self.rel_tensor_single.dim])
 
         g_k = self.g_k
         g_q = self.g_q
@@ -225,6 +228,7 @@ class PumpProbeSpectraCalculator():
         
         #ESA LINESHAPE
         Wp_k = np.zeros([dim_single,self_freq.size])
+        self.Wp_kq = np.zeros([dim_single,dim_double,self_freq.size])
         for k in range(dim_single):
             for q in range(dim_double):
                 e0_qk =  w_kq[k,q] + 2*(lambda_k[k]-lambda_kq[k,q])
@@ -232,6 +236,7 @@ class PumpProbeSpectraCalculator():
                 Wp = np.exp(exponent)
                 integrand = d2_qk[q,k]*Wp  #FIXME: AGGIUNGI ENVELOPE
                 integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))
+                self.Wp_kq[k,q] = integral * self_freq* factOD*factFT
                 Wp_k[k] = Wp_k[k] + integral * self_freq* factOD*factFT
 
         
@@ -276,7 +281,7 @@ class PumpProbeSpectraCalculator():
         else:
             return self.freq,self.GSB,self.SE,self.ESA,self.PP
         
-    def get_pump_probe_k(self,pop_t):
+    def get_pump_probe_k(self,pop_t,freq=None):
         
         pop_tot = np.sum(np.diag(pop_t[0]))
         time_axis_prop_size = pop_t.shape[0]
@@ -286,7 +291,100 @@ class PumpProbeSpectraCalculator():
         self.ESA_k = np.einsum('tk,kw->ktw',pop_t,self.Wp_k)
         self.PP_k = self.SE_k + self.ESA_k + np.asarray([self.GSB_k]*time_axis_prop_size).transpose((1,0,2))
         
-        return self.freq,self.GSB_k,self.SE_k,self.ESA_k,self.PP_k
+        if freq is not None:
+            
+            GSB_k = np.zeros([self.rel_tensor_single.dim,freq.size])
+            SE_k = np.zeros([self.rel_tensor_single.dim,time_axis_prop_size,freq.size])
+            ESA_k = np.zeros([self.rel_tensor_single.dim,time_axis_prop_size,freq.size])
+            
+            self_freq = self.freq
+            
+            time_axis_prop_dummy = np.linspace(0.,1.,num=time_axis_prop_size)
+            time_mesh, freq_mesh = np.meshgrid(time_axis_prop_dummy, freq)
+
+            for k in range(self.rel_tensor_single.dim):
+                norm = -np.min(self.GSB_k[k])
+                GSB_spl = UnivariateSpline(self_freq,self.GSB_k[k]/norm,s=0)
+                GSB_k[k] = GSB_spl(freq)*norm
+
+                norm = -np.min(self.SE_k[k])
+                SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.SE_k[k]/norm)
+                SE_k[k] = SE_spl((time_mesh, freq_mesh)).T*norm
+
+                norm = np.max(self.ESA_k[k])
+                ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.ESA_k[k]/norm)
+                ESA_k[k] = ESA_spl((time_mesh, freq_mesh)).T*norm
+            
+            PP_k = SE_k + ESA_k + np.asarray([GSB_k]*time_axis_prop_size).transpose((1,0,2))
+            
+            return freq,GSB_k,SE_k,ESA_k,PP_k
+
+        else:
+            return self.freq,self.GSB_k,self.SE_k,self.ESA_k,self.PP_k
+    
+    def get_pump_probe_i(self,dipoles,pop_t,freq=None):
+        
+        if hasattr(self,'W_gk'):
+            W_gk = self.W_gk
+        if hasattr(self,'W_kg'):
+            W_kg = self.W_kg
+        if hasattr(self,'Wp_k'):
+            Wp_k = self.Wp_k
+       
+        self.calc_components_lineshape()
+        
+        #if freq is not None:
+        #    Wp_kq = np.zeros([self.rel_tensor_single.dim,self.rel_tensor_double.dim,freq.size])
+        #    
+        #    self_freq = self.freq
+        #    
+        #    for q in range(self.rel_tensor_single.dim):
+        #        for k in range(self.rel_tensor_single.dim):
+        #            norm = np.max(self.Wp_kq[k,q])
+        #            Wp_kq_spl = UnivariateSpline(self_freq,self.Wp_kq[k,q]/norm)
+        #            Wp_kq[k,q] = Wp_kq_spl(freq).T*norm
+        #else:
+        #    Wp_kq = self.Wp_kq
+         
+        freq,GSB_k,SE_k,ESA_k,PP_k = self.get_pump_probe_k(pop_t,freq=freq)
+            
+        M_ij = np.dot(dipoles,dipoles.T)
+        #M_ijQR = ??
+        
+        GSB_ij = M_ij[:,:,None]*np.einsum('ik,kw,jk->ijw',self.rel_tensor_single.U,GSB_k,self.rel_tensor_single.U)
+        GSB_i = GSB_ij.sum(axis=0)
+        
+        SE_ij = M_ij[:,:,None,None]*np.einsum('ik,ktw,jk->ijtw',self.rel_tensor_single.U,SE_k,self.rel_tensor_single.U)
+        SE_i = SE_ij.sum(axis=0)
+        
+        
+        
+        #ESA_kq = np.einsum('tk,kqw->kqtw',pop_t,Wp_kq)
+        #ESA_ijQR = M_ijQR[:,:,:,:,None]*np.einsum('ik,jk,Qq,Rq,kqtw->ijQRtw',self.rel_tensor_single.U,self.rel_tensor_single.U,self.rel_tensor_double.U,self.rel_tensor_double.U,ESA_kq)
+        #ESA_i = ESA_ijQR.sum(axis=(0,1,2,3))
+
+        
+        #ESA_ij = M_ij[:,:,None,None]*np.einsum('ik,ktw,jk->ijtw',self.rel_tensor_single.U,ESA_k,self.rel_tensor_single.U)
+        #ESA_i = ESA_ij.sum(axis=0)
+                
+        #PP_i = SE_i + ESA_i + np.asarray([GSB_i]*pop_t.shape[0]).transpose((1,0,2))
+
+        if 'W_gk' in locals():
+            self.W_gk = W_gk
+        else:
+            del self.W_gk
+
+        if 'W_kg' in locals():
+            self.W_kg = W_kg
+        else:
+            del self.W_kg
+        
+        if 'Wp_k' in locals():
+            self.Wp_k = Wp_k
+        else:
+            del self.Wp_k
+
+        return freq,GSB_i,SE_i#,ESA_i,PP_i
         
     @property
     def factFT(self):
