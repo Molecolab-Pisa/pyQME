@@ -138,7 +138,7 @@ class RedfieldTensorComplex(RedfieldTensor):
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if hasattr(self,'GammF'):
-            return -0.5*(np.einsum('aaaa->a',self.GammF) - np.einsum('akka->a',self.GammF))
+            return -(np.einsum('aaaa->a',self.GammF) - np.einsum('akka->a',self.GammF))
         else:
             SD_id_list = self.SD_id_list
 
