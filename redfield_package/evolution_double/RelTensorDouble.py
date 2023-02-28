@@ -66,12 +66,14 @@ class RelTensorDouble():
             self.ene, self.U = np.linalg.eigh(self.H)
 
         elif self.specden_adiabatic is not None:
-            reorg_site = np.asarray([self.specden_adiabatic.Reorg[self.SD_id_list[i]] + self.specden_adiabatic.Reorg[self.SD_id_list[j]] for i,j in self.pairs])
+            reorg_site = np.asarray([self.specden_adiabatic.Reorg[self.SD_id_list[i]] + self.specden_adiabatic.Reorg[self.SD_id_list[j]] for i,j in self.pairs])[0]
             np.fill_diagonal(self.H,np.diag(self.H)-reorg_site)
             self.ene, self.U = np.linalg.eigh(self.H)
             
             self._calc_c_nmq()
-            self.lambda_q_no_bath = self.get_lambda_q_no_bath()
+            self._calc_weight_qqqq()
+            self.lambda_q_no_bath = np.dot(self.weight_qqqq.T,self.specden_adiabatic.Reorg)
+            #self.lambda_q_no_bath = self.get_lambda_q_no_bath()
                         
             self.ene = self.ene + self.lambda_q_no_bath
             
@@ -220,49 +222,3 @@ class RelTensorDouble():
         lambda_site = self.specden.Reorg
         weight = self.weight_qqqq
         self.lambda_q = np.dot(weight.T,lambda_site)
-    
-    def get_lambda_q_no_bath(self):
-        lambda_q_no_bath = np.zeros([self.dim])
-        SD_id_list = self.SD_id_list
-        reorg_site = self.specden.Reorg
-        reorg_site_adiabatic = self.specden_adiabatic.Reorg
-        pairs = self.pairs
-        c_nmq = self.c_nmq
-        for q in range(self.dim):
-#            print('\nq: ',q)
-            for Q1 in range(self.dim):
-                n,m = pairs[Q1]
-                reorg_bath = reorg_site[SD_id_list[n]]-reorg_site_adiabatic[SD_id_list[n]]+reorg_site[SD_id_list[m]]-reorg_site_adiabatic[SD_id_list[m]]
-#                print('\nQ1: ',Q1,'= (',n,m,')')
-                for Q2 in range(self.dim):
-                    n_pr,m_pr = pairs[Q2]
-                    reorg = 0.0
-                    
-                    if Q1 == Q2:
-                        reorg = reorg + reorg_site[SD_id_list[m]] + reorg_site[SD_id_list[n]] - reorg_bath
-                    else:
-                        msk = pairs[Q1] == pairs[Q2]
-                        msk2 = pairs[Q1] == pairs[Q2][::-1]
-                        if np.any(msk):
-                            index = np.where(msk==True)[0][0]
-                            i = pairs[Q1][index]
-                            reorg = reorg + reorg_site[SD_id_list[i]] - reorg_bath 
-                        elif np.any(msk2):
-                            index = np.where(msk2==True)[0][0]
-                            i = pairs[Q1][index]
-                            reorg = reorg + reorg_site[SD_id_list[i]]  - reorg_bath
-                        else:
-                            if self.include_no_delta_term:
-                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[n]] - reorg_bath)         # - 2*(reorg_site[SD_id_list[n]] - reorg_site_adiabatic[SD_id_list[n]])
-                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[n_pr]] - reorg_bath)      # - 2*(reorg_site[SD_id_list[n_pr]] - reorg_site_adiabatic[SD_id_list[n_pr]]))
-                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[m]] - reorg_bath)         # - 2*(reorg_site[SD_id_list[m]] - reorg_site_adiabatic[SD_id_list[m]]))
-                                reorg = reorg + 0.25*reorg_old             #(reorg_site[SD_id_list[m_pr]] - reorg_bath)      # - 2*(reorg_site[SD_id_list[m_pr]] - reorg_site_adiabatic[SD_id_list[m_pr]]))
-                        if self.include_no_delta_term:
-                            reorg_old = reorg
-                                
-                
-                
-                    lambda_q_no_bath[q] = lambda_q_no_bath[q] + reorg*(c_nmq[n,m,q]*c_nmq[n_pr,m_pr,q])**2
-
-#                    print('\nQ2: ',Q2,'= (',n_pr,m_pr,')', (c_nmq[n,m,q]*c_nmq[n_pr,m_pr,q])**2,reorg,reorg_bath)
-        return lambda_q_no_bath
