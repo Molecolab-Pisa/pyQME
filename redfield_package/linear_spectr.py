@@ -191,6 +191,9 @@ class LinearSpectraCalculator():
         RWA = self.RWA
         t = self.time
         lambda_k = self.rel_tensor.get_lambda_k()
+        
+        self.excdip = self.rel_tensor.transform(dipoles,dim=1)
+        self.excd2 = np.sum(self.excdip**2,axis=1)
 
         
         eqpop = self._get_eq_populations()
@@ -203,7 +206,7 @@ class LinearSpectraCalculator():
         
         # Do hermitian FFT (-> real output)
         self.FL = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self.factFT
-        self.FL = self.FL * self.freq**3 * factOD #here quantarhei uses the first power of the frequency (spontaneous emission)             #FIXME E' GIUSTO USARE FACT OD QUI?
+        self.FL = self.FL * self.freq**3 * factOD #here quantarhei uses the first power of the frequency (spontaneous emission)
                 
         if freq is not None:
             FLspl = UnivariateSpline(self.freq,self.FL,s=0)
