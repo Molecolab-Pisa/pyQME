@@ -21,6 +21,7 @@ class ForsterTensor(RelTensor):
         time_axis = self.specden.time
         Reorg = self.specden.Reorg
         rates = np.empty([self.dim,self.dim])
+        dephasing = self.dephasing
         for D in range(self.dim):
             gD = gt[self.SD_id_list[D]]
             ReorgD = Reorg[self.SD_id_list[D]]

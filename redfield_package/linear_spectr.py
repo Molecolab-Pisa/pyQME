@@ -61,7 +61,8 @@ class LinearSpectraCalculator():
 
     def _get_eq_populations(self):
         "This function computes the boltzmann equilibriu population for fluorescence spectra"
-        e00 = self.rel_tensor.ene   # - self.rel_tensor.reorg_exc_kkkk
+        lambda_k = self.rel_tensor.get_lambda_k()
+        e00 = self.rel_tensor.ene  - self.rel_tensor.lambda_k
         red_en = e00 - np.min(e00)
         boltz = np.exp(-red_en*self.rel_tensor.specden.beta)
         partition = np.sum(boltz)
@@ -197,6 +198,7 @@ class LinearSpectraCalculator():
 
         
         eqpop = self._get_eq_populations()
+        print(eqpop)
                
         time_FL = np.zeros(self.time.shape,dtype=np.complex128)
         for (k,e_k) in enumerate(self.rel_tensor.ene):

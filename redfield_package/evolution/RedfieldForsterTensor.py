@@ -20,7 +20,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         gt_exc = self.get_g_k()
         Reorg_exc = self.get_lambda_k()
         self.V_exc = self.transform(self.V)
-
+        
         rates = np.empty([self.dim,self.dim])
         for D in range(self.dim):
             gD = gt_exc[D]
@@ -30,13 +30,13 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
                 ReorgA = Reorg_exc[A]
                 
                 #D-->A rate
-                exponent = 1j*(self.Om[A,D]+2*ReorgD)*time_axis+gD+gA
+                exponent = 1j*(self.Om[A,D]+2*ReorgD)*time_axis+gD+gA#+np.conj(dephasing[D])+dephasing[A]
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
 
                 #A-->D rate
-                exponent = 1j*(self.Om[D,A]+2*ReorgA)*time_axis+gD+gA
+                exponent = 1j*(self.Om[D,A]+2*ReorgA)*time_axis+gD+gA#+np.conj(dephasing[A])+dephasing[D]
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
@@ -50,31 +50,32 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         """This function computes the Redfield-Forster energy transfer rates
 
         """
-        if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates()
         if not hasattr(self,'rates'):
-            super()._calc_rates()
-        self.rates = self.forster_rates + self.rates
+            if not hasattr(self,'forster_rates'):
+                self._calc_forster_rates()
+            if not hasattr(self,'rates'):
+                super()._calc_rates()
+            self.rates = self.forster_rates + self.rates
 
     def _calc_tensor(self,secularize=True):
         """Computes the tensor of Redfield-Forster energy transfer rates
         
         secularize: Bool
             if True, the relaxation tensor will be secularized"""
-
-        if not hasattr(self, 'forster_rates'):
-            self._calc_forster_rates()
-
-        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
-        np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
-
         if not hasattr(self,'RTen'):
-            super()._calc_tensor()
+            if not hasattr(self, 'forster_rates'):
+                self._calc_forster_rates()
 
-        self.RTen = self.RTen + Forster_Tensor
-        
-        if secularize:
-            self.secularize()
+            Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
+            np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
+
+            if not hasattr(self,'RTen'):
+                super()._calc_tensor()
+
+            self.RTen = self.RTen + Forster_Tensor
+
+            if secularize:
+                self.secularize()
 
         pass
 
@@ -82,9 +83,8 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates()
+                self._calc_forster_rates()
         return (super().dephasing - 0.5*np.diag(self.forster_rates))
-    
 
 class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
@@ -133,32 +133,35 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
         """This function computes the Redfield-Forster energy transfer rates
 
         """
-        if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates()
         if not hasattr(self,'rates'):
-            super()._calc_rates()
-        self.rates = self.forster_rates + self.rates
+            if not hasattr(self,'forster_rates'):
+                self._calc_forster_rates()
+            if not hasattr(self,'rates'):
+                super()._calc_rates()
+            self.rates = self.forster_rates + self.rates
 
     def _calc_tensor(self,secularize=True):
         """Computes the tensor of Redfield-Forster energy transfer rates
         
         secularize: Bool
             if True, the relaxation tensor will be secularized"""
-
-        if not hasattr(self, 'forster_rates'):
-            self._calc_forster_rates()
-
-        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
-        np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
-
-        if not hasattr(self,'RTen'):
-            super()._calc_tensor()
-            
-
-        self.RTen = self.RTen + Forster_Tensor
         
-        if secularize:
-            self.secularize()
+        if not hasattr(self,'RTen'):
+
+            if not hasattr(self, 'forster_rates'):
+                self._calc_forster_rates()
+
+            Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
+            np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
+
+            if not hasattr(self,'RTen'):
+                super()._calc_tensor()
+
+
+            self.RTen = self.RTen + Forster_Tensor
+
+            if secularize:
+                self.secularize()
 
         pass
 
@@ -217,31 +220,35 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         """This function computes the Redfield-Forster energy transfer rates
 
         """
-        if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates()
+        
         if not hasattr(self,'rates'):
-            super()._calc_rates()
-        self.rates = self.forster_rates + self.rates
+            if not hasattr(self,'forster_rates'):
+                self._calc_forster_rates()
+            if not hasattr(self,'rates'):
+                super()._calc_rates()
+            self.rates = self.forster_rates + self.rates
 
     def _calc_tensor(self,secularize=True):
         """Computes the tensor of Redfield-Forster energy transfer rates
         
         secularize: Bool
             if True, the relaxation tensor will be secularized"""
-
-        if not hasattr(self, 'forster_rates'):
-            self._calc_forster_rates()
-
-        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
-        np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
-
-        if not hasattr(self,'RTen'):
-            super()._calc_tensor()
-
-        self.RTen = self.RTen + Forster_Tensor
         
-        if secularize:
-            self.secularize()
+        if not hasattr(self,'RTen'):
+
+            if not hasattr(self, 'forster_rates'):
+                self._calc_forster_rates()
+
+            Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
+            np.einsum('iijj->ij',Forster_Tensor) [...] = self.forster_rates
+
+            if not hasattr(self,'RTen'):
+                super()._calc_tensor()
+
+            self.RTen = self.RTen + Forster_Tensor
+
+            if secularize:
+                self.secularize()
 
         pass
 
