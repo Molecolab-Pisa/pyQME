@@ -70,8 +70,6 @@ class ModifiedRedfieldTensor(RelTensor):
     def _calc_tensor(self,secularize=True):
         "Computes the tensor of Modified energy transfer rates"
 
- 
-
         if not hasattr(self, 'rates'):
             self._calc_rates()
             

@@ -13,20 +13,17 @@ class RedfieldTensor(RelTensor):
     def _calc_rates(self):
         """This function computes the Redfield energy transfer rates
         """
+        
 
-        if not hasattr(self,'RTen'):
+        coef2 = self.U**2
 
-            coef2 = self.U**2
+        SD_id_list  = self.SD_id_list
 
-            SD_id_list  = self.SD_id_list
-
-            rates = np.zeros([self.dim,self.dim],dtype=type(self.evaluate_SD_in_freq(0)[0,0]))
-            for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-                Cw_matrix = self.evaluate_SD_in_freq(SD_id)
-                mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-                rates = rates + np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)                
-        else:
-            rates = np.einsum('aabb->ab',self.RTen)
+        rates = np.zeros([self.dim,self.dim],dtype=type(self.evaluate_SD_in_freq(0)[0,0]))
+        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+            Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
+            rates = rates + np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)                
 
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
@@ -35,6 +32,7 @@ class RedfieldTensor(RelTensor):
 
     def _calc_tensor(self,secularize=True):
         "Computes the tensor of Redfield energy transfer rates"
+
 
         SD_id_list = self.SD_id_list
 
@@ -97,6 +95,7 @@ class RedfieldTensorReal(RedfieldTensor):
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+              
         if hasattr(self,'RTen'):
             return -0.5*np.einsum('aaaa->a',self.RTen)
         else:
