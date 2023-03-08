@@ -23,6 +23,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
     def _calc_forster_rates(self):
         """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
         """
+        
         time_axis = self.specden.time
         gt_exc = self.get_g_k()
         Reorg_exc = self.get_lambda_k()
@@ -42,13 +43,13 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
                 ReorgA = Reorg_exc[A]
                 
                 #D-->A rate
-                exponent = 1j*(self.Om[A,D]+2*ReorgD+redf_dephasing[D]+redf_dephasing[A])*time_axis+gD+gA
+                exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
                 #A-->D rate
-                exponent = 1j*(self.Om[D,A]+2*ReorgA+redf_dephasing[A]+redf_dephasing[D])*time_axis+gD+gA
+                exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -67,6 +68,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
 
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
+            
         if not hasattr(self,'rates'):
             super()._calc_rates()
         self.rates = self.forster_rates + self.rates
@@ -81,7 +83,6 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         if hasattr(self,'RTen'):
             del self.RTen
         
-
         if not hasattr(self,'RTen'):
             super()._calc_tensor()
 
@@ -101,10 +102,16 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
-        if not hasattr(self,'forster_rates'):
-                self._calc_forster_rates()
+        
+        if hasattr(self,'rates'):
+            return -0.5*np.diag(self.rates)
+        elif hasattr(self,'RTen'):
+            return -0.5*np.einsum('aaaa->a',self.RTen)
 
-        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
+        else:        
+            if not hasattr(self,'forster_rates'):
+                    self._calc_forster_rates()
+            return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
 
 class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
@@ -143,16 +150,16 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
                 ReorgA = Reorg_exc[A]
                 
                 #D-->A rate
-                exponent = 1j*(self.Om[A,D]+2*ReorgD+np.conj(redf_dephasing[D])+redf_dephasing[A])*time_axis+gD+gA
+                exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
-                rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
+                rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
                 #A-->D rate
-                exponent = 1j*(self.Om[D,A]+2*ReorgA+np.conj(redf_dephasing[A])+redf_dephasing[D])*time_axis+gD+gA
+                exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
-                rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
+                rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
@@ -202,10 +209,12 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
-        if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates()
-        
-        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
+        if hasattr(self,'rates'):
+            return -0.5*np.diag(self.rates)
+        else:        
+            if not hasattr(self,'forster_rates'):
+                    self._calc_forster_rates()
+            return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
     
     
 class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
@@ -247,16 +256,16 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
                 ReorgA = Reorg_exc[A]
                 
                 #D-->A rate
-                exponent = 1j*(self.Om[A,D]+2*ReorgD+np.conj(redf_dephasing[D])+redf_dephasing[A])*time_axis+gD+gA
+                exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
-                rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
+                rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
                 #A-->D rate
-                exponent = 1j*(self.Om[D,A]+2*ReorgA+np.conj(redf_dephasing[A])+redf_dephasing[D])*time_axis+gD+gA
+                exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
-                rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
+                rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
@@ -306,7 +315,12 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
-        if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates()
-        
-        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
+        if hasattr(self,'rates'):
+            return -0.5*np.diag(self.rates)
+        elif hasattr(self,'RTen'):
+            return -0.5*np.einsum('aaaa->a',self.RTen)
+
+        else:        
+            if not hasattr(self,'forster_rates'):
+                    self._calc_forster_rates()
+            return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))

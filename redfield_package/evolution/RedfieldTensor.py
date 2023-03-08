@@ -95,6 +95,7 @@ class RedfieldTensorReal(RedfieldTensor):
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        
               
         if hasattr(self,'RTen'):
             return -0.5*np.einsum('aaaa->a',self.RTen)
