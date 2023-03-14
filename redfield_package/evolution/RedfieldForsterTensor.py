@@ -7,10 +7,11 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
+        self.include_exponential_term = include_exponential_term
         super().__init__(H_part,specden,SD_id_list,initialize,specden_adiabatic)
     
     @property
@@ -34,22 +35,35 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         else:
             redf_dephasing = np.zeros(self.dim)
             
+        if self.include_exponential_term:
+            self._calc_weight_kkll()
+            g_site = self.specden.get_gt(derivs=0)
+            g_KKLL = np.dot(self.weight_kkll.T,g_site)
+            reorg_site = self.specden.Reorg
+            reorg_KKLL = np.dot(self.weight_kkll.T,reorg_site)
+            
+            
         rates = np.empty([self.dim,self.dim])
         for D in range(self.dim):
             gD = gt_exc[D]
             ReorgD = Reorg_exc[D]
             for A in range(D+1,self.dim):
+                
                 gA = gt_exc[A]
                 ReorgA = Reorg_exc[A]
                 
                 #D-->A rate
                 exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_KKLL[A,D]+1j*time_axis*reorg_KKLL[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
                 #A-->D rate
                 exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_KKLL[D,A]+1j*time_axis*reorg_KKLL[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -105,6 +119,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         
         if hasattr(self,'rates'):
             return -0.5*np.diag(self.rates)
+        
         elif hasattr(self,'RTen'):
             return -0.5*np.einsum('aaaa->a',self.RTen)
 
@@ -117,10 +132,11 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
+        self.include_exponential_term = include_exponential_term
         super().__init__(H_part,specden,SD_id_list,initialize,specden_adiabatic)
 
     @property
@@ -141,6 +157,13 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
         else:
             redf_dephasing = np.zeros(self.dim)
 
+        if self.include_exponential_term:
+            self._calc_weight_kkll()
+            g_site = self.specden.get_gt(derivs=0)
+            g_KKLL = np.dot(self.weight_kkll.T,g_site)
+            reorg_site = self.specden.Reorg
+            reorg_KKLL = np.dot(self.weight_kkll.T,reorg_site)
+            
         rates = np.empty([self.dim,self.dim])
         for D in range(self.dim):
             gD = gt_exc[D]
@@ -151,12 +174,16 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
                 
                 #D-->A rate
                 exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_KKLL[A,D]+1j*time_axis*reorg_KKLL[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
                 #A-->D rate
                 exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_KKLL[D,A]+1j*time_axis*reorg_KKLL[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -221,10 +248,11 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     """Redfield Forster Tensor class where combined Modified-Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
+        self.include_exponential_term = include_exponential_term
         super().__init__(H_part,specden,SD_id_list,initialize,specden_adiabatic)
         
     @property
@@ -247,6 +275,13 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         else:
             redf_dephasing = np.zeros(self.dim)
             
+        if self.include_exponential_term:
+            self._calc_weight_kkll()
+            g_site = self.specden.get_gt(derivs=0)
+            g_KKLL = np.dot(self.weight_kkll.T,g_site)
+            reorg_site = self.specden.Reorg
+            reorg_KKLL = np.dot(self.weight_kkll.T,reorg_site)
+            
         rates = np.empty([self.dim,self.dim])
         for D in range(self.dim):
             gD = gt_exc[D]
@@ -257,12 +292,16 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
                 
                 #D-->A rate
                 exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_KKLL[A,D]+1j*time_axis*reorg_KKLL[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
 
                 #A-->D rate
                 exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_KKLL[D,A]+1j*time_axis*reorg_KKLL[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
