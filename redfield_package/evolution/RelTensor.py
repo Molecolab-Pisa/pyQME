@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.sparse.linalg import expm_multiply
+from scipy import linalg as la
 
 class RelTensor():
     "Relaxation tensor class"
@@ -192,6 +193,48 @@ class RelTensor():
         R_rho  += -1.j*self.Om*rho.reshape((self.dim,self.dim))
         
         return R_rho.reshape(shape_)
+
+    def _propagate_eig(self,rho,t):
+        """Propagate the density matrix rho using eigendecomposition.
+        It is assumed (and NOT checked) that the Liouvillian is diagonalizable.
+
+        rho: np.array (N,N)
+            initial density matrix
+        t: np.array (M)
+            time axis over which the density matrix will be propagated
+
+        Returns
+        
+        rhot: np.array (M,N,N)
+            propagated density matrix. The time index is the first index of the array.
+        """
+
+        eye   = np.eye(self.dim)
+        Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
+
+        A = Liouv.reshape(self.dim**2,self.dim**2)
+        rho_ = rho.reshape(self.dim**2)
+
+        # Compute left-right eigendecomposition
+        kk,vl,vr = la.eig(A,left=True,right=True)
+
+        vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
+
+        self.liouv_vr = vr
+        self.liouv_vl = vl
+        self.liouv_ev = kk
+
+        # Compute exponentials
+        y0 = np.dot(vl.conj().T,rho_)
+        exps = np.exp( np.einsum('k,l->kl',kk,t) )
+        
+        rhot = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
+
+        if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
+            rhot = np.real(rhot)
+         
+        return rhot.reshape(-1,self.dim,self.dim)
+
     
     def _propagate_exp(self,rho,t,only_diagonal=False):
         """This function time-propagates the density matrix rho due to the Redfield energy transfer
