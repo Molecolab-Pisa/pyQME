@@ -98,7 +98,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
             del self.RTen
         
         if not hasattr(self,'RTen'):
-            super()._calc_tensor()
+            super()._calc_tensor(secularize=secularize)
 
         if not hasattr(self, 'forster_rates'):
             self._calc_forster_rates()
@@ -108,8 +108,8 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
 
         self.RTen = self.RTen + Forster_Tensor
 
-        if secularize:
-            self.secularize()
+        #if secularize:
+        #    self.secularize()
 
         pass
 
@@ -218,7 +218,7 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
 
 
             if not hasattr(self,'RTen'):
-                super()._calc_tensor()
+                super()._calc_tensor(secularize=secularize)
 
             if not hasattr(self, 'forster_rates'):
                 self._calc_forster_rates()
@@ -228,8 +228,8 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
 
             self.RTen = self.RTen + Forster_Tensor
 
-            if secularize:
-                self.secularize()
+            #if secularize:
+            #    self.secularize()
 
         pass
 
