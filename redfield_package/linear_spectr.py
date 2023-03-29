@@ -9,7 +9,7 @@ factOD = 108.86039
 class LinearSpectraCalculator():
     "Class for calculations of all linear spectra"
     
-    def __init__(self,rel_tensor,RWA=None,include_dephasing=False):
+    def __init__(self,rel_tensor,RWA=None,include_dephasing=False,include_deph_real=True):
         """initialize the class
         
         rel_tensor: Class
@@ -24,6 +24,7 @@ class LinearSpectraCalculator():
         self.coef = self.rel_tensor.U.T
                         
         self.include_dephasing= include_dephasing
+        self.include_deph_real = include_deph_real
         
         # Get RWA frequ
         self.RWA = RWA
@@ -48,6 +49,8 @@ class LinearSpectraCalculator():
         "Get dephasing lifetime rates in cm from tensor"
         if self.include_dephasing:
             self.dephasing = self.rel_tensor.dephasing
+            if not self.include_deph_real:
+                self.dephasing = 1j*self.dephasing.imag
         else:
             self.dephasing = np.zeros(self.rel_tensor.dim)
     

@@ -170,7 +170,7 @@ def partition_by_clusters(H,cluster_list,RF=True):
     H: np.array(dim = [n_exciton,n_exciton])
     exciton Hamiltonian
     
-    cluster_list: lsit
+    cluster_list: list
     List of clusters. Each element must be a list of indeces of chromophores in the same cluster.
     
     RF: boolean
@@ -212,6 +212,12 @@ def underdamped_brownian(freq_axis,gamma,lambd,omega):
     num = 2*lambd*(omega**2)*freq_axis*gamma
     den = (omega**2-freq_axis**2)**2 + (freq_axis*gamma)**2
     return num/den
+
+def drude_lorentz(freq_axis,gamma,lamda):
+    num = 2*lamda*gamma*freq_axis
+    den = (freq_axis)**2 + gamma**2
+    return num/den
+    
 
 def get_timeaxis(reorg,ene_list,maxtime):    #maxtime in ps
     "Get time axis"
