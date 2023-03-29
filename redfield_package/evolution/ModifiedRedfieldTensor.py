@@ -3,7 +3,7 @@ from .RelTensor import RelTensor
 from ..utils import wn2ips
 
 #try:
-from numba import jit
+from numba import jit,prange
 #except:
 #    jit = lambda x: x
 
@@ -129,6 +129,27 @@ def _calc_modified_redfield_rates(Om,weight_kkll,weight_kkkl,reorg_site,g_site,g
         gddot_KLLK += w2*gddot_site[i].reshape(1,1,-1)
 
 
+#   rates = np.zeros((dim,dim),dtype=np.float64)
+#   for D in range(dim):
+#       gD = g_KKLL[D,D]
+#       ReorgD = reorg_KKLL[D,D]
+#       for A in range(dim):
+#           if D == A: continue
+#           gA = g_KKLL[A,A]
+#           ReorgA = reorg_KKLL[A,A]
+#   
+#           energy = Om[A,D]+2*(ReorgD-reorg_KKLL[D,A])
+#           exponent = 1j*energy*time_axis + gD + gA - 2*g_KKLL[D,A]
+#           g_derivatives_term = gddot_KLLK[D,A]-(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])*(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])
+#           integrand = np.exp(-exponent)*g_derivatives_term
+#           integral = np.trapz(integrand*damper,time_axis)
+#           rates[A,D] = 2.*integral.real
+
+    rates = _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damper,time_axis)
+    
+    return rates
+
+def _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damper,time_axis):
     rates = np.zeros((dim,dim),dtype=np.float64)
     for D in range(dim):
         gD = g_KKLL[D,D]
@@ -139,17 +160,16 @@ def _calc_modified_redfield_rates(Om,weight_kkll,weight_kkkl,reorg_site,g_site,g
             ReorgA = reorg_KKLL[A,A]
     
             energy = Om[A,D]+2*(ReorgD-reorg_KKLL[D,A])
-            exponent = 1j*energy*time_axis+gD+gA-2*g_KKLL[D,A]
+            exponent = 1j*energy*time_axis + gD + gA - 2*g_KKLL[D,A]
             g_derivatives_term = gddot_KLLK[D,A]-(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])*(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])
             integrand = np.exp(-exponent)*g_derivatives_term
             integral = np.trapz(integrand*damper,time_axis)
             rates[A,D] = 2.*integral.real
-    
-    
+
     return rates
 
 # Possibly create jitted function
 _calc_modified_redfield_rates = jit(_calc_modified_redfield_rates,nopython=True)
-
+_mr_rates_loop = jit(_mr_rates_loop,nopython=True,parallel=True)
 
 
