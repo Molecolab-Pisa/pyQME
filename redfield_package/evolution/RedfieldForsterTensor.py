@@ -132,16 +132,21 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True,include_exponential_term=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_exponential_term = include_exponential_term
+        self.include_redfield_dephasing_real = include_redfield_dephasing_real
         super().__init__(H_part,specden,SD_id_list,initialize,specden_adiabatic)
 
     @property
     def redfield_dephasing(self):
-        return super().dephasing
+            
+        if self.include_redfield_dephasing_real:
+            return super().dephasing
+        else:
+            return 1j*super().dephasing.imag
     
     def _calc_forster_rates(self):
         """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates

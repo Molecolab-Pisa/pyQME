@@ -1,6 +1,7 @@
 import numpy as np
 from .RelTensorDouble import RelTensorDouble
 from ..utils import get_H_double
+from opt_einsum import contract
 
 class RedfieldTensorDouble(RelTensorDouble):
     """Redfield Tensor class where Redfield Theory is used to model energy transfer processes
@@ -19,6 +20,41 @@ class RedfieldTensorDouble(RelTensorDouble):
             self._calc_rates()
         return self.rates
 
+    def _calc_rates_loop(self):
+        c_nmq = self.c_nmq.transpose(1,0,2)
+        SD_id_list  = self.SD_id_list
+        #rates = np.zeros([self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(SD_id_list[0])[0,0]))
+        tmp1 = np.zeros([self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(SD_id_list[0])[0,0]))
+        tmp2 = np.zeros([self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(SD_id_list[0])[0,0]))
+        tmp3 = np.zeros([self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(SD_id_list[0])[0,0]))
+        tmp4 = np.zeros([self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(SD_id_list[0])[0,0]))
+        for l in range(self.dim_single):
+            Cw_matrix_l = self.evaluate_SD_in_freq(SD_id_list[l])
+            for k in range(l+1,self.dim_single):
+                Cw_matrix_k = self.evaluate_SD_in_freq(SD_id_list[k])
+                for lp in range(self.dim_single):
+                    for kp in range(lp+1,self.dim_single):
+                        for Q in range(self.dim):
+                            for R in range(self.dim):
+                                tmp = c_nmq[k,l,Q]*c_nmq[kp,lp,Q]*c_nmq[k,l,R]*c_nmq[kp,lp,R]
+                                if k == kp:
+                                    tmp1[Q,R] = tmp1[Q,R] + Cw_matrix_k[Q,R]*tmp
+                                if k == lp:
+                                    tmp2[Q,R] = tmp2[Q,R] + Cw_matrix_k[Q,R]*tmp
+                                if l == kp:
+                                    tmp3[Q,R] = tmp3[Q,R] + Cw_matrix_l[Q,R]*tmp 
+                                if l == lp:
+                                    tmp4[Q,R] = tmp4[Q,R] + Cw_matrix_l[Q,R]*tmp 
+        
+        self.tmp1 = tmp1
+        self.tmp2 = tmp2
+        self.tmp3 = tmp3
+        self.tmp4 = tmp4
+        rates = tmp1 + tmp2 + tmp3 + tmp4
+        rates[np.diag_indices_from(rates)] = 0.0
+        rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
+        self.rates = rates
+
     def _calc_rates(self):
         """This function computes the Redfield energy transfer rates
         """
@@ -31,12 +67,6 @@ class RedfieldTensorDouble(RelTensorDouble):
         rates = np.zeros([self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(SD_id_list[0])[0,0]))
 
         eye_tensor = np.zeros([self.dim_single,self.dim_single,self.dim_single,self.dim_single])
-        for n in range(self.dim_single):
-            for m in range(self.dim_single):
-                for o in range(self.dim_single):
-                    for p in range(self.dim_single):
-                        if n != p and m!=o and m != p and n!=o:
-                            eye_tensor[n,m,o,p] = 1.0
                             
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
@@ -44,15 +74,24 @@ class RedfieldTensorDouble(RelTensorDouble):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             eye_mask = eye[mask,:][:,mask]
             
-            rates = rates + np.einsum('no,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],Cw_matrix)   #delta_no
-            rates = rates + np.einsum('mp,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],Cw_matrix)   #delta_mp
-            rates = rates + np.einsum('np,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],Cw_matrix)   #delta_np
-            rates = rates + np.einsum('np,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],Cw_matrix)   #delta_np
+            rates = rates + contract('no,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],Cw_matrix)   #delta_no (k,k')
+            rates = rates + contract('mp,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],Cw_matrix)   #delta_mp (l,l')
+            if len([*set(SD_id_list)]) == 1:
+                print('here1')
+                rates = rates + 2*contract('np,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],Cw_matrix)   #delta_np (k,l')
+            else:
+                print('here2')
+                rates = rates + contract('np,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],Cw_matrix)   #delta_np (k,l')
+                rates = rates + contract('mo,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],Cw_matrix)   #delta_mo (k',l)
 
-            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[mask,:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],Cw_matrix)
-            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,mask,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],Cw_matrix)
-            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,:,mask,:],c_nmq[:,:,:],c_nmq[mask,:,:],c_nmq[:,:,:],c_nmq[mask,:,:],Cw_matrix)
-            #rates = rates + 0.25*np.einsum('nmop,nmq,opr,nmr,opq,qr->qr',eye_tensor[:,:,:,mask],c_nmq[:,:,:],c_nmq[:,mask,:],c_nmq[:,:,:],c_nmq[:,mask,:],Cw_matrix)
+            #self.tmp1 = np.einsum('no,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],Cw_matrix)   #delta_no
+            #self.tmp2 = np.einsum('mp,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],Cw_matrix)   #delta_mp
+            #self.tmp3 = np.einsum('np,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],Cw_matrix)   #delta_np
+            #self.tmp4 = np.einsum('mo,nmq,opr,nmr,opq,qr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],Cw_matrix)   #delta_mo
+            #rates = rates + self.tmp1
+            #rates = rates + self.tmp2
+            #rates = rates + self.tmp3
+            #rates = rates + self.tmp4
         
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
