@@ -58,15 +58,9 @@ class RedfieldTensorDouble(RelTensorDouble):
         
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
-        self.rates = rates
-        
-    @property
-    def dephasing(self):
-        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
-        if not hasattr(self,'rates'):
-            self._calc_rates()
-        return -0.5*np.diag(self.rates)
-    
+        self.rates_imag = rates.imag
+        self.rates = rates.real
+            
 class RedfieldTensorRealDouble(RedfieldTensorDouble):
     """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes
     This class is a subclass of RedfieldTensor Class"""
@@ -83,6 +77,13 @@ class RedfieldTensorRealDouble(RedfieldTensorDouble):
             index of the spectral density which will be evaluated referring to the list of spectral densities passed to the SpectralDensity class"""
         return self.specden(self.Om.T,SD_id=SD_id,imag=False)
     
+    @property
+    def dephasing(self):
+        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        if not hasattr(self,'rates'):
+            self._calc_rates()
+        return -0.5*np.diag(self.rates)
+    
 class RedfieldTensorComplexDouble(RedfieldTensorDouble):
     "Real Redfield Tensor class"
 
@@ -97,3 +98,10 @@ class RedfieldTensorComplexDouble(RedfieldTensorDouble):
         SD_id: integer
             index of the spectral density which will be evaluated referring to the list of spectral densities passed to the SpectralDensity class"""
         return self.specden(self.Om.T,SD_id=SD_id,imag=True)
+    
+    @property
+    def dephasing(self):
+        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        if not hasattr(self,'rates'):
+            self._calc_rates()
+        return -0.5*np.diag(self.rates+1j*self.rates_imag)

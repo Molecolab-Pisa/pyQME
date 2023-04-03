@@ -19,9 +19,9 @@ class RedfieldTensor(RelTensor):
 
         SD_id_list  = self.SD_id_list
 
-        rates = np.zeros([self.dim,self.dim],dtype=type(self.evaluate_SD_in_freq(0)[0,0]))
+        rates = np.zeros([self.dim,self.dim])
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-            Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+            Cw_matrix = self.evaluate_SD_in_freq(SD_id).real
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             rates = rates + np.einsum('ka,kb,ab->ab',coef2[mask,:],coef2[mask,:],Cw_matrix)                
 
