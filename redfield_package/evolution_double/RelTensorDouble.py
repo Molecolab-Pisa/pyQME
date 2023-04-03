@@ -146,8 +146,11 @@ class RelTensorDouble():
             eye_mask = eye[mask,:][:,mask]
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('no,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[mask,:,:]**2)   #delta_no
             weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('mp,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[:,mask,:]**2)   #delta_mp
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 2*contract('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2)   #delta_np
-            #weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mo,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[mask,:,:]**2)   #delta_mo
+            if len([*set(SD_id_list)]) == 1:
+                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 2*contract('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2)   #delta_np
+            else:
+                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2)   #delta_np
+                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('mo,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[mask,:,:]**2)   #delta_mo
             if self.include_no_delta_term:
                 weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*contract('nmop,nmq,opq->q',eye_tensor[mask,:,:,:],c_nmq[mask,:,:]**2,c_nmq[:,:,:]**2)
                 weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*contract('nmop,nmq,opq->q',eye_tensor[:,mask,:,:],c_nmq[:,mask,:]**2,c_nmq[:,:,:]**2)
@@ -173,8 +176,11 @@ class RelTensorDouble():
             
             weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('no,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
             weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('mp,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + 2*contract('np,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
-            #weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('mo,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])   #delta_np
+            if len([*set(SD_id_list)]) == 1:            
+                weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + 2*contract('np,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
+            else:
+                weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('np,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
+                weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('mo,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])   #delta_mo
         
         self.weight_qqrr = weight_qqrr
         
