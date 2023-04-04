@@ -47,7 +47,6 @@ class RedfieldTensorDouble(RelTensorDouble):
         self.rates_imag = rates.imag
         self.rates = rates.real
         
-        
 class RedfieldTensorRealDouble(RedfieldTensorDouble):
     """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes
     This class is a subclass of RedfieldTensor Class"""

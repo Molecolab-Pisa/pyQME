@@ -55,7 +55,7 @@ class RelTensorDouble():
             for Q in range(self.dim): #double excited localized state
                 n,m = pairs[Q]
                 c_nmq[n,m,q] = self.U[Q,q]
-                #c_nmq[m,n,q] = self.U[Q,q]
+                c_nmq[m,n,q] = self.U[Q,q]
         self.c_nmq = c_nmq
         
         
@@ -128,42 +128,24 @@ class RelTensorDouble():
         c_nmq = self.c_nmq
         SD_id_list = self.SD_id_list
         weight_qqqq = np.zeros([len([*set(SD_id_list)]),self.dim])
-        eye = np.eye(self.dim_single)
         
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-            eye_mask = eye[mask,:][:,mask]
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('no,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[mask,:,:]**2)   #delta_no
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('mp,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[:,mask,:]**2)   #delta_mp
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 2*contract('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2) #2*delta_np (= delta_np + delta_mo)
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('klQ,kLQ->Q', c_nmq[mask,:,:]**2,c_nmq[mask,:,:]**2)
         self.weight_qqqq = weight_qqqq
 
     def _calc_weight_qqrr(self):
         """This function computes the weights for site-->exciton basis transformation"""
         
-
-        c_nmq_halved = self.c_nmq
-        #c_nmq_doubled = self.c_nmq + self.c_nmq.transpose(1,0,2)
-        c_nmq = c_nmq_halved
+        c_nmq = self.c_nmq
         
         SD_id_list = self.SD_id_list
         weight_qqrr = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
-        SD_id_list  = self.SD_id_list
         
-        pairs = self.pairs
-                            
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-            eye_mask = np.eye(len(mask))
-            #weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('kK,klQ,KLQ,klR,KLR->QR', eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])
-            #weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('kL,klQ,KLQ,klR,KLR->QR',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])
-            #weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('kK,lkQ,KLQ,lkR,KLR->QR',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])
-            #weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('kL,lkQ,KLQ,lkR,KLR->QR',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])
-            
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('no,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('mp,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + 2*contract('np,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #2*delta_np (= delta_np + delta_mo)
+            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('klQ,kLQ,klR,kLR->QR', c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])
         
         self.weight_qqrr = weight_qqrr
         
@@ -171,7 +153,11 @@ class RelTensorDouble():
     def _calc_weight_qqqr(self):
         """This function computes the weights for site-->exciton basis transformation"""
 
-        c_nmq = self.c_nmq
+        c_nmq = self.c_nmq.copy()
+        for m in range(self.dim_single):
+            for n in range(m+1,self.dim_single):
+                c_nmq[n,m,:] = 0
+
         SD_id_list = self.SD_id_list
         weight_qqqr = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
         eye = np.eye(self.dim_single)
