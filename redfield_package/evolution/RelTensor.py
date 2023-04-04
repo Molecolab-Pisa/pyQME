@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.sparse.linalg import expm_multiply
 from scipy import linalg as la
+from ..utils import wn2ips
 
 class RelTensor():
     "Relaxation tensor class"
@@ -193,8 +194,27 @@ class RelTensor():
         R_rho  += -1.j*self.Om*rho.reshape((self.dim,self.dim))
         
         return R_rho.reshape(shape_)
+    
+    def propagate(self,rho,t,include_coherences_dynamics=True,propagation_mode='eig',units='1/cm'):
+        
+        if units == 'ps':
+            t = t*wn2ips
+            
+        if include_coherences_dynamics:
+            if not hasattr(self,'RTen'):
+                self._calc_tensor()
+        else:
+            if not hasattr(self,'rates'):
+                self._calc_rates()
+        
+        if propagation_mode == 'eig':
+            rhot = self._propagate_eig(rho,t,include_coherences_dynamics=include_coherences_dynamics)
+        elif propagation_mode == 'exp':
+            rhot = self._propagate_exp(rho,t,include_coherences_dynamics=include_coherences_dynamics)
+        
+        return rhot
 
-    def _propagate_eig(self,rho,t):
+    def _propagate_eig(self,rho,t,include_coherences_dynamics):
         """Propagate the density matrix rho using eigendecomposition.
         It is assumed (and NOT checked) that the Liouvillian is diagonalizable.
 
@@ -209,34 +229,60 @@ class RelTensor():
             propagated density matrix. The time index is the first index of the array.
         """
 
-        eye   = np.eye(self.dim)
-        Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
+        if include_coherences_dynamics:
+            eye   = np.eye(self.dim)
+            Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
 
-        A = Liouv.reshape(self.dim**2,self.dim**2)
-        rho_ = rho.reshape(self.dim**2)
+            A = Liouv.reshape(self.dim**2,self.dim**2)
+            rho_ = rho.reshape(self.dim**2)
 
-        # Compute left-right eigendecomposition
-        kk,vl,vr = la.eig(A,left=True,right=True)
+            # Compute left-right eigendecomposition
+            kk,vl,vr = la.eig(A,left=True,right=True)
 
-        vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
+            vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
 
-        self.liouv_vr = vr
-        self.liouv_vl = vl
-        self.liouv_ev = kk
+            self.liouv_vr = vr
+            self.liouv_vl = vl
+            self.liouv_ev = kk
 
-        # Compute exponentials
-        y0 = np.dot(vl.conj().T,rho_)
-        exps = np.exp( np.einsum('k,l->kl',kk,t) )
-        
-        rhot = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
+            # Compute exponentials
+            y0 = np.dot(vl.conj().T,rho_)
+            exps = np.exp( np.einsum('k,l->kl',kk,t) )
 
-        if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
-            rhot = np.real(rhot)
-         
-        return rhot.reshape(-1,self.dim,self.dim)
+            rhot = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
 
+            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
+                rhot = np.real(rhot)
+
+            return rhot.reshape(-1,self.dim,self.dim)
+        else:
+            A = self.rates
+            pop = np.diag(rho)
+
+            # Compute left-right eigendecomposition
+            kk,vl,vr = la.eig(A,left=True,right=True)
+
+            vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
+
+            self.liouv_vr = vr
+            self.liouv_vl = vl
+            self.liouv_ev = kk
+
+            # Compute exponentials
+            y0 = np.dot(vl.conj().T,pop)
+            exps = np.exp( np.einsum('k,l->kl',kk,t) )
+
+            popt = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
+
+            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(popt))<1E-16):
+                popt = np.real(popt)
+                
+            rhot = np.zeros([t.size,self.dim,self.dim])
+            np.einsum('tkk->tk',rhot)[...] = popt
+
+            return rhot
     
-    def _propagate_exp(self,rho,t,only_diagonal=False):
+    def _propagate_exp(self,rho,t,include_coherences_dynamics):
         """This function time-propagates the density matrix rho due to the Redfield energy transfer
         
         rho: np.array
@@ -253,16 +299,7 @@ class RelTensor():
             propagated density matrix. The time index is the first index of the array.
             """
         
-        if only_diagonal:
-
-            if not hasattr(self, 'rates'):
-                self._calc_rates()
-            
-            rhot_diagonal = expm_multiply(self.rates,np.diag(rho),start=t[0],stop=t[-1],num=len(t) )
-            
-            return np.array([np.diag(rhot_diagonal[t_idx,:]) for t_idx in range(len(t))])
-        
-        else:
+        if include_coherences_dynamics:
             if not hasattr(self,'RTen'):
                 self._calc_tensor()
                 
@@ -279,6 +316,15 @@ class RelTensor():
                 rhot = np.real(rhot)
             
             return rhot.reshape(-1,self.dim,self.dim)
+        
+        else:
+
+            if not hasattr(self, 'rates'):
+                self._calc_rates()
+            
+            rhot_diagonal = expm_multiply(self.rates,np.diag(rho),start=t[0],stop=t[-1],num=len(t) )
+            
+            return np.array([np.diag(rhot_diagonal[t_idx,:]) for t_idx in range(len(t))])
         
     def get_g_k(self):
         if not hasattr(self,'g_k'):
