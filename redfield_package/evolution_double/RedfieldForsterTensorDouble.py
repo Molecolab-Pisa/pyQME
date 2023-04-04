@@ -8,12 +8,12 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_no_delta_term=False,include_redfield_dephasing=False):
+    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V,pairs = get_H_double(H_part)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
+        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
 
     @property
     def redfield_dephasing(self):
@@ -101,14 +101,14 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
     """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_no_delta_term=False,include_redfield_dephasing=False,include_redfield_dephasing_real=True):
+    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V,pairs = get_H_double(H_part)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_redfield_dephasing_real = include_redfield_dephasing_real
 
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
+        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
     
     @property
     def redfield_dephasing(self):
@@ -194,13 +194,13 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
     """Redfield Forster Tensor class where combined Modified Redfield-Forster Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_no_delta_term=False,include_redfield_dephasing=False):
+    def __init__(self,H_part,V,SDobj,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.V,pairs = get_H_double(H_part)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
             
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
+        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
 
     @property
     def redfield_dephasing(self):

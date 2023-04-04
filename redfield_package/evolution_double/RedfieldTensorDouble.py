@@ -7,13 +7,13 @@ class RedfieldTensorDouble(RelTensorDouble):
     """Redfield Tensor class where Redfield Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H,specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term):
+    def __init__(self,H,specden,SD_id_list,initialize,specden_adiabatic):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         
         self.dim_single = np.shape(H)[0]
         self.H,self.pairs = get_H_double(H)
         
-        super().__init__(specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
+        super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
     
     def get_rates(self):
         if not hasattr(self,'rates'):
@@ -52,9 +52,9 @@ class RedfieldTensorRealDouble(RedfieldTensorDouble):
     This class is a subclass of RedfieldTensor Class"""
 
 
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,include_no_delta_term=False):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
+        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic)
         
     def evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density  at frequencies corresponding to the differences between exciton energies
@@ -73,10 +73,10 @@ class RedfieldTensorRealDouble(RedfieldTensorDouble):
 class RedfieldTensorComplexDouble(RedfieldTensorDouble):
     "Real Redfield Tensor class"
 
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,include_no_delta_term=False):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         
-        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
+        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic)
     
     def evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density  at frequencies corresponding to the differences between exciton energies

@@ -5,7 +5,7 @@ from ..utils import get_H_double
 class RelTensorDouble():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,include_no_delta_term=False,H=None):
+    def __init__(self,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,H=None):
         """
         This function initializes the Relaxation tensor class
         
@@ -167,18 +167,11 @@ class RelTensorDouble():
 
         SD_id_list = self.SD_id_list
         weight_qqqr = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
-        eye = np.eye(self.dim_single)
         SD_id_list  = self.SD_id_list
                             
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-            eye_mask = eye[mask,:][:,mask]
-            
-            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('no,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
-            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('mp,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
-            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('np,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
-            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('mo,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])   #delta_np
             
             weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('klq,kLq,kLr->qr',c_nmq[mask,:,:]**2,c_nmq[mask,:,:],c_nmq[mask,:,:])   
         self.weight_qqqr = weight_qqqr
