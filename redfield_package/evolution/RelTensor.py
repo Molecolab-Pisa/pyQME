@@ -6,7 +6,7 @@ from ..utils import wn2ips
 class RelTensor():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list,initialize,specden_adiabatic):
+    def __init__(self,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,H=None):
         """
         This function initializes the Relaxation tensor class
         
@@ -25,8 +25,13 @@ class RelTensor():
 
         """
         
+        if H is not None:
+            self.H = H
+            
         self.specden = specden
-        self.specden_adiabatic = specden_adiabatic
+        
+        if specden_adiabatic is not None:
+            self.specden_adiabatic = specden_adiabatic
         
         if SD_id_list is None:
             self.SD_id_list = [0]*self.dim
@@ -52,16 +57,17 @@ class RelTensor():
     def _diagonalize_ham(self):
         "This function diagonalizes the hamiltonian"
         
-        if self.specden_adiabatic is None:
-            self.ene, self.U = np.linalg.eigh(self.H)
-        elif self.specden_adiabatic is not None:
+        if hasattr(self,'specden_adiabatic'):
             reorg_site = np.asarray([self.specden_adiabatic.Reorg[SD_id] for SD_id in self.SD_id_list])
             np.fill_diagonal(self.H,np.diag(self.H)-reorg_site)
             self.ene, self.U = np.linalg.eigh(self.H)
             self._calc_X()
             self._calc_weight_kkkk()
             self.lambda_k_no_bath = np.dot(self.weight_kkkk.T,self.specden_adiabatic.Reorg)
-            self.ene = self.ene + self.lambda_k_no_bath 
+            self.ene = self.ene + self.lambda_k_no_bath
+        else:
+            self.ene, self.U = np.linalg.eigh(self.H)
+
             
     def _calc_X(self):
         "This function computes the matrix self-product of the Hamiltonian eigenvectors that will be used in order to build the weights" 

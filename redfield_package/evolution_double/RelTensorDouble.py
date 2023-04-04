@@ -1,10 +1,11 @@
 import numpy as np
 from opt_einsum import contract
+from ..utils import get_H_double
 
 class RelTensorDouble():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term):
+    def __init__(self,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,include_no_delta_term=False,H=None):
         """
         This function initializes the Relaxation tensor class
         
@@ -22,9 +23,15 @@ class RelTensorDouble():
             if not None, it will be used to compute the reorganization energy that will be subtracted from exciton Hamiltonian diagonal before its diagonalization
         """    
         
+        if H is not None:
+            self.dim_single = np.shape(H)[0]
+            self.H,self.pairs = get_H_double(H)
+            
         self.specden = specden
-        self.specden_adiabatic = specden_adiabatic
         
+        if specden_adiabatic is not None:
+            self.specden_adiabatic = specden_adiabatic
+            
         if SD_id_list is None:
             self.SD_id_list = [0]*self.dim_single
         else:
@@ -62,10 +69,7 @@ class RelTensorDouble():
     def _diagonalize_ham(self):
         "This function diagonalizes the hamiltonian"
         
-        if self.specden_adiabatic is None:
-            self.ene, self.U = np.linalg.eigh(self.H)
-
-        elif self.specden_adiabatic is not None:
+        if hasattr(self,'specden_adiabatic'):
             reorg_site = np.asarray([self.specden_adiabatic.Reorg[self.SD_id_list[i]] + self.specden_adiabatic.Reorg[self.SD_id_list[j]] for i,j in self.pairs])[0]
             np.fill_diagonal(self.H,np.diag(self.H)-reorg_site)
             self.ene, self.U = np.linalg.eigh(self.H)
@@ -76,6 +80,9 @@ class RelTensorDouble():
             #self.lambda_q_no_bath = self.get_lambda_q_no_bath()
                         
             self.ene = self.ene + self.lambda_q_no_bath
+
+        else:
+            self.ene, self.U = np.linalg.eigh(self.H)
             
     
     def transform(self,arr,dim=None,inverse=False):
