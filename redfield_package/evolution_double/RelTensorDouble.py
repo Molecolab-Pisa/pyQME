@@ -153,10 +153,10 @@ class RelTensorDouble():
     def _calc_weight_qqqr(self):
         """This function computes the weights for site-->exciton basis transformation"""
 
-        c_nmq = self.c_nmq.copy()
-        for m in range(self.dim_single):
-            for n in range(m+1,self.dim_single):
-                c_nmq[n,m,:] = 0
+        c_nmq = self.c_nmq
+        #for m in range(self.dim_single):
+        #    for n in range(m+1,self.dim_single):
+        #        c_nmq[n,m,:] = 0
 
         SD_id_list = self.SD_id_list
         weight_qqqr = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
@@ -168,11 +168,12 @@ class RelTensorDouble():
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             eye_mask = eye[mask,:][:,mask]
             
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('no,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('mp,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('np,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('mo,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])   #delta_np
-        
+            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('no,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
+            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('mp,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
+            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('np,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
+            #weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('mo,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])   #delta_np
+            
+            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('klq,kLq,kLr->qr',c_nmq[mask,:,:]**2,c_nmq[mask,:,:],c_nmq[mask,:,:])   
         self.weight_qqqr = weight_qqqr
         
     def get_g_q(self):
