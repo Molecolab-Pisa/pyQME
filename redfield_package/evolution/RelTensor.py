@@ -6,7 +6,7 @@ from ..utils import wn2ips
 class RelTensor():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,H=None):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         """
         This function initializes the Relaxation tensor class
         
@@ -27,6 +27,8 @@ class RelTensor():
         
         if H is not None:
             self.H = H
+        elif not hasattr('self','H'):
+            raise NotImplementedError('You should not initialize this class without Hamiltonian')
             
         self.specden = specden
         
@@ -164,6 +166,9 @@ class RelTensor():
             self._calc_rates()
         return self.rates
     
+    def _calc_tensor(self):
+        raise NotImplementedError('This class does not implement a tensor')
+
     def get_tensor(self):
         "This function returns the tensor of energy transfer rates"
         if not hasattr(self, 'RTen'):
@@ -201,12 +206,15 @@ class RelTensor():
         
         return R_rho.reshape(shape_)
     
-    def propagate(self,rho,t,include_coherences_dynamics=True,propagation_mode='eig',units='1/cm'):
+    def propagate(self,rho,t,include_coh=True,propagation_mode='eig',units='1/cm'):
+        """Propagate the dynamics 
+        """
+#       FIXME: Complete the docstring
         
         if units == 'ps':
             t = t*wn2ips
             
-        if include_coherences_dynamics:
+        if include_coh:
             if not hasattr(self,'RTen'):
                 self._calc_tensor()
         else:
@@ -214,13 +222,13 @@ class RelTensor():
                 self._calc_rates()
         
         if propagation_mode == 'eig':
-            rhot = self._propagate_eig(rho,t,include_coherences_dynamics=include_coherences_dynamics)
+            rhot = self._propagate_eig(rho,t,include_coh=include_coh)
         elif propagation_mode == 'exp':
-            rhot = self._propagate_exp(rho,t,include_coherences_dynamics=include_coherences_dynamics)
+            rhot = self._propagate_exp(rho,t,include_coh=include_coh)
         
         return rhot
 
-    def _propagate_eig(self,rho,t,include_coherences_dynamics):
+    def _propagate_eig(self,rho,t,include_coh=True):
         """Propagate the density matrix rho using eigendecomposition.
         It is assumed (and NOT checked) that the Liouvillian is diagonalizable.
 
@@ -235,7 +243,7 @@ class RelTensor():
             propagated density matrix. The time index is the first index of the array.
         """
 
-        if include_coherences_dynamics:
+        if include_coh:
             eye   = np.eye(self.dim)
             Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
 
@@ -280,15 +288,14 @@ class RelTensor():
 
             popt = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
 
-            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(popt))<1E-16):
-                popt = np.real(popt)
+            popt = np.real(popt)
                 
             rhot = np.zeros([t.size,self.dim,self.dim])
             np.einsum('tkk->tk',rhot)[...] = popt
 
             return rhot
     
-    def _propagate_exp(self,rho,t,include_coherences_dynamics):
+    def _propagate_exp(self,rho,t,include_coh=True):
         """This function time-propagates the density matrix rho due to the Redfield energy transfer
         
         rho: np.array
@@ -305,7 +312,7 @@ class RelTensor():
             propagated density matrix. The time index is the first index of the array.
             """
         
-        if include_coherences_dynamics:
+        if include_coh:
             if not hasattr(self,'RTen'):
                 self._calc_tensor()
                 
@@ -329,6 +336,7 @@ class RelTensor():
                 self._calc_rates()
             
             rhot_diagonal = expm_multiply(self.rates,np.diag(rho),start=t[0],stop=t[-1],num=len(t) )
+            rhot_diagonal = np.real(rhot_diagonal)
             
             return np.array([np.diag(rhot_diagonal[t_idx,:]) for t_idx in range(len(t))])
         
