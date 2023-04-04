@@ -190,7 +190,6 @@ class PumpProbeSpectraCalculator():
             d2_k = np.sum(d_k**2,axis=1)
 
             d_qk = self.build_d_qk(dipoles)
-            print(d_qk)
             d2_qk = np.sum(d_qk**2,axis=2)
         else:
             d2_k = np.ones(self.rel_tensor_single.dim)
