@@ -5,10 +5,10 @@ class RedfieldTensor(RelTensor):
     """Redfield Tensor class where Redfield Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H,specden,SD_id_list,initialize,specden_adiabatic):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.H = H.copy()
-        super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(specden,SD_id_list = SD_id_list,initialize = initialize,specden_adiabatic = specden_adiabatic)
     
     def _calc_rates(self):
         """This function computes the Redfield energy transfer rates
@@ -60,7 +60,7 @@ class RedfieldTensorReal(RedfieldTensor):
 
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
-        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
         
         
     def _from_GammaF_to_RTen(self,GammF):
@@ -112,7 +112,7 @@ class RedfieldTensorComplex(RedfieldTensor):
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         
-        super().__init__(H,specden,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
         
     def _from_GammaF_to_RTen(self,GammF):
         

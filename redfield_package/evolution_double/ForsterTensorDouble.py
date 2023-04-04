@@ -17,7 +17,7 @@ class ForsterTensorDouble(RelTensorDouble):
         np.fill_diagonal(self.V,0.0)
         
         self.H = np.diag(np.diag(self.H))
-        super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
     
     def _calc_rates(self):
         """This function computes the Forster energy transfer rates

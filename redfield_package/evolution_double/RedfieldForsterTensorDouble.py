@@ -13,7 +13,7 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
         self.V,pairs = get_H_double(H_part)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H_part,SDobj,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
 
     @property
     def redfield_dephasing(self):
@@ -108,7 +108,7 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_redfield_dephasing_real = include_redfield_dephasing_real
 
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H_part,SDobj,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
     
     @property
     def redfield_dephasing(self):
@@ -200,7 +200,7 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
             
-        super().__init__(H_part,SDobj,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(H_part,SDobj,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
 
     @property
     def redfield_dephasing(self):
