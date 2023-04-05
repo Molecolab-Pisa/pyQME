@@ -12,7 +12,10 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_exponential_term = include_exponential_term
-        super().__init__(H_part,specden=specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
+        
+        super().__init__(H=H_part.copy(),specden=specden,
+                         SD_id_list=SD_id_list,initialize=initialize,
+                         specden_adiabatic=specden_adiabatic)
     
     @property
     def redfield_dephasing(self):
@@ -140,7 +143,9 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_exponential_term = include_exponential_term
         self.include_redfield_dephasing_real = include_redfield_dephasing_real
-        super().__init__(H_part,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
+        super().__init__(H=H_part.copy(),specden=specden,
+                         SD_id_list=SD_id_list,initialize=initialize,
+                         specden_adiabatic=specden_adiabatic)
 
     @property
     def redfield_dephasing(self):
@@ -257,7 +262,9 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_exponential_term = include_exponential_term
-        super().__init__(H_part,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
+        super().__init__(H=H_part.copy(),specden=specden,
+                         SD_id_list=SD_id_list,initialize=initialize,
+                         specden_adiabatic=specden_adiabatic)
         
     @property
     def redfield_dephasing(self):
@@ -356,7 +363,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         #if secularize:
         #    self.secularize()
 
-        pass
+        pass        
 
     @property
     def dephasing(self):

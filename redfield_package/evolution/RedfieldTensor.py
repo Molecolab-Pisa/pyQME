@@ -12,9 +12,21 @@ class RedfieldTensor(RelTensor):
                          specden_adiabatic=specden_adiabatic)
     
     def _calc_rates(self):
-        """This function computes the Redfield energy transfer rates
+        """Compute and store Redfield energy transfer rates
         """
         
+        rates = self.calc_redfield_rates()
+        self.rates = rates
+    
+    def calc_redfield_rates(self):
+        """Compute Redfield energy transfer rates
+        
+        Returns
+        -------
+        
+        rates: array (self.dim,self.dim)
+        Redfield EET rates
+        """
 
         coef2 = self.U**2
 
@@ -29,7 +41,7 @@ class RedfieldTensor(RelTensor):
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
-        self.rates = rates   
+        return rates   
 
     def _calc_tensor(self,secularize=True):
         "Computes the tensor of Redfield energy transfer rates"

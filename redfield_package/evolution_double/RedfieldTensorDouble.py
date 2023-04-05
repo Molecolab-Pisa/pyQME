@@ -12,9 +12,9 @@ class RedfieldTensorDouble(RelTensorDouble):
         
         self.dim_single = np.shape(H)[0]
         self.H,self.pairs = get_H_double(H)
-        
-        super().__init__(specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
-    
+        super().__init__(H=self.H.copy(),specden=specden,
+                         SD_id_list=SD_id_list,initialize=initialize,
+                         specden_adiabatic=specden_adiabatic)    
     def get_rates(self):
         if not hasattr(self,'rates'):
             self._calc_rates()

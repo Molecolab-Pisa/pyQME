@@ -143,7 +143,7 @@ class RelTensor():
         return self.transform(*args,**kwargs,inverse=True)
     
     def secularize(self):
-        "This function secularizes the Redfield Tensor (i.e. neglect the coherence dynamics but consider only its effect on coherence and population decay)"
+        "This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but consider only its effect on coherence and population decay)"
         eye = np.eye(self.dim)
         
         tmp1 = np.einsum('abcd,ab,cd->abcd',self.RTen,eye,eye)
