@@ -1,9 +1,11 @@
 import numpy as np
+from opt_einsum import contract
+from ..utils import get_H_double
 
 class RelTensorDouble():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term):
+    def __init__(self,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,H=None):
         """
         This function initializes the Relaxation tensor class
         
@@ -21,10 +23,15 @@ class RelTensorDouble():
             if not None, it will be used to compute the reorganization energy that will be subtracted from exciton Hamiltonian diagonal before its diagonalization
         """    
         
-        self.include_no_delta_term = include_no_delta_term
+        if H is not None:
+            self.dim_single = np.shape(H)[0]
+            self.H,self.pairs = get_H_double(H)
+            
         self.specden = specden
-        self.specden_adiabatic = specden_adiabatic
         
+        if specden_adiabatic is not None:
+            self.specden_adiabatic = specden_adiabatic
+            
         if SD_id_list is None:
             self.SD_id_list = [0]*self.dim_single
         else:
@@ -55,17 +62,14 @@ class RelTensorDouble():
             for Q in range(self.dim): #double excited localized state
                 n,m = pairs[Q]
                 c_nmq[n,m,q] = self.U[Q,q]
-                #c_nmq[m,n,q] = self.U[Q,q]
+                c_nmq[m,n,q] = self.U[Q,q]
         self.c_nmq = c_nmq
         
         
     def _diagonalize_ham(self):
         "This function diagonalizes the hamiltonian"
         
-        if self.specden_adiabatic is None:
-            self.ene, self.U = np.linalg.eigh(self.H)
-
-        elif self.specden_adiabatic is not None:
+        if hasattr(self,'specden_adiabatic'):
             reorg_site = np.asarray([self.specden_adiabatic.Reorg[self.SD_id_list[i]] + self.specden_adiabatic.Reorg[self.SD_id_list[j]] for i,j in self.pairs])[0]
             np.fill_diagonal(self.H,np.diag(self.H)-reorg_site)
             self.ene, self.U = np.linalg.eigh(self.H)
@@ -76,6 +80,9 @@ class RelTensorDouble():
             #self.lambda_q_no_bath = self.get_lambda_q_no_bath()
                         
             self.ene = self.ene + self.lambda_q_no_bath
+
+        else:
+            self.ene, self.U = np.linalg.eigh(self.H)
             
     
     def transform(self,arr,dim=None,inverse=False):
@@ -128,52 +135,24 @@ class RelTensorDouble():
         c_nmq = self.c_nmq
         SD_id_list = self.SD_id_list
         weight_qqqq = np.zeros([len([*set(SD_id_list)]),self.dim])
-        eye = np.eye(self.dim_single)
-        
-        if self.include_no_delta_term:
-            eye_tensor = np.zeros([self.dim_single,self.dim_single,self.dim_single,self.dim_single])
-            for n in range(self.dim_single):
-                for m in range(self.dim_single):
-                    for o in range(self.dim_single):
-                        for p in range(self.dim_single):
-                            if n != p and m!=o and m != p and n!=o:
-                                eye_tensor[n,m,o,p] = 1.0
-
         
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-            eye_mask = eye[mask,:][:,mask]
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('no,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[mask,:,:]**2)   #delta_no
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mp,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[:,mask,:]**2)   #delta_mp
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('np,nmq,opq->q',eye_mask,c_nmq[mask,:,:]**2,c_nmq[:,mask,:]**2)   #delta_np
-            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + np.einsum('mo,nmq,opq->q',eye_mask,c_nmq[:,mask,:]**2,c_nmq[mask,:,:]**2)   #delta_mo
-            if self.include_no_delta_term:
-                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[mask,:,:,:],c_nmq[mask,:,:]**2,c_nmq[:,:,:]**2)
-                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,mask,:,:],c_nmq[:,mask,:]**2,c_nmq[:,:,:]**2)
-                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,mask,:],c_nmq[:,:,:]**2,c_nmq[mask,:,:]**2)
-                weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + 0.25*np.einsum('nmop,nmq,opq->q',eye_tensor[:,:,:,mask],c_nmq[:,:,:]**2,c_nmq[:,mask,:]**2)
+            weight_qqqq[SD_idx] = weight_qqqq[SD_idx] + contract('klQ,kLQ->Q', c_nmq[mask,:,:]**2,c_nmq[mask,:,:]**2)
         self.weight_qqqq = weight_qqqq
 
     def _calc_weight_qqrr(self):
         """This function computes the weights for site-->exciton basis transformation"""
         
-
         c_nmq = self.c_nmq
+        
         SD_id_list = self.SD_id_list
         weight_qqrr = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
-        SD_id_list  = self.SD_id_list
         
-        pairs = self.pairs
-                            
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-            eye_mask = np.eye(len(mask))
-            
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + np.einsum('no,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + np.einsum('mp,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + np.einsum('np,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
-            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + np.einsum('mo,nmq,opr,nmr,opq->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])   #delta_np
+            weight_qqrr[SD_idx] = weight_qqrr[SD_idx] + contract('klQ,kLQ,klR,kLR->QR', c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])
         
         self.weight_qqrr = weight_qqrr
         
@@ -182,21 +161,19 @@ class RelTensorDouble():
         """This function computes the weights for site-->exciton basis transformation"""
 
         c_nmq = self.c_nmq
+        #for m in range(self.dim_single):
+        #    for n in range(m+1,self.dim_single):
+        #        c_nmq[n,m,:] = 0
+
         SD_id_list = self.SD_id_list
         weight_qqqr = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
-        eye = np.eye(self.dim_single)
         SD_id_list  = self.SD_id_list
                             
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-            eye_mask = eye[mask,:][:,mask]
             
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + np.einsum('no,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:],c_nmq[mask,:,:])   #delta_no
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + np.einsum('mp,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:],c_nmq[:,mask,:])   #delta_mp
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + np.einsum('np,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:])   #delta_np
-            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + np.einsum('mo,nmq,opq,nmq,opr->qr',eye_mask,c_nmq[:,mask,:],c_nmq[mask,:,:],c_nmq[:,mask,:],c_nmq[mask,:,:])   #delta_np
-        
+            weight_qqqr[SD_idx] = weight_qqqr[SD_idx] + contract('klq,kLq,kLr->qr',c_nmq[mask,:,:]**2,c_nmq[mask,:,:],c_nmq[mask,:,:])   
         self.weight_qqqr = weight_qqqr
         
     def get_g_q(self):

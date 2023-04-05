@@ -118,7 +118,6 @@ class PumpProbeSpectraCalculator():
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
             weight_kkqq[SD_idx] = np.einsum('nmq,nk->kq',c_nmq[mask,:,:]**2,c_nk[mask,:]**2)
-            weight_kkqq[SD_idx] = weight_kkqq[SD_idx] + np.einsum('nmq,mk->kq',c_nmq[:,mask,:]**2,c_nk[mask,:]**2)
         self.weight_kkqq = weight_kkqq
                 
     def _calc_lambda_kq(self):
@@ -135,7 +134,7 @@ class PumpProbeSpectraCalculator():
         "This function computes the dipoles of k-->q transition"
         c_nmq = self.c_nmq
         c_nk = self.c_nk
-        return np.einsum('nmq,nk,mx->qkx',c_nmq,c_nk,dipoles) + np.einsum('nmq,mk,nx->qkx',c_nmq,c_nk,dipoles)
+        return np.einsum('nmq,nk,mx->qkx',c_nmq,c_nk,dipoles)
     
     def _initialize(self):
         "This function initializes some variables needed for spectra"

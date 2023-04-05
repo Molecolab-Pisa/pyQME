@@ -11,7 +11,7 @@ class ForsterTensor(RelTensor):
         self.V = H.copy()
         np.fill_diagonal(self.V,0.0)
         self.H = np.diag(np.diag(H))
-        super().__init__(specden,SD_id_list,initialize,specden_adiabatic)
+        super().__init__(specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
     
     def _calc_rates(self):
         """This function computes the Forster energy transfer rates
@@ -21,7 +21,6 @@ class ForsterTensor(RelTensor):
         time_axis = self.specden.time
         Reorg = self.specden.Reorg
         rates = np.empty([self.dim,self.dim])
-        dephasing = self.dephasing
         for D in range(self.dim):
             gD = gt[self.SD_id_list[D]]
             ReorgD = Reorg[self.SD_id_list[D]]

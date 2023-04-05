@@ -8,7 +8,7 @@ class ForsterTensorDouble(RelTensorDouble):
     """Forster Tensor class where Forster Resonance Energy Transfer (FRET) Theory is used to model energy transfer processes
     This class is a subclass of Relaxation Tensor Class"""
 
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,include_no_delta_term=False):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         "This function handles the variables which will be initialized to the main RelaxationTensor Class"
         self.dim_single = np.shape(H)[0]
         self.H,self.pairs = get_H_double(H)
@@ -17,7 +17,7 @@ class ForsterTensorDouble(RelTensorDouble):
         np.fill_diagonal(self.V,0.0)
         
         self.H = np.diag(np.diag(self.H))
-        super().__init__(specden,SD_id_list,initialize,specden_adiabatic,include_no_delta_term)
+        super().__init__(specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
     
     def _calc_rates(self):
         """This function computes the Forster energy transfer rates
