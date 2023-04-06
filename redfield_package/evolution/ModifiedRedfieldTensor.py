@@ -2,15 +2,12 @@ import numpy as np
 from .RelTensor import RelTensor
 from ..utils import wn2ips
 
-#try:
-from numba import jit,prange
-#except:
-#    jit = lambda x: x
 
 
 class ModifiedRedfieldTensor(RelTensor):           
-    """Generalized Forster Tensor class where Modfied Redfield Theory is used to model energy transfer processes
-    This class is a subclass of Relaxation Tensor Class"""
+    """Modfied Redfield Tensor and Rates 
+
+    """
 
 
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,damping_tau=None):
@@ -73,9 +70,6 @@ class ModifiedRedfieldTensor(RelTensor):
         _,gdot_site = self.specden.get_gt(derivs=1)
         gdot_KKLL = np.dot(self.weight_kkll.T,gdot_site)
 
-        #real = -0.5*np.real(gdot_KKKK[:,-1][:,None] + gdot_KKKK[:,-1][None,:] - 2*gdot_KKLL[:,:,-1])
-        #imag = -0.5*np.imag(gdot_KKKK[:,-1][:,None] - gdot_KKKK[:,-1][None,:])
-        #np.einsum('ijij->ij',RTen)[...] = np.einsum('ijij->ij',RTen) + real + 1j*imag
         for K in range(self.dim):        #FIXME IMPLEMENTA MODO ONESHOT
             for L in range(K+1,self.dim):
                 real = -0.5*np.real(gdot_KKKK[K,-1] + gdot_KKKK[L,-1] - 2*gdot_KKLL[K,L,-1])
@@ -129,23 +123,6 @@ def _calc_modified_redfield_rates(Om,weight_kkll,weight_kkkl,reorg_site,g_site,g
         gdot_KLLL  += w3*gdot_site[i].reshape(1,1,-1)
         gddot_KLLK += w2*gddot_site[i].reshape(1,1,-1)
 
-
-#   rates = np.zeros((dim,dim),dtype=np.float64)
-#   for D in range(dim):
-#       gD = g_KKLL[D,D]
-#       ReorgD = reorg_KKLL[D,D]
-#       for A in range(dim):
-#           if D == A: continue
-#           gA = g_KKLL[A,A]
-#           ReorgA = reorg_KKLL[A,A]
-#   
-#           energy = Om[A,D]+2*(ReorgD-reorg_KKLL[D,A])
-#           exponent = 1j*energy*time_axis + gD + gA - 2*g_KKLL[D,A]
-#           g_derivatives_term = gddot_KLLK[D,A]-(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])*(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])
-#           integrand = np.exp(-exponent)*g_derivatives_term
-#           integral = np.trapz(integrand*damper,time_axis)
-#           rates[A,D] = 2.*integral.real
-
     rates = _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damper,time_axis)
     
     return rates
@@ -170,7 +147,5 @@ def _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damp
     return rates
 
 # Possibly create jitted function
-_calc_modified_redfield_rates = jit(_calc_modified_redfield_rates,nopython=True)
-_mr_rates_loop = jit(_mr_rates_loop,nopython=True,parallel=True)
 
 

@@ -201,7 +201,6 @@ class LinearSpectraCalculator():
 
         
         eqpop = self._get_eq_populations()
-        print(eqpop)
                
         time_FL = np.zeros(self.time.shape,dtype=np.complex128)
         for (k,e_k) in enumerate(self.rel_tensor.ene):
