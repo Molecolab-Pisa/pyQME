@@ -5,7 +5,7 @@ from ..utils import get_H_double
 class RelTensorDouble():
     "Relaxation tensor class"
     
-    def __init__(self,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,H=None):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
         """
         This function initializes the Relaxation tensor class
         
@@ -22,10 +22,15 @@ class RelTensorDouble():
             SpectralDensity class
             if not None, it will be used to compute the reorganization energy that will be subtracted from exciton Hamiltonian diagonal before its diagonalization
         """    
-        
+
         if H is not None:
-            self.dim_single = np.shape(H)[0]
-            self.H,self.pairs = get_H_double(H)
+            if not hasattr(self,'pairs'):
+                self.dim_single = np.shape(H)[0]
+                self.H,self.pairs = get_H_double(H)
+            else:
+                self.H = H
+        elif not hasattr('self','H'):
+            raise NotImplementedError('You should not initialize this class without Hamiltonian')
             
         self.specden = specden
         

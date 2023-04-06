@@ -12,7 +12,9 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
         self.H,self.pairs = get_H_double(H)
         self.damping_tau = damping_tau
         
-        super().__init__(specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
+        super().__init__(H=self.H.copy(),specden=specden,
+                         SD_id_list=SD_id_list,initialize=initialize,
+                         specden_adiabatic=specden_adiabatic)    
         
     def _calc_rates(self):
         """This function computes the Modified Redfield energy transfer rates
