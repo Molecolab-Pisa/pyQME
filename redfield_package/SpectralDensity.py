@@ -194,7 +194,8 @@ class SpectralDensity():
     @property
     def Reorg(self):
         "The reorganization energies of the spectral densities"
-        return np.asarray([np.trapz(Cw/(2*np.pi*self.omega),self.omega) for Cw in self.Cw])
+        #return np.asarray([np.trapz(Cw/(2*np.pi*self.omega),self.omega) for Cw in self.Cw])
+        return np.trapz(self.Cw/(2*np.pi*self.omega),self.omega,axis=1)
     
     @property
     def Huang_Rhys(self):
