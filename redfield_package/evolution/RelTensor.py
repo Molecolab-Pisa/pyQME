@@ -142,19 +142,23 @@ class RelTensor():
         See "transform" function for input and output"""
         return self.transform(*args,**kwargs,inverse=True)
     
-    def secularize(self):
+    def _secularize(self):
+        
+        self.RTen = self.secularize(self.RTen)
+        
+    def secularize(self,RTen):
         "This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but consider only its effect on coherence and population decay)"
         eye = np.eye(self.dim)
         
-        tmp1 = np.einsum('abcd,ab,cd->abcd',self.RTen,eye,eye)
-        tmp2 = np.einsum('abcd,ac,bd->abcd',self.RTen,eye,eye)
+        tmp1 = np.einsum('abcd,ab,cd->abcd',RTen,eye,eye)
+        tmp2 = np.einsum('abcd,ac,bd->abcd',RTen,eye,eye)
         
-        self.RTen = tmp1 + tmp2
+        RTen = tmp1 + tmp2
         
-        self.RTen[np.diag_indices_from(self.RTen)] /= 2.0
+        RTen[np.diag_indices_from(RTen)] /= 2.0
         
-        pass
-    
+        return RTen
+
     def get_rates(self):
         """This function returns the energy transfer rates
         

@@ -41,9 +41,16 @@ class RedfieldTensor(RelTensor):
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
-        return rates   
-
+        return rates
+    
     def _calc_tensor(self,secularize=True):
+        """Compute and store Redfield energy transfer tensor
+        """
+        
+        RTen = self.calc_redfield_tensor(secularize=secularize)
+        self.RTen = RTen
+
+    def calc_redfield_tensor(self,secularize=True):
         "Computes the tensor of Redfield energy transfer rates"
 
 
@@ -61,11 +68,10 @@ class RedfieldTensor(RelTensor):
 
         RTen = self._from_GammaF_to_RTen(GammF)        
 
-        self.RTen = RTen
         if secularize:
-            self.secularize()
-        pass
+            RTen = self.secularize(RTen)
 
+        return RTen
 
 class RedfieldTensorReal(RedfieldTensor):
     """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes

@@ -15,12 +15,15 @@ class RedfieldTensorDouble(RelTensorDouble):
         super().__init__(H=self.H.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic)    
-    def get_rates(self):
-        if not hasattr(self,'rates'):
-            self._calc_rates()
-        return self.rates
-            
+
     def _calc_rates(self):
+        """Compute and store Redfield energy transfer rates
+        """
+        
+        rates = self.calc_redfield_rates()
+        self.rates = rates
+    
+    def calc_redfield_rates(self):
         """This function computes the Redfield energy transfer rates
         """
         
@@ -31,7 +34,7 @@ class RedfieldTensorDouble(RelTensorDouble):
             
         weight_qqrr = self.weight_qqrr
         SD_id_list = self.SD_id_list
-        rates = np.zeros([self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(SD_id_list[0])[0,0]))
+        rates = np.zeros([self.dim,self.dim])
 
         
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
@@ -44,8 +47,8 @@ class RedfieldTensorDouble(RelTensorDouble):
         
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
-        self.rates_imag = rates.imag
-        self.rates = rates.real
+        
+        return rates.real
         
 class RedfieldTensorRealDouble(RedfieldTensorDouble):
     """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes
@@ -88,6 +91,25 @@ class RedfieldTensorComplexDouble(RedfieldTensorDouble):
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
-        if not hasattr(self,'rates'):
-            self._calc_rates()
-        return -0.5*np.diag(self.rates+1j*self.rates_imag)
+        del_weigths = False
+        if not hasattr(self,'weight_qqrr'):
+            self._calc_weight_qqrr()
+            del_weigths = True
+            
+        weight_qqrr = self.weight_qqrr
+        SD_id_list = self.SD_id_list
+        rates = np.zeros([self.dim,self.dim],dtype = np.complex128)
+        
+        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+            
+            Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+            rates = rates + np.multiply(Cw_matrix,weight_qqrr[SD_id])
+            
+        if del_weigths: 
+            del weight_qqrr, self.weight_qqrr
+        
+        rates[np.diag_indices_from(rates)] = 0.0
+        rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
+        
+        dephasing = -0.5*np.diag(rates)
+        return dephasing

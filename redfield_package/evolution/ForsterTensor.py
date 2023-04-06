@@ -49,7 +49,7 @@ class ForsterTensor(RelTensor):
         
         self.rates = self.transform(rates)
     
-    def _calc_tensor(self,secularize=True):
+    def _calc_tensor(self):
         "Computes the tensor of Forster energy transfer rates"
 
         if not hasattr(self, 'rates'):
@@ -59,9 +59,6 @@ class ForsterTensor(RelTensor):
         np.einsum('iijj->ij',RTen) [...] = self.rates
         self.RTen = RTen
        
-        if secularize:
-            self.secularize()
-        
         pass
     
     @property

@@ -17,6 +17,13 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
                          specden_adiabatic=specden_adiabatic)    
         
     def _calc_rates(self):
+        """Compute and store Redfield energy transfer rates
+        """
+        
+        rates = self.calc_redfield_rates()
+        self.rates = rates
+    
+    def calc_redfield_rates(self):
         """This function computes the Modified Redfield energy transfer rates
         """
         
@@ -67,7 +74,7 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
-        self.rates = rates
+        return rates
 
     @property
     def dephasing(self):

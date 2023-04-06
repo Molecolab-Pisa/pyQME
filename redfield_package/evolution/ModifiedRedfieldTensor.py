@@ -14,6 +14,13 @@ class ModifiedRedfieldTensor(RelTensor):
                          specden_adiabatic=specden_adiabatic)
         
     def _calc_rates(self):
+        """Compute and store Redfield energy transfer rates
+        """
+        
+        rates = self.calc_redfield_rates()
+        self.rates = rates
+    
+    def calc_redfield_rates(self):
         """This function computes the Modified Redfield energy transfer rates
         """
         
@@ -65,11 +72,18 @@ class ModifiedRedfieldTensor(RelTensor):
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
-        self.rates = rates
+        return rates
 
 
     def _calc_tensor(self,secularize=True):
-        "Computes the tensor of Modified energy transfer rates"
+        """Compute and store Redfield energy transfer tensor
+        """
+        
+        RTen = self.calc_redfield_tensor(secularize=secularize)
+        self.RTen = RTen
+
+    def calc_redfield_tensor(self,secularize=True):
+        "Computes the tensor of Redfield energy transfer rates"
 
         if not hasattr(self, 'rates'):
             self._calc_rates()
@@ -106,13 +120,10 @@ class ModifiedRedfieldTensor(RelTensor):
         #fix diagonal
         np.einsum('iiii->i',RTen)[...] = np.diag(self.rates)
 
-        self.RTen = RTen
-
         if secularize:
-            self.secularize()
-        pass
-
-
+            RTen = self.secularize(RTen)
+            
+        return RTen
 
     @property
     def dephasing(self):

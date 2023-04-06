@@ -19,14 +19,9 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
     @property
     def redfield_dephasing(self):
         
-        if not hasattr(self,'rates'):
-            super()._calc_rates()
-            return super().dephasing
-        else:
-            if hasattr(self,'forster_rates'):
-                return - 0.5*np.diag(self.rates) + 0.5*np.diag(self.forster_rates)
-            else:
-                return super().dephasing
+        if not hasattr(self,'redfield_rates'):
+            self.redfield_rates = super().calc_redfield_rates()
+        return -0.5*np.diag(self.redfield_rates)
     
     def _calc_forster_rates(self):
         """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
@@ -74,27 +69,23 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
         self.forster_rates = rates
 
     def _calc_rates(self):
-        """This function computes the Redfield-Forster energy transfer rates
-
-        """
+        """This function computes the Redfield-Forster energy transfer rates"""
         
-        if hasattr(self,'rates'):
-            del self.rates
-
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
-        if not hasattr(self,'rates'):
-            super()._calc_rates()
-        self.rates = self.forster_rates + self.rates
+            
+        if not hasattr(self,'redfield_rates'):
+            self.redfield_rates = super().calc_redfield_rates()
+        
+        self.rates = self.forster_rates + self.redfield_rates
 
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
         
-        redfield_dephasing = self.redfield_dephasing
         if not hasattr(self,'forster_rates'):
                 self._calc_forster_rates()
-        return (redfield_dephasing - 0.5*np.diag(self.forster_rates))
+        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
     
     
 
@@ -116,10 +107,6 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
     @property
     def redfield_dephasing(self):
         
-        if hasattr(self,'rates'):
-            del self.rates
-
-        super()._calc_rates()
         if self.include_redfield_dephasing_real:
             return super().dephasing
         else:
@@ -171,18 +158,15 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
         self.forster_rates = rates
 
     def _calc_rates(self):
-        """This function computes the Redfield-Forster energy transfer rates
-
-        """
-
-        if hasattr(self,'rates'):
-            del self.rates
-            
+        """This function computes the Redfield-Forster energy transfer rates"""
+        
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
-        if not hasattr(self,'rates'):
-            super()._calc_rates()
-        self.rates = self.forster_rates + self.rates
+            
+        if not hasattr(self,'redfield_rates'):
+            self.redfield_rates = super().calc_redfield_rates()
+        
+        self.rates = self.forster_rates + self.redfield_rates
 
     @property
     def dephasing(self):
@@ -210,14 +194,9 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
     @property
     def redfield_dephasing(self):
         
-        if not hasattr(self,'rates'):
-            super()._calc_rates()
-            return super().dephasing
-        else:
-            if hasattr(self,'forster_rates'):
-                return - 0.5*np.diag(self.rates) + 0.5*np.diag(self.forster_rates)
-            else:
-                return super().dephasing
+        if not hasattr(self,'redfield_rates'):
+            self.redfield_rates = super().calc_redfield_rates()
+        return -0.5*np.diag(self.redfield_rates)
     
     def _calc_forster_rates(self):
         """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
@@ -266,22 +245,19 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         self.forster_rates = rates
 
     def _calc_rates(self):
-        """This function computes the Redfield-Forster energy transfer rates
-
-        """
-        if hasattr(self,'rates'):
-            del self.rates
-            
+        """This function computes the Redfield-Forster energy transfer rates"""
+        
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
-        if not hasattr(self,'rates'):
-            super()._calc_rates()
-        self.rates = self.forster_rates + self.rates
+            
+        if not hasattr(self,'redfield_rates'):
+            self.redfield_rates = super().calc_redfield_rates()
+        
+        self.rates = self.forster_rates + self.redfield_rates
 
     @property
     def dephasing(self):
         """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
-        redfield_dephasing = self.redfield_dephasing
         if not hasattr(self,'forster_rates'):
                 self._calc_forster_rates()
-        return (redfield_dephasing - 0.5*np.diag(self.forster_rates))
+        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
