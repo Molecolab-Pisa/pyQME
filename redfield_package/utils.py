@@ -87,7 +87,7 @@ def get_H_double(H):
     H_double: np.array(dim = [len(pairs),len(pairs)])
     double exciton manifold Hamiltonian built as follows:
     H_double[q,q] = H[k,k] + H[l,l] where k,l = pairs[q]
-    H_double[q,r] = H[k,k] if q and r share one excited pigment
+    H_double[q,r] = H[k,l] if q and r share one excited pigment while k and l are the pigments that are not shared
     """
 
     dim_single = np.shape(H)[0]
