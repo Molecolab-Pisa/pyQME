@@ -218,8 +218,56 @@ class LinearSpectraCalculator():
         else:
             return self.freq,self.FL
         
+    def calc_FL_k(self,dipoles,eqpop=None,freq=None):
+        """Compute fluorescence spectrum
+        
+        dipoles: np.array(dtype = np.float)
+            array of transition dipoles coordinates in debye. Each row corresponds to a different chromophore
+            
+        freq: np.array(dtype = np.folat)
+            array of frequencies at which the spectrum will be evaluated
+            
+        Return
+        
+        freq: np.array
+            frequency axis of the spectrum
+            
+        FL: np.array
+            fluorescence spectrum"""
+        
+        self._initialize()
+        g_k = self.g_k
+        dephasing = self.dephasing
+        RWA = self.RWA
+        t = self.time
+        lambda_k = self.rel_tensor.get_lambda_k()
+        
+        self.excdip = self.rel_tensor.transform(dipoles,dim=1)
+        self.excd2 = np.sum(self.excdip**2,axis=1)
+
+        if eqpop is None:
+            eqpop = self._get_eq_populations()
+               
+        
+        self.FL_k = np.empty([self.rel_tensor.dim,self.freq.size])
+        for (k,e_k) in enumerate(self.rel_tensor.ene):
+            d_k = self.excd2[k]
+            e0_k = e_k - 2*lambda_k[k]
+            time_FL = eqpop[k]*d_k*np.exp((1j*(-e0_k+RWA)-dephasing[k])*t - g_k[k].conj())
+            FL_k = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self.factFT
+            self.FL_k[k] = FL_k * self.freq**3 * factOD #here quantarhei uses the first power of the frequency (spontaneous emission)
+            
+                
+        if freq is not None:
+            FL_k = np.empty([self.rel_tensor.dim,freq.size])
+            for k in range(self.rel_tensor.dim):
+                FLspl = UnivariateSpline(self.freq,self.FL_k[k],s=0)
+                FL_k[k] = FLspl(freq)                
+            return freq,FL_k
+        else:
+            return self.freq,self.FL_k
+        
     @property
-    
     def factFT(self):
         """Fourier Transform factor used to compute spectra"""
         return (self.time[1]-self.time[0])/(2*np.pi)
