@@ -99,7 +99,6 @@ class LinearSpectraCalculator():
         RWA = self.RWA
         factFT = self.factFT
 
-        
         for (k,e_k) in enumerate(self.rel_tensor.ene):
             d_k = self.excd2[k]
             time_OD += d_k*np.exp((1j*(-e_k+RWA) - dephasing[k])*t - g_k[k])
@@ -172,7 +171,7 @@ class LinearSpectraCalculator():
         A_i = A_ij.sum(axis=0)
         return w,A_i
         
-    def calc_FL(self,dipoles,freq=None):
+    def calc_FL(self,dipoles,eqpop=None,freq=None):
         """Compute fluorescence spectrum
         
         dipoles: np.array(dtype = np.float)
@@ -199,8 +198,8 @@ class LinearSpectraCalculator():
         self.excdip = self.rel_tensor.transform(dipoles,dim=1)
         self.excd2 = np.sum(self.excdip**2,axis=1)
 
-        
-        eqpop = self._get_eq_populations()
+        if eqpop is None:
+            eqpop = self._get_eq_populations()
                
         time_FL = np.zeros(self.time.shape,dtype=np.complex128)
         for (k,e_k) in enumerate(self.rel_tensor.ene):

@@ -5,7 +5,7 @@ import sys
 
 wn2ips = 0.188495559215
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
-Kb = 0.695034800 #Boltzmann constant in p.cm per Kelvin
+Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 factOD = 108.86039
 
 def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
