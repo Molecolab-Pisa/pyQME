@@ -218,7 +218,7 @@ class LinearSpectraCalculator():
         else:
             return self.freq,self.FL
         
-    def calc_FL_k(self,dipoles,eqpop=None,freq=None):
+    def calc_FL_k(self,dipoles=None,eqpop=None,freq=None):
         """Compute fluorescence spectrum
         
         dipoles: np.array(dtype = np.float)
@@ -242,12 +242,14 @@ class LinearSpectraCalculator():
         t = self.time
         lambda_k = self.rel_tensor.get_lambda_k()
         
-        self.excdip = self.rel_tensor.transform(dipoles,dim=1)
-        self.excd2 = np.sum(self.excdip**2,axis=1)
+        if dipoles is not None:
+            self.excdip = self.rel_tensor.transform(dipoles,dim=1)
+            self.excd2 = np.sum(self.excdip**2,axis=1)
+        else:
+            self.excd2 = np.ones((self.rel_tensor.dim)) 
 
         if eqpop is None:
             eqpop = self._get_eq_populations()
-               
         
         self.FL_k = np.empty([self.rel_tensor.dim,self.freq.size])
         for (k,e_k) in enumerate(self.rel_tensor.ene):
