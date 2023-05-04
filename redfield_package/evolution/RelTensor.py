@@ -269,8 +269,8 @@ class RelTensor():
 
             rhot = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
 
-            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
-                rhot = np.real(rhot)
+#            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
+#                rhot = np.real(rhot)
 
             return rhot.reshape(-1,self.dim,self.dim)
         else:
@@ -294,7 +294,8 @@ class RelTensor():
 
             popt = np.real(popt)
                 
-            rhot = np.zeros([t.size,self.dim,self.dim])
+            rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
+            rhot = np.asarray([rho]*t.size)
             np.einsum('tkk->tk',rhot)[...] = popt
 
             return rhot
@@ -329,8 +330,8 @@ class RelTensor():
             rho_ = rho.reshape(self.dim**2)
             rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
             
-            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
-                rhot = np.real(rhot)
+#            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
+#                rhot = np.real(rhot)
             
             return rhot.reshape(-1,self.dim,self.dim)
         
@@ -342,7 +343,11 @@ class RelTensor():
             rhot_diagonal = expm_multiply(self.rates,np.diag(rho),start=t[0],stop=t[-1],num=len(t) )
             rhot_diagonal = np.real(rhot_diagonal)
             
-            return np.array([np.diag(rhot_diagonal[t_idx,:]) for t_idx in range(len(t))])
+            rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
+            rhot = np.asarray([rho]*t.size)
+            np.einsum('tkk->tk',rhot)[...] = rhot_diagonal
+
+            return rhot
         
     def get_g_k(self):
         if not hasattr(self,'g_k'):
