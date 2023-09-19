@@ -3,11 +3,27 @@ from .RelTensor import RelTensor
 from ..utils import h_bar
 
 class ForsterTensor(RelTensor):
-    """Forster Tensor class where Forster Resonance Energy Transfer (FRET) Theory is used to model energy transfer processes
-    This class is a subclass of Relaxation Tensor Class"""
+    """Forster Tensor class where Forster Resonance Energy Transfer (FRET) Theory (https://doi.org/10.1117/1.JBO.17.1.011002) is used to model energy transfer processes.
+    This class is a subclass of the RelTensor Class."""
 
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        "This function handles the variables which will be initialized to the main RelaxationTensor Class"
+        """This function handles the variables which are initialized to the main RelTensor Class.
+        
+        Arguments
+        ---------
+        H: np.array(dtype=np.float), shape = (n_site,n_site)
+            excitonic Hamiltonian in cm^-1.
+        specden: Class
+            class of the type SpectralDensity
+        SD_id_list: list of integers, len = n_site
+            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+            example: [0,0,0,0,1,1,1,0,0,0,0,0]
+        initialize: Boolean
+            the relaxation tensor is computed when the class is initialized.
+        specden_adiabatic: class
+            SpectralDensity class.
+            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
+        
         ham = H.copy()
         self.V = ham.copy()
         np.fill_diagonal(self.V,0.0)
@@ -17,8 +33,7 @@ class ForsterTensor(RelTensor):
                  specden_adiabatic=specden_adiabatic)
     
     def _calc_rates(self):
-        """This function computes the Forster energy transfer rates
-        """
+        """This function computes the Forster energy transfer rates"""
         
         gt = self.specden.get_gt()
         time_axis = self.specden.time
@@ -44,13 +59,14 @@ class ForsterTensor(RelTensor):
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V[A,D]/h_bar)**2) * integral.real
 
+        #fix diagonal
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
         
         self.rates = self.transform(rates)
     
     def _calc_tensor(self):
-        "Computes the tensor of Forster energy transfer rates"
+        "This function put the Forster energy transfer rates in tensor."
 
         if not hasattr(self, 'rates'):
             self._calc_rates()
@@ -63,10 +79,17 @@ class ForsterTensor(RelTensor):
     
     @property
     def dephasing(self):
-        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+        
+        Returns
+        -------
+        dephasing: np.array(np.float), shape = (self.dim)
+            dephasing rates in cm^-1"""
+        
         if hasattr(self,'RTen'):
-            return -0.5*np.einsum('aaaa->a',self.RTen)
+            dephasing = -0.5*np.einsum('aaaa->a',self.RTen)
         else:
             if not hasattr(self,'rates'):
                 self._calc_rates()
-            return -0.5*np.diag(self.rates)
+            dephasing = -0.5*np.diag(self.rates)
+        return dephasing

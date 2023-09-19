@@ -2,50 +2,69 @@ import numpy as np
 from .RelTensor import RelTensor
 from ..utils import wn2ips
 
-
-
-class ModifiedRedfieldTensor(RelTensor):           
-    """Modfied Redfield Tensor and Rates 
-
-    """
+class ModifiedRedfieldTensor(RelTensor):
+    """Modified Redfield Tensor class where Modified Redfield Theory (https://doi.org/10.1063/1.476212) is used to model energy transfer processes.
+    This class is a subclass of the RelTensor Class."""
 
 
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,damping_tau=None):
-        "This function handles the variables which will be initialized to the main RelaxationTensor Class"
+        """This function handles the variables which are initialized to the main RelTensor Class
+        
+        Arguments
+        ---------
+        H: np.array(dtype=np.float), shape = (n_site,n_site)
+            excitonic Hamiltonian in cm^-1.
+        specden: Class
+            class of the type SpectralDensity
+        SD_id_list: list of integers, len = n_site
+            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+            example: [0,0,0,0,1,1,1,0,0,0,0,0]
+        initialize: Boolean
+            the relaxation tensor is computed when the class is initialized.
+        specden_adiabatic: class
+            SpectralDensity class.
+            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+        damping_tau: np.float
+            standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain"""
+        
         self.damping_tau = damping_tau
         super().__init__(H=H.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic)
         
     def _calc_rates(self):
-        """Compute and store Redfield energy transfer rates
-        """
+        "This function computes and stores the Modified Redfield energy transfer rates in cm^-1"
         
         rates = self.calc_redfield_rates()
         self.rates = rates
     
     def calc_redfield_rates(self):
-        """This function computes the Modified Redfield energy transfer rates
-        """
+        """This function computes the Modified Redfield energy transfer rates in cm^-1.
         
+        Arguments
+        ---------
+        rates: np.array(dtype=np.float), shape = (self.dim,self.dim)
+            Modified Redfield energy transfer rates in cm^-1."""
+        
+        #let's get comfortable
         time_axis = self.specden.time
-        gt_exc = self.get_g_k()
-        Reorg_exc = self.get_lambda_k()
-        
-        self._calc_weight_kkkl()
-        self._calc_weight_kkll()
-        
         reorg_site = self.specden.Reorg
-        
         g_site,gdot_site,gddot_site = self.specden.get_gt(derivs=2)
         
+        #compute the weights that we need for the transformation from site to exciton basis
+        self._calc_weight_kkkl()
+        self._calc_weight_kkll()        
+        
+        #set the damper, if necessary
         if self.damping_tau is None:
             damper = 1.0
         else:
             damper = np.exp(-(time_axis**2)/(2*(self.damping_tau**2))) 
         
+        #compute the rates
         rates = _calc_modified_redfield_rates(self.Om,self.weight_kkll,self.weight_kkkl,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis)
 
+        #diagonal fix
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
@@ -53,14 +72,28 @@ class ModifiedRedfieldTensor(RelTensor):
 
 
     def _calc_tensor(self,secularize=True):
-        """Compute and store Redfield energy transfer tensor
-        """
+        """This function computes and stores the Modified Redfield energy transfer tensor in cm^-1
+        
+        Arguments
+        ---------
+        secularize: Boolean
+            if True, the relaxation tensor is secularized"""
         
         RTen = self.calc_redfield_tensor(secularize=secularize)
         self.RTen = RTen
 
     def calc_redfield_tensor(self,secularize=True):
-        "Computes the tensor of Redfield energy transfer rates"
+        """This function computes the Modified Redfield energy transfer tensor in cm^-1
+        
+        Arguments
+        ---------
+        secularize: Boolean
+            if True, the relaxation tensor is secularized
+            
+        Returns
+        -------
+        RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim)
+            Modified Redfield relaxation tensor"""
 
         if not hasattr(self, 'rates'):
             self._calc_rates()
@@ -74,17 +107,18 @@ class ModifiedRedfieldTensor(RelTensor):
         dephasing = diagonal.T[:,None] + diagonal.T[None,:]
         np.einsum('ijij->ij',RTen)[...] = dephasing/2
 
-        #pure dephasing
         time_axis = self.specden.time
-        gdot_KKKK = self.get_g_k()
+        gdot_KKKK = self.get_g_a()
 
         if not hasattr(self,'weight_kkll'):
             self._calc_weight_kkll()
 
+        #lineshape function
         _,gdot_site = self.specden.get_gt(derivs=1)
         gdot_KKLL = np.dot(self.weight_kkll.T,gdot_site)
 
-        for K in range(self.dim):        #FIXME IMPLEMENTA MODO ONESHOT
+        #pure dephasing (https://doi.org/10.1016/j.chemphys.2014.11.026)
+        for K in range(self.dim):        #FIXME: GO ONESHOT
             for L in range(K+1,self.dim):
                 real = -0.5*np.real(gdot_KKKK[K,-1] + gdot_KKKK[L,-1] - 2*gdot_KKLL[K,L,-1])
                 imag = -0.5*np.imag(gdot_KKKK[K,-1] - gdot_KKKK[L,-1])
@@ -94,6 +128,7 @@ class ModifiedRedfieldTensor(RelTensor):
         #fix diagonal
         np.einsum('iiii->i',RTen)[...] = np.diag(self.rates)
 
+        #secularization
         if secularize:
             RTen = self.secularize(RTen)
             
@@ -101,18 +136,26 @@ class ModifiedRedfieldTensor(RelTensor):
 
     @property
     def dephasing(self):
-        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+        
+        Returns
+        -------
+        dephasing: np.array(np.float), shape = (self.dim)
+            dephasing rates in cm^-1."""
+        
+        #case 1: the full relaxation tensor is available
         if hasattr(self,'RTen'):
             return -0.5*np.einsum('aaaa->a',self.RTen)
+        
+        #case 2: the full relaxation tensor is not available --> use rates
         else:
             if not hasattr(self,'rates'):
                 self._calc_rates()
             return -0.5*np.diag(self.rates)
 
-
-    ###################
-
 def _calc_modified_redfield_rates(Om,weight_kkll,weight_kkkl,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis):
+    "This function computes the Modified Redfield energy transfer rates in cm^-1"
+    
     dim  = Om.shape[0]
     nsd  = reorg_site.shape[0]
     ntim = g_site.shape[1]
@@ -126,6 +169,8 @@ def _calc_modified_redfield_rates(Om,weight_kkll,weight_kkkl,reorg_site,g_site,g
     g_KKLL     = np.zeros((dim,dim,ntim),dtype=np.complex128)
     gdot_KLLL  = np.zeros((dim,dim,ntim),dtype=np.complex128)
     gddot_KLLK = np.zeros((dim,dim,ntim),dtype=np.complex128)
+    
+    
     for i in range(nsd):
         w2 = weight_kkll[i].reshape((dim,dim,-1))
         w3 = weight_kkkl[i].T.reshape((dim,dim,-1))
@@ -139,6 +184,9 @@ def _calc_modified_redfield_rates(Om,weight_kkll,weight_kkkl,reorg_site,g_site,g
     return rates
 
 def _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damper,time_axis):
+    """This function computes the Modified Redfield energy transfer rates in cm^-1.
+    This part of code is in a separate function because in this way its parallelization using a jitted function is easier."""
+    
     rates = np.zeros((dim,dim),dtype=np.float64)
     for D in range(dim):
         gD = g_KKLL[D,D]
@@ -156,7 +204,3 @@ def _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damp
             rates[A,D] = 2.*integral.real
 
     return rates
-
-# Possibly create jitted function
-
-

@@ -4,26 +4,21 @@ import scipy.fftpack as fftpack
 from .utils import Kb
 
 def do_ifft_complete(omega,spec,t):
-    """
-    Perform inverse FT, spec(omega) -> x(t)
-    where spec(omega) is defined over a *symmetric* range around 0,
-    and time axis could be anything
+    """This function performs inverse FT, spec(omega) -> x(t), where spec(omega) is defined over a *symmetric* range around 0, and time axis could be anything.
     
-    omega: np.array (N)
-        Frequency axis, defined over a symmetric range (-w,w), equally spaced
-    
-    spec: np.array (N)
-        Spectrum to compute the IFFT of, defined on omega axis
-        
-    t: np.array(Ntimes)
-        Time axis: the ifft will be calculated at these times
-        
-        
-    Returns:
-    
-    x: np.array(dtype=np.complex)
-        Inverse FT of spec(w)
-    """
+    Arguments
+    ---------
+    omega: np.array(dtype=np.float), shape = (N)
+        Frequency axis, defined over a symmetric range (-w,w), equally spaced.
+    spec: np.array(dtype=np.float), shape = (N)
+        Spectrum to compute the IFFT of, defined on omega axis. 
+    t: np.array(dtype=np.float), shape = (Ntimes)
+        Time axis: the ifft is calculated at these times.
+
+    Returns
+    -------
+    x: np.array(dtype=np.complex), shape = (t.size)
+        Inverse FT of spec(w)"""
     
     # First define the time axis for the IFFT
     timeax_ = 2*np.pi*np.fft.fftshift(np.fft.fftfreq(len(omega),omega[1]-omega[0]))
@@ -44,69 +39,68 @@ def do_ifft_complete(omega,spec,t):
 
 
 class SpectralDensity():
-    "Spectral Density class. Every frequency or energy is in cm-1. Every time or time axis is in cm"
+    "Spectral Density class. Every frequency or energy is in cm-1. Every time or time axis is in cm."
     
-    def __init__(self,w,SD,time = None,temperature=None):#,imag=False):
-        """
-        This function initializes the Spectral Density class
-        
+    def __init__(self,w,SD,time = None,temperature=298):#,imag=False):
+        """This function initializes the Spectral Density class
+
+        Arguments
+        ---------
         w: np.array(dtype = np.float)
-            frequency axis on which the SDs are defined
-        SD: np.array(dtype = np.float) whose shape must be len(w) or (n,len(w)), where n is the number of SDs
-            spectral densities
+            frequency axis on which the SDs are defined in cm^-1.
+        SD: np.array(dtype = np.float), shape = (w.size) or (n,w.size), where n is the number of SDs
+            spectral densities in cm^-1.
         time: np.array(dtype = np.float)
-            time axis on which C(t) and g(t) will be computed
-        temperature: np.floaot
-            temperature in Kelvin
-        imag: Bool
-            If False, only real part of SDs will be computed
-            If True, both real and imaginary part of SDs will be computed
+            time axis on which C(t) and g(t) is computed.
+            if None, the time axis is computed using FFT as conjugated axis of w.
+        temperature: np.float
+            temperature in Kelvin.
         """
-        
-        
-        # w:  frquency axis
-        # SD: spectral density or list of spectral densities
-        
+
+        #store the variables given as input
         self.w  = w.copy()
         self.SD = np.atleast_2d(SD).copy()
-        #self.imag = imag
                             
+        #if not given as input, get the time axis as FT conjugate axis of the frequency axis
         if time is None:
             time = 2*np.pi*np.fft.fftshift(np.fft.fftfreq(len(self.w),self.w[1]-self.w[0]))
             time = time[time>=0]
         self.time = time.copy()
 
         self.temperature = temperature
-        
-        if self.temperature is None:
-            self.temperature = 298.0
-        
+                
+        #symmetrize the frequency axis and the spectral densities
         self._symm_freqs()
+        
+        #generate a spline representation of each spectral density
         self._gen_spline_repr()
         
 
     def set_temperature(self,T):
-        """
-        Set the temperature
+        """This function sets the temperature.
         
         T: np.float
-           Temperature in Kelvin
+           Temperature in Kelvin.
         """
         
+        #set the temperature
         self.temperature = T
 
     @property
     def beta(self):
-        "The thermodynamic beta, also known as coldness, which is the reciprocal of the thermodynamic temperature of a system"
+        "This function returns the thermodynamic beta, also known as coldness, which is the reciprocal of the thermodynamic temperature of a system."
+        
         return 1./(Kb*self.temperature)
     
     @property
     def NSD(self):
-        "Number of spectral densities defined in the class"
+        "This function returns the number of spectral densities defined in the class."
+        
         return self.SD.shape[0]
     
     def _symm_freqs(self):
-        "Creates symmetrical freq axis and spectral density"
+        "This function creates symmetrical freq axis and spectral densities."
+        
         if self.w[0] == 0:
             self.omega = np.concatenate((-self.w[:1:-1],self.w))
             self.Cw = np.asarray([(np.concatenate((-SD[:1:-1],SD))) for SD in self.SD])
@@ -116,119 +110,169 @@ class SpectralDensity():
         pass
     
     def _gen_spline_repr(self,imag=None):
-        """
-        Generates a spline representation of the spectral density
+        """This function generates spline representations of the spectral densities.
         
-        imag = Bool
-               If true, the spline representations of both real and imaginary part of SDs are generated
-               If false, the spline representations of only the real part of SDs are generated
+        Arguments
+        ---------
+        imag: Bool
+            If true, the spline representations of both real and imaginary parts of SDs are generated.
+            If false, the spline representations of only the real part of SDs is generated.
                """
         
-        #if imag == None:
-        #    imag = self.imag
-        
+        #real part
+        self.SDfunction_real = [UnivariateSpline(self.omega,ThermalSD_real,s=0) for ThermalSD_real in self.ThermalSD_real]
+
+        #imaginary part, if needed 
         if imag:
-            self.SDfunction_real = [UnivariateSpline(self.omega,ThermalSD_real,s=0) for ThermalSD_real in self.ThermalSD_real]
-            self.SDfunction_imag = [UnivariateSpline(self.omega,ThermalSD_imag,s=0) for ThermalSD_imag in self.ThermalSD_imag]
-            
-        else:
-            self.SDfunction_real = [UnivariateSpline(self.omega,ThermalSD_real,s=0) for ThermalSD_real in self.ThermalSD_real]
-            self.SDfunction = self.SDfunction_real        
+            self.SDfunction_imag = [UnivariateSpline(self.omega,ThermalSD_imag,s=0) for ThermalSD_imag in self.ThermalSD_imag]            
         
         pass
     
     def __call__(self,freq,SD_id=None,imag=None):
-        """
-        Get the value of the SD_id_th spectral density at frequency freq
+        """This function returns the value of the SD_id_th spectral density at frequency freq.
+        
+        Arguments
+        ---------
         freq: np.array(dtype = np.float).
-            Frequencies at which the SD will be computed. It can be a multi-dimensional array.
+            Frequencies at which the SD is computed. It can be a multi-dimensional array.
         SD_id: integer
-            Index of the spectral density which has to be will be evaluated
+            Index of the evaluated spectral density
+            if None, all spectral densities are evaluated.
         imag: Bool
-            If False, only real part of SDs will be computed
-            If True, both real and imaginary part of SDs will be computed
+            If False, only real part of SDs is computed.
+            If True, both real and imaginary parts of SDs is computed.
         
-        Return:
-        np.array(shape = freq.shape)
-            Array containing the value of the SD_id_th SDs evaluated at frequency freq. 
+        Returns
+        -------
+        SD:
+            if SD_id is     None and imag = True:
+                np.array(dtype=np.complex), shape = (self.SD.dim,freq.size)
+            if SD_id is     None and imag = False:
+                np.array(dtype=np.float), shape = (self.SD.dim,freq.size)
+            if SD_id is not None and imag = True:
+                np.array(dtype=np.complex), shape = (freq.size)
+            if SD_id is not None and imag = False:
+                np.array(dtype=np.float), shape = (freq.size)
+            Array of spectral densities evaluated on the given frequency axis. 
         """
         
-        #if imag == None:
-        #    imag = self.imag
-         
+        #generate the spline representation
         if imag and not hasattr(self,'SDfunction_imag'):
             self._gen_spline_repr(imag=True)
             
+        #separate cases according to which spectral density is required and whether the imaginary part is required
+        
         if SD_id is None and imag:
-            return np.asarray([self.SDfunction_real[SD_id](freq)+1.j*self.SDfunction_imag[SD_id](freq) for SD_id in range(self.NSD)])
+            SD = np.asarray([self.SDfunction_real[SD_id](freq)+1.j*self.SDfunction_imag[SD_id](freq) for SD_id in range(self.NSD)])
         
         elif SD_id is not None and imag:
-            return self.SDfunction_real[SD_id](freq)+1.j*self.SDfunction_imag[SD_id](freq)
+            SD = self.SDfunction_real[SD_id](freq)+1.j*self.SDfunction_imag[SD_id](freq)
         
         elif SD_id is None and not imag:
-            return np.asarray([self.SDfunction_real[SD_id](freq) for SD_id in range(self.NSD)])
+            SD = np.asarray([self.SDfunction_real[SD_id](freq) for SD_id in range(self.NSD)])
         
         elif SD_id is not None and not imag:
-            return self.SDfunction_real[SD_id](freq)
+            SD = self.SDfunction_real[SD_id](freq)
+        return SD
                 
     @property
     def ThermalSD_real(self):
-        "The real part of the thermal spectral densities"
-        return np.asarray([Cw*(1/np.tanh(self.beta*self.omega/2))+Cw for Cw in self.Cw])
+        """This function computes and returns the real part of the thermal spectral densities.
+        
+        Returns
+        -------
+        thermalSD_real: np.array(dtype=np.float), shape = (self.NSD,self.omega.size)
+            real part of the thermal spectral densities."""
+        
+        #multiply the spectral densities by the thermal factor
+        thermalSD_real = np.asarray([Cw*(1/np.tanh(self.beta*self.omega/2))+Cw for Cw in self.Cw])
+        return thermalSD_real
         
     @property
     def ThermalSD_imag(self):
-        "The imaginary part of the thermal spectral densities"
-        return np.asarray([-fftpack.hilbert(self.ThermalSD_real[i]) for i in range(self.NSD)])
+        """This function computes and returns the imaginary part of the thermal spectral densities using the Hilbert transform.
+        Reference: https://doi.org/10.1063/1.1470200
+        
+        Returns
+        -------
+        thermalSD_imag: np.array(dtype=np.float), shape = (self.NSD,self.omega.size)
+            imaginary part of the thermal spectral densities."""
+        
+        #perform Hilbert transform on the real part of the spectral density
+        thermalSD_imag = np.asarray([-fftpack.hilbert(self.ThermalSD_real[i]) for i in range(self.NSD)])
+        return thermalSD_imag
 
     @property
     def ThermalSD(self):
-        "The thermal spectral density"
+        """This function returns the thermal spectral densities.
         
+        Returns
+        -------
+        thermal_SD:
+            if self.imag = True:
+                np.asarray(dtype=np.complex), shape = (self.NSD,self.freq.size)
+            if self.imag = False
+                np.asarray(dtype=np.float), shape = (self.NSD,self.freq.size)
+             thermal spectral densities."""
+         
         if self.imag:
-            return self.ThermalSD_real
+            thermal_SD = self.ThermalSD_real
 
         elif not self.imag:
-            return self.ThermalSD_real + 1.j*self.ThermalSD_imag
-
+            thermal_SD = self.ThermalSD_real + 1.j*self.ThermalSD_imag
+        return thermal_SD
+    
     @property
     def Reorg(self):
-        "The reorganization energies of the spectral densities"
-        #return np.asarray([np.trapz(Cw/(2*np.pi*self.omega),self.omega) for Cw in self.Cw])
-        return np.trapz(self.Cw/(2*np.pi*self.omega),self.omega,axis=1)
+        """This function computes and returns the reorganization energies of the spectral densities.
+        
+        Returns
+        -------
+        reorg: np.asarray(dtype=np.float), shape = (self.NSD)
+            array of reorganization energies of the spectral densities."""
+
+        #integrate the spectral density
+        reorg = np.trapz(self.Cw/self.omega,self.omega,axis=1) 
+        
+        #scaling factor
+        reorg = reorg/(2*np.pi)
+
+        return reorg    
     
     @property
     def Huang_Rhys(self):
-        "Huang-Rhys factors of the spectral densities"
+        """This function returns and computes the Huang-Rhys factors of the spectral densities.
+        
+        Returns
+        -------
+        hr: np.asarray(dtype=np.float), shape = (self.NSD)
+            Huang-Rhys factors of the spectral densities."""
+            
         hr = []
+        
+        #integrate each spectral density
         for Cw in self.Cw:
             integ = Cw[self.omega>0]/(np.pi*(self.omega[self.omega>0])**2)
             hr.append(np.trapz( integ,self.omega[self.omega>0]))
-        return np.asarray(hr)
+        hr = np.asarray(hr)
+        return hr
     
     def _calc_Ct(self):
-        """
-        Computes the correlation function
+        "Computes the correlation function of the spectral densities as inverse FT of the real part of the spectral densities."
         
-        time: np.array(dtype=np.float)
-            timaxis on which C(t) will be computed
-            """
-        
-
-        # Correlation function
+        #perform inverse fourier transform on each spectral density 
         Ct_list = [do_ifft_complete(self.omega,integ[::-1],self.time) for integ in self.ThermalSD_real]
         
         self.Ct = np.asarray(Ct_list)
-        
         pass
         
-    def get_Ct(self,time=None):
-        """
-        Returns the correlation function
+    def get_Ct(self):
+        """This function computes and returns the correlation function of the spectral densities.
         
-        time: np.array(dtype=np.float)
-            timaxis on which C(t) will be computed
-            """
+        Returns
+        -------
+        self.Ct: np.array(dtype=np.complex), shape = (self.time.size)
+            correlation functions of the spectral densities."""
         
         if not hasattr(self,'gt'):
             self._calc_Ct()
@@ -236,12 +280,7 @@ class SpectralDensity():
                 
                     
     def _calc_gt(self):
-        """
-        Computes the lineshape function
-        
-        time: np.array(dtype=np.float)
-            timaxis on which g(t) will be computed
-            """
+        """This function computes the lineshape functions their first and second derivatives as antiderivative of the correlation functions."""
         
         time = self.time
         
@@ -252,7 +291,7 @@ class SpectralDensity():
         self.g_dot = []
         self.g_ddot = []
         for Ct in self.Ct:
-            # Integrate correlation function through spline repr
+            # Integrate correlation function through spline representation
             sp_Ct_real = UnivariateSpline(time,Ct.real,s=0)
             sp_Ct_imag = UnivariateSpline(time,Ct.imag,s=0)
 
@@ -260,7 +299,6 @@ class SpectralDensity():
             sp_Ct1_imag = sp_Ct_imag.antiderivative()
             sp_Ct2_real = sp_Ct1_real.antiderivative()
             sp_Ct2_imag = sp_Ct1_imag.antiderivative()
-
 
             # Evaluate spline at time axis
             self.gt.append(sp_Ct2_real(time) + 1.j*sp_Ct2_imag(time))
@@ -277,14 +315,38 @@ class SpectralDensity():
     
 
     def get_gt(self,derivs=0):
-        """
-        Returns the lineshape function
+        """This function returns the lineshape function (and first and second derivatives) of each spectral density.
         
-        time: np.array(dtype=np.float)
-            timaxis on which g(t) will be computed
-            """
+        Arguments
+        ---------
+        derivs: int
+            number of lineshape function derivatives to be returned.
+            
+        Returns
+        -------
+        if derivs = 0:
+            list (len = self.NSD) of np.asarray(dtype=np.complex), shape = (self.NSD,self.time.size)
+                 lineshape functions.
+        
+        if derivs = 1:
+            list (len = self.NSD) of np.asarray(dtype=np.complex), shape = (self.NSD,self.time.size)
+                 lineshape functions.
+            list (len = self.NSD) of np.asarray(dtype=np.complex), shape = (self.NSD,self.time.size)
+                 first derivative of gt lineshape functions.
+                
+        if derivs = 2:
+            list (len = self.NSD) of np.asarray(dtype=np.complex), shape = (self.NSD,self.time.size)
+                 gt lineshape function.
+            list (len = self.NSD) of np.asarray(dtype=np.complex), shape = (self.NSD,self.time.size)
+                 first derivative of gt lineshape functions.
+            list (len = self.NSD) of np.asarray(dtype=np.complex), shape = (self.NSD,self.time.size)
+                 second derivative of gt lineshape functions."""
+        
+        #calculate the linshape functions and, if required, their derivatives
         if not hasattr(self,'gt'):
             self._calc_gt()
+
+        #return
         if derivs > 1:
             return self.gt,self.g_dot,self.g_ddot
         elif derivs == 1:

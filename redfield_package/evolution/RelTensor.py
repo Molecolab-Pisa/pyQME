@@ -4,27 +4,27 @@ from scipy import linalg as la
 from ..utils import wn2ips
 
 class RelTensor():
-    "Relaxation tensor class"
+    "Relaxation tensor class in the single-exciton manifold"
     
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        """
-        This function initializes the Relaxation tensor class
+        """This function initializes the RelTensor class, used to model the energy transfer processes in the single exciton manifold.
         
-        Ham: np.array(dtype = np.float)
-            hamiltonian matrix defining the system in cm^-1
-        specden: class
-            SpectralDensity class
-        SD_id_list: list of integers
-            list of indexes which identify the SDs e.g.[0,0,0,0,1,1,1,0,0,0,0,0]
-            must be of same length than the number of SDs in the specden Class
-        initialize: Bool
-            If True, the tensor will be computed at once.
+        Arguments
+        ---------
+        H: np.array(dtype=np.float), shape = (n_site,n_site)
+            excitonic Hamiltonian in cm^-1.
+        specden: Class
+            class of the type SpectralDensity
+        SD_id_list: list of integers, len = n_site
+            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+            example: [0,0,0,0,1,1,1,0,0,0,0,0]
+        initialize: Boolean
+            the relaxation tensor is computed when the class is initialized.
         specden_adiabatic: class
-            SpectralDensity class
-            if not None, it will be used to compute the reorganization energy that will be subtracted from exciton Hamiltonian diagonal before its diagonalization
-
-        """
+            SpectralDensity class.
+            if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham)."""
         
+        #store variables given as input
         if H is not None:
             self.H = H
         elif not hasattr('self','H'):
@@ -40,131 +40,196 @@ class RelTensor():
         else:
             self.SD_id_list = SD_id_list.copy()
         
+        #compute some preliminary quantities
         self._diagonalize_ham()
         self._calc_X()
-        self._calc_weight_kkkk()
+        self._calc_weight_aaaa()
         self.Om = self.ene[:,None] - self.ene[None,:]
 
+        #if required, compute the relaxation tensor
         if initialize:
             self._calc_tensor()
         
     @property
     def dim(self):
-        """Dimension of Hamiltonian system
+        """Dimension of Hamiltonian system.
         
-        returns the order of the Hamiltonian matrix"""
+        Returns
+        -------
+        dim: integer
+            dimension of the Hamiltonian matrix."""
         
-        return self.H.shape[0]
+        dim = self.H.shape[0]
+        return dim
        
     def _diagonalize_ham(self):
-        "This function diagonalizes the hamiltonian"
+        "This function diagonalizes the Hamiltonian and stores its eigenvalues (exciton energies) and eigenvectors."
         
+        #if required, subtract the fraction of reorganization energies given by the self.specden_adiabatic from the site energies before the diagonalization of the excitonic Hamiltonian
         if hasattr(self,'specden_adiabatic'):
             reorg_site = np.asarray([self.specden_adiabatic.Reorg[SD_id] for SD_id in self.SD_id_list])
             np.fill_diagonal(self.H,np.diag(self.H)-reorg_site)
             self.ene, self.U = np.linalg.eigh(self.H)
             self._calc_X()
-            self._calc_weight_kkkk()
-            self.lambda_k_no_bath = np.dot(self.weight_kkkk.T,self.specden_adiabatic.Reorg)
-            self.ene = self.ene + self.lambda_k_no_bath
+            self._calc_weight_aaaa()
+            self.lambda_a_no_bath = np.dot(self.weight_aaaa.T,self.specden_adiabatic.Reorg)
+            self.ene = self.ene + self.lambda_a_no_bath
+
+        #standard Hamiltonian diagonalization
         else:
             self.ene, self.U = np.linalg.eigh(self.H)
 
             
     def _calc_X(self):
-        "This function computes the matrix self-product of the Hamiltonian eigenvectors that will be used in order to build the weights" 
-        X = np.einsum('ja,jb->jab',self.U,self.U)
+        "This function computes the matrix self-product of the Hamiltonian eigenvectors that is used when weights are built."
+        
+        #X_jab = c_ja*c_jb
+        X = np.einsum('ia,ib->iab',self.U,self.U)
         self.X = X
         
         
-    def _calc_weight_kkkk(self):
-        "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
+    def _calc_weight_aaaa(self):
+        """Given a generic system-bath property P (e.g. reorganization energy or lineshape function),
+        which is diagonal in the site basis (i.e. only the P_iiii terms are non-null),
+        this function computes the weights used for the transformation
+        from the site basis to the exciton basis of the elements P_aaaa."""
+        
         X =self.X
         SD_id_list = self.SD_id_list
-        self.weight_kkkk = np.zeros([len([*set(SD_id_list)]),self.dim])
+        self.weight_aaaa = np.zeros([len([*set(SD_id_list)]),self.dim])
 
- 
+        #loop over the redundancies-free list of spectral densities
+        for SD_id in [*set(SD_id_list)]:
+            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]            
+            #W_aaaa_Z = sum_{i in Z} c_ia**4
+            self.weight_aaaa [SD_id] = np.einsum('iaa,iaa->a',X[mask,:,:],X[mask,:,:])
 
-        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
-            self.weight_kkkk [SD_idx] = np.einsum('jaa,jaa->a',X[mask,:,:],X[mask,:,:])
-
-    def _calc_weight_kkll(self):
-        "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
+    def _calc_weight_aabb(self):
+        """Given a generic system-bath property P (e.g. reorganization energy or lineshape function),
+        which is diagonal in the site basis (i.e. only the P_iiii terms are non-null),
+        this function computes the weights used for the transformation
+        from the site basis to the exciton basis of the elements P_aabb."""
+        
         X =self.X
         SD_id_list = self.SD_id_list
-        self.weight_kkll = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
+        self.weight_aabb = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
+
+        #loop over the redundancies-free list of spectral densities
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
-            self.weight_kkll [SD_idx] = np.einsum('jab,jab->ab',X[mask,:,:],X[mask,:,:])
 
-    def _calc_weight_kkkl(self):
-        "This functions computes the weights that will be used in order to transform from site basis to exciton basis"
+            #W_aabb_Z = sum_{i in Z} c_ia**2 c_ib**2
+            self.weight_aabb [SD_idx] = np.einsum('iab,iab->ab',X[mask,:,:],X[mask,:,:])
+
+    def _calc_weight_aaab(self):
+        """Given a generic system-bath property P (e.g. reorganization energy or lineshape function),
+        which is diagonal in the site basis (i.e. only the P_iiii terms are non-null),
+        this function computes the weights used for the transformation
+        from the site basis to the exciton basis of the elements P_aaab."""
+        
         X =self.X
         SD_id_list = self.SD_id_list
-        self.weight_kkkl = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
+        self.weight_aaab = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim])
+
+        #loop over the redundancies-free list of spectral densities
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
-            self.weight_kkkl [SD_idx] = np.einsum('jaa,jab->ab',X[mask,:,:],X[mask,:,:])
+
+            #W_aaab_Z = sum_{i in Z} c_ia**3 c_ib
+            self.weight_aaab [SD_idx] = np.einsum('iaa,iab->ab',X[mask,:,:],X[mask,:,:])
             
     
-    def transform(self,arr,dim=None,inverse=False):
-        """Transform state or operator to eigenstate basis
+    def transform(self,arr,ndim=None,inverse=False):
+        """Transform state or operator to eigenstate basis (i.e. from the site basis to the exciton basis).
         
-        arr: np.array
-            State or operator to be transformed
-            
-        Return:
+        Arguments
+        ---------
+        arr: np.array()
+            state or operator to be transformed.
+        ndim: integer
+            number of dimensions (rank) of arr (e.g. arr = vector --> ndim=1, arr = matrix --> ndim = 2).
+        inverse: Boolean
+            if True, the transformation performed is from the exciton basis to the site basis.
+            if False, the transformation performed is from the site basis to the exciton basis.
+        
+        Returns
+        -------
+        arr_transformed: np.array(dtype=type(arr)), shape = np.shape(arr)
             Transformed state or operator"""
-        
-        if dim is None:
-            dim = arr.ndim
+            
+        if ndim is None:
+            ndim = arr.ndim
         SS = self.U
+        
+        #in this case we just need to use c_ai instead of c_ia
         if inverse:
             SS = self.U.T
         
-        if dim == 1:
+        #case 1: arr_transformed_a = sum_i c_ia arr_i 
+        if ndim == 1:
             # N
-            return SS.T.dot(arr)
-        elif dim == 2:
+            arr_transformed = SS.T.dot(arr)
+
+        #case 2: arr_transformed_ab = sum_ij c_ia c_jb arr_ij 
+        elif ndim == 2:
             # N x N
-            return np.dot(SS.T.dot(arr),SS)
-        elif dim == 3:
+            arr_transformed = np.dot(SS.T.dot(arr),SS)
+
+        #case 3: arr_transformed_tab = sum_ij c_ia c_jb arr_tij 
+        elif ndim == 3:
             # M x N x N
             tmp = np.dot(arr,SS)
-            return tmp.transpose(0,2,1).dot(SS).transpose(0,2,1)
+            arr_transformed = tmp.transpose(0,2,1).dot(SS).transpose(0,2,1)
+            
+        if 'arr_transformed' in locals():
+            return arr_transformed
         else:
             raise NotImplementedError
     
     def transform_back(self,*args,**kwargs):
-        """This function transforms state or operator from eigenstate basis to site basis
+        """This function transforms state or operator from eigenstate basis to site basis.
+        See "transform" function for input and output."""
         
-        See "transform" function for input and output"""
         return self.transform(*args,**kwargs,inverse=True)
     
     def _secularize(self):
+        "This function stores the secularized relaxation tensor"
         
         self.RTen = self.secularize(self.RTen)
         
     def secularize(self,RTen):
-        "This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but consider only its effect on coherence and population decay)"
+        """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
+        This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
+        
+        Arguments
+        ---------
+        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+            non-secular relaxation tensor.
+        
+        Returns
+        -------
+        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+            secularized relaxation tensor."""
+        
         eye = np.eye(self.dim)
         
         tmp1 = np.einsum('abcd,ab,cd->abcd',RTen,eye,eye)
         tmp2 = np.einsum('abcd,ac,bd->abcd',RTen,eye,eye)
         
-        RTen = tmp1 + tmp2
+        RTen_secular = tmp1 + tmp2
         
-        RTen[np.diag_indices_from(RTen)] /= 2.0
+        #halve the diagonal elements RTen_secular_aaaa
+        RTen_secular[np.diag_indices_from(RTen_secular)] /= 2.0
         
-        return RTen
+        return RTen_secular
 
     def get_rates(self):
-        """This function returns the energy transfer rates
+        """This function returns the energy transfer rates.
         
-        Return
-        self.rates: np.array
-            matrix of energy transfer rates"""
+        Returns
+        -------
+        self.rates: np.array(dtype=np.float), shape = (self.dim,self.dim)
+            matrix of energy transfer rates."""
 
         if not hasattr(self, 'rates'):
             self._calc_rates()
@@ -174,22 +239,29 @@ class RelTensor():
         raise NotImplementedError('This class does not implement a tensor')
 
     def get_tensor(self):
-        "This function returns the tensor of energy transfer rates"
+        """This function returns the tensor of energy transfer rates
+        
+        Returns
+        -------
+        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+            secularized relaxation tensor."""
+        
         if not hasattr(self, 'RTen'):
             self._calc_tensor()
         return self.RTen
     
     def apply_diss(self,rho):
-        """This function lets the Tensor to act on rho matrix
+        """This function lets the relaxation tensor to act on the rho matrix.
         
-        rho: np.array
-            matrix on which the tensor will be applied
+        Arguments
+        ---------
+        rho: np.array(dtype=np.complex), shape = (dim,dim)
+            matrix on which the relaxation tensor is applied.
             
-        Return
-        
-        R_rho: np.array
-            the result of the application of the tensor to rho
-        """
+        Returns
+        -------
+        R_rho: np.array(dtype=np.complex), shape = (dim,dim)
+            the result of the application of the relaxation tensor on rho."""
         
         shape_ = rho.shape
         
@@ -200,20 +272,53 @@ class RelTensor():
         
         return R_rho.reshape(shape_)
 
-    def apply(self,rho):  #GENERAL
+    def apply(self,rho):
+        """This function lets the Liouvillian operator to act on the rho matrix
+        
+        Arguments
+        ---------
+        rho: np.array(dtype=np.complex), shape = (dim,dim)
+            matrix on which the Liouvillian is applied.
+            
+        Returns
+        -------
+        R_rho: np.array(dtype=np.complex), shape = (dim,dim)
+            the result of the application of the Liouvillian on rho."""
         
         shape_ = rho.shape
         
+        #apply the Relaxation tensor
         R_rho = self.apply_diss(rho).reshape((self.dim,self.dim))
         
+        #apply the commutator [H_S,rho_S]
         R_rho  += -1.j*self.Om*rho.reshape((self.dim,self.dim))
         
         return R_rho.reshape(shape_)
     
     def propagate(self,rho,t,include_coh=True,propagation_mode='eig',units='1/cm'):
-        """Propagate the dynamics 
-        """
-#       FIXME: Complete the docstring
+        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor.
+        
+        Arguments
+        ---------
+        rho: np.array(dtype=complex), shape = (dim,dim)
+            dim must be equal to self.dim.
+            density matrix at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+        include_coh: Boolean
+            if False, the coherences aren't propagated (i.e. rho coherences are copied into rhot).
+            if True, the coherences are propagated.
+        propagation_mode: string
+            if 'eig', the density matrix is propagated using the eigendecomposition of the (reshaped) relaxation tensor.
+            if 'exp', the density matrix is propagated using the exponential matrix of the (reshaped) relaxation tensor.
+        units: string
+            can be 'ps' or '1/cm'
+            unit of measurement of the time axis.
+            
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
         
         if units == 'ps':
             t = t*wn2ips
@@ -233,20 +338,25 @@ class RelTensor():
         return rhot
 
     def _propagate_eig(self,rho,t,include_coh=True):
-        """Propagate the density matrix rho using eigendecomposition.
-        It is assumed (and NOT checked) that the Liouvillian is diagonalizable.
-
-        rho: np.array (N,N)
-            initial density matrix
-        t: np.array (M)
-            time axis over which the density matrix will be propagated
-
-        Returns
+        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
         
-        rhot: np.array (M,N,N)
-            propagated density matrix. The time index is the first index of the array.
-        """
+        Arguments
+        ---------
+        rho: np.array(dtype=complex), shape = (dim,dim)
+            dim must be equal to self.dim.
+            density matrix at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+        include_coh: Boolean
+            if False, the coherences aren't propagated (i.e. rho coherences are copied into rhot).
+            if True, the coherences are propagated.
+            
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
 
+        #case 1: coherences are propagated
         if include_coh:
             eye   = np.eye(self.dim)
             Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
@@ -269,12 +379,12 @@ class RelTensor():
 
             rhot = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
 
-#            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
-#                rhot = np.real(rhot)
-
             return rhot.reshape(-1,self.dim,self.dim)
+
+        #case 2: only populations are propagated
         else:
             A = self.rates
+            dim = A.shape[0]
             pop = np.diag(rho)
 
             # Compute left-right eigendecomposition
@@ -294,32 +404,33 @@ class RelTensor():
 
             popt = np.real(popt)
                 
-            rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
+            rhot = np.zeros([t.size,dim,dim],dtype=type(rho[0,0]))
             rhot = np.asarray([rho]*t.size)
             np.einsum('tkk->tk',rhot)[...] = popt
 
             return rhot
     
     def _propagate_exp(self,rho,t,include_coh=True):
-        """This function time-propagates the density matrix rho due to the Redfield energy transfer
+        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
         
-        rho: np.array
-            initial density matrix
-        t: np.array
-            time axis over which the density matrix will be propagated
-        only_diagonal: Bool
-            if True, the density matrix will be propagated using the diagonal part of the Redfield tensor
-            if False, the density matrix will be propagate using the entire Redfield tensor
+        Arguments
+        ---------
+        rho: np.array(dtype=complex), shape = (dim,dim)
+            dim must be equal to self.dim.
+            density matrix at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+        include_coh: Boolean
+            if False, the coherences aren't propagated (i.e. rho coherences are copied into rhot).
+            if True, the coherences are propagated.
             
-        Return
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
         
-        rhot: np.array
-            propagated density matrix. The time index is the first index of the array.
-            """
-        
+        #case 1: coherences are propagated
         if include_coh:
-            if not hasattr(self,'RTen'):
-                self._calc_tensor()
                 
             assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
 
@@ -330,15 +441,10 @@ class RelTensor():
             rho_ = rho.reshape(self.dim**2)
             rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
             
-#            if type(rho[0,0])==np.float64 and np.all(np.abs(np.imag(rhot))<1E-16):
-#                rhot = np.real(rhot)
-            
             return rhot.reshape(-1,self.dim,self.dim)
         
+        #case 2: only popultions are propagated
         else:
-
-            if not hasattr(self, 'rates'):
-                self._calc_rates()
             
             rhot_diagonal = expm_multiply(self.rates,np.diag(rho),start=t[0],stop=t[-1],num=len(t) )
             rhot_diagonal = np.real(rhot_diagonal)
@@ -349,26 +455,34 @@ class RelTensor():
 
             return rhot
         
-    def get_g_k(self):
-        if not hasattr(self,'g_k'):
-            self._calc_g_k()
-        return self.g_k
-    
-    def _calc_g_k(self):
-        "Compute g_kkkk(t) in excitonic basis"
-        gt_site = self.specden.get_gt()
-        # g_k = sum_i |C_ik|^4 g_i 
-        W = self.weight_kkkk
-        self.g_k = np.dot(W.T,gt_site)
-
-    def get_lambda_k(self):
-        if not hasattr(self,'lambda_k'):
-            self._calc_lambda_k()
-        return self.lambda_k
-    
-    def _calc_lambda_k(self):
-        "Compute lambda_kkkk"
-
-        W = self.weight_kkkk
+    def get_g_a(self):
+        """This function returns the diagonal element g_aaaa of the lineshape function tensor in the exciton basis.
+        The related time axis is self.specden.time."""
         
-        self.lambda_k = np.dot(W.T,self.specden.Reorg)
+        if not hasattr(self,'g_a'):
+            self._calc_g_a()
+        return self.g_a
+    
+    def _calc_g_a(self):
+        """This function computes the diagonal element g_aaaa of the lineshape function tensor in the exciton basis.
+        The related time axis is self.specden.time."""
+        
+        gt_site = self.specden.get_gt()
+        W = self.weight_aaaa
+
+        # g_a = sum_i |c_ia|^4 g_i = sum_Z w_aaaa_Z g_Z 
+        self.g_a = np.dot(W.T,gt_site)
+
+    def get_lambda_a(self):
+        "This function returns the diagonal element lambda_aaaa of the reorganization energy tensor in the exciton basis."
+        
+        if not hasattr(self,'lambda_a'):
+            self._calc_lambda_a()
+        return self.lambda_a
+    
+    def _calc_lambda_a(self):
+        "This function computes the diagonal element lambda_aaaa of the reorganization energy tensor in the exciton basis."
+        
+        W = self.weight_aaaa
+        # lambda_a = sum_i |c_ika^4 lambda_i = sum_Z w_aaaa_Z lambda_Z 
+        self.lambda_a = np.dot(W.T,self.specden.Reorg)

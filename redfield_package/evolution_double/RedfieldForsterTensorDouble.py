@@ -5,11 +5,32 @@ from .ModifiedRedfieldTensorDouble import ModifiedRedfieldTensorDouble
 from ..utils import get_H_double,h_bar
 
 class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
-    """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
-    This class is a subclass of Relaxation Tensor Class"""
+    """Real Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes in the double-exciton manifold.
+    This class is a subclass of the RedfieldTensorRealDouble Class."""
 
     def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
-        "This function handles the variables which will be initialized to the main RelaxationTensor Class"
+        """This function handles the variables which are initialized to the main RedfieldTensorRealDouble Class
+        
+        Arguments
+        ---------
+        H_part: np.array(dtype=np.float), shape = (n_site,n_site)
+            excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
+        V: np.array(dtype=np.float), shape = (n_site,n_site)
+            matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
+        specden: Class
+            class of the type SpectralDensity
+        SD_id_list: list of integers, len = n_site
+            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+            example: [0,0,0,0,1,1,1,0,0,0,0,0]
+        initialize: Boolean
+            the relaxation tensor is computed when the class is initialized.
+        specden_adiabatic: class
+            SpectralDensity class.
+            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+        include_redfield_dephasing: Boolean
+            if False, the "standard" Generalized-Forster expression for EET rates will be employed
+            if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates"""
+        
         self.V,pairs = get_H_double(V)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
@@ -18,15 +39,23 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
                          specden_adiabatic=specden_adiabatic)
     @property
     def redfield_dephasing(self):
+        """This function returns the dephasing induced by Redfield EET processes
         
+        Returns
+        -------
+        dephasing: np.array(np.float), shape = (self.dim)
+            dephasing rates in cm^-1"""
+        
+        #get the dephasing from the self.calc_redfield_rates function of the RedfieldTensorReal parent class
         if not hasattr(self,'redfield_rates'):
             self.redfield_rates = super().calc_redfield_rates()
-        return -0.5*np.diag(self.redfield_rates)
+        dephasing = -0.5*np.diag(self.redfield_rates)
+        return dephasing
     
     def _calc_forster_rates(self):
-        """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
-        """
+        "This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates in cm^-1"
 
+        #get the needed variables
         if not hasattr(self,'g_q'):
             self._calc_g_q()
             
@@ -44,25 +73,34 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
         else:
             redf_dephasing = np.zeros(self.dim)
             
+        #loop over donors
         for D in range(self.dim):
             gD = g_q[D]
             ReorgD = lamda_q[D]
+
+            #loop over acceptors
             for A in range(D+1,self.dim):
                 gA = g_q[A]
                 ReorgA = lamda_q[A]
                 
                 #D-->A rate
-                exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
+                energy = self.Om[A,D]+2*ReorgD
+                lineshape_function = gD+gA
+                dephasing = redf_dephasing[D].conj()+redf_dephasing[A]
+                exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
 
                 #A-->D rate
-                exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
+                energy = self.Om[D,A]+2*ReorgA
+                dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
+                exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
 
+        #fix diagonal
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
@@ -71,30 +109,87 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
     def _calc_rates(self):
         """This function computes the Redfield-Forster energy transfer rates"""
         
+        #get generalized forster rates
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
             
+        #get redfield rates
         if not hasattr(self,'redfield_rates'):
             self.redfield_rates = super().calc_redfield_rates()
         
+        #sum
         self.rates = self.forster_rates + self.redfield_rates
 
+    def _calc_tensor(self,secularize=True):
+        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass.
+        
+        secularize: Bool
+            if True, the relaxation tensor is secularized"""
+        
+        #get forster rates
+        if not hasattr(self, 'forster_rates'):
+            self._calc_forster_rates()
+
+        #put forster rates into a tensor
+        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
+        np.einsum('qqss->qs',Forster_Tensor) [...] = self.forster_rates
+
+        #get redfield tensor
+        if not hasattr(self,'redfield_tensor'):
+            self.redfield_tensor = self.calc_redfield_tensor(secularize=secularize)
+            
+        #sum
+        self.RTen = self.redfield_tensor + Forster_Tensor
+
+        pass
+    
     @property
     def dephasing(self):
-        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+        
+        Returns
+        -------
+        dephasing: np.array(np.float), shape = (self.dim)
+            dephasing rates in cm^-1"""
         
         if not hasattr(self,'forster_rates'):
                 self._calc_forster_rates()
-        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
-    
-    
+        dephasing = self.redfield_dephasing - 0.5*np.diag(self.forster_rates)
+        return dephasing    
 
 class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
-    """Redfield Forster Tensor class where combined Redfield-Forster Theory is used to model energy transfer processes
-    This class is a subclass of Relaxation Tensor Class"""
+    """Complex Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes in the double-exciton manifold.
+    This class is a subclass of the RedfieldTensorComplexDouble Class."""
 
     def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True):
-        "This function handles the variables which will be initialized to the main RelaxationTensor Class"
+        """This function handles the variables which are initialized to the main RedfieldTensorComplexDouble Class
+        
+        Arguments
+        ---------
+        H_part: np.array(dtype=np.float), shape = (n_site,n_site)
+            excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
+        V: np.array(dtype=np.float), shape = (n_site,n_site)
+            matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
+        specden: Class
+            class of the type SpectralDensity
+        SD_id_list: list of integers, len = n_site
+            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+            example: [0,0,0,0,1,1,1,0,0,0,0,0]
+        initialize: Boolean
+            the relaxation tensor is computed when the class is initialized.
+        specden_adiabatic: class
+            SpectralDensity class.
+            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+        include_redfield_dephasing: Boolean
+            if False, the "standard" Generalized-Forster expression for EET rates will be employed
+            if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates
+        include_redfield_dephasing_real: Boolean
+            if False, the real part of the dephasing induced by Redfield EET processes isn't included in the calculation of Generalized-Forster rates
+            if True, the real part of the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
+        include_exponential_term: Boolean
+            if False, the "standard" Generalized-Forster expression for EET rates will be employed
+            if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates"""
+        
         self.V,pairs = get_H_double(V)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
@@ -106,15 +201,21 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
     
     @property
     def redfield_dephasing(self):
+        """This function returns the dephasing induced by Redfield EET processes
+        
+        Returns
+        -------
+        dephasing: np.array(np.float), shape = (self.dim)
+            dephasing rates in cm^-1"""
         
         if self.include_redfield_dephasing_real:
-            return super().dephasing
+            dephasing = super().dephasing
         else:
-            return 1j*super().dephasing.imag       
+            dephasing = 1j*super().dephasing.imag
+        return dephasing
             
     def _calc_forster_rates(self):
-        """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
-        """
+        "This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates in cm^-1"
 
         if not hasattr(self,'g_q'):
             self._calc_g_q()
@@ -133,56 +234,118 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
             redf_dephasing = np.zeros(self.dim)
         
         rates = np.empty([self.dim,self.dim])
+        
+        #loop over donors
         for D in range(self.dim):
             gD = g_q[D]
             ReorgD = lambda_q[D]
+            
+            #loop over acceptors
             for A in range(D+1,self.dim):
                 gA = g_q[A]
                 ReorgA = lambda_q[A]
                 
                 #D-->A rate
-                exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
+                energy = self.Om[A,D]+2*ReorgD
+                dephasing = redf_dephasing[D].conj()+redf_dephasing[A]
+                lineshape_function = gD+gA
+                exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
 
                 #A-->D rate
-                exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
+                energy = self.Om[D,A]+2*ReorgA
+                dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
+                exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
 
+        #fix diagonal
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
         self.forster_rates = rates
 
     def _calc_rates(self):
-        """This function computes the Redfield-Forster energy transfer rates"""
+        "This function computes the Redfield-Forster energy transfer rates in cm^-1"
         
+        #get generalized forster rates
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
             
+        #get redfield rates
         if not hasattr(self,'redfield_rates'):
             self.redfield_rates = super().calc_redfield_rates()
         
+        #sum
         self.rates = self.forster_rates + self.redfield_rates
 
+    def _calc_tensor(self,secularize=True):
+        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass.
+        
+        secularize: Bool
+            if True, the relaxation tensor is secularized"""
+        
+        #get forster rates
+        if not hasattr(self, 'forster_rates'):
+            self._calc_forster_rates()
+
+        #put forster rates into a tensor
+        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
+        np.einsum('qqss->qs',Forster_Tensor) [...] = self.forster_rates
+
+        #get redfield tensor
+        if not hasattr(self,'redfield_tensor'):
+            self.redfield_tensor = self.calc_redfield_tensor(secularize=secularize)
+
+        #sum
+        self.RTen = self.redfield_tensor + Forster_Tensor
+
+        pass
+        
     @property
     def dephasing(self):
-        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+        
+        Returns
+        -------
+        dephasing: np.array(np.complex), shape = (self.dim)
+            dephasing rates in cm^-1"""
+        
         if not hasattr(self,'forster_rates'):
                 self._calc_forster_rates()
-        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
-    
-    
+        dephasing = self.redfield_dephasing - 0.5*np.diag(self.forster_rates)
+        return dephasing
 
 class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
-    """Redfield Forster Tensor class where combined Modified Redfield-Forster Theory is used to model energy transfer processes
-    This class is a subclass of Relaxation Tensor Class"""
+    """Modified Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes in the double-exciton manifold.
+    This class is a subclass of the ModifiedRedfieldTensorDouble Class."""
 
     def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
-        "This function handles the variables which will be initialized to the main RelaxationTensor Class"
+        """This function handles the variables which are initialized to the main RedfieldTensorComplex Class
+        
+        Arguments
+        ---------
+        H_part: np.array(dtype=np.float), shape = (n_site,n_site)
+            excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
+        V: np.array(dtype=np.float), shape = (n_site,n_site)
+            matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
+        specden: Class
+            class of the type SpectralDensity
+        SD_id_list: list of integers, len = n_site
+            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+            example: [0,0,0,0,1,1,1,0,0,0,0,0]
+        initialize: Boolean
+            the relaxation tensor is computed when the class is initialized.
+        specden_adiabatic: class
+            SpectralDensity class.
+            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+        include_redfield_dephasing: Boolean
+            if False, the "standard" Generalized-Forster expression for EET rates will be employed
+            if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates"""
+        
         self.V,pairs = get_H_double(V)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
@@ -193,15 +356,22 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
 
     @property
     def redfield_dephasing(self):
+        """This function returns the dephasing induced by Redfield EET processes
         
+        Returns
+        -------
+        dephasing: np.array(np.float), shape = (self.dim)
+            dephasing rates in cm^-1"""
+        
+        #get the dephasing from the self.calc_redfield_rates function of the RedfieldTensorReal parent class
         if not hasattr(self,'redfield_rates'):
             self.redfield_rates = super().calc_redfield_rates()
         return -0.5*np.diag(self.redfield_rates)
     
     def _calc_forster_rates(self):
-        """This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates
-        """
+        "This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates in cm^-1."
 
+        #get the needed variables
         if not hasattr(self,'g_q'):
             self._calc_g_q()
             
@@ -219,45 +389,87 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         else:
             redf_dephasing = np.zeros(self.dim)
 
-        
+        #loop over donors        
         for D in range(self.dim):
             gD = g_q[D]
             ReorgD = lamda_q[D]
+            
+            #loop over acceptors
             for A in range(D+1,self.dim):
                 gA = g_q[A]
                 ReorgA = lamda_q[A]
                 
                 #D-->A rate
-                exponent = (1j*(self.Om[A,D]+2*ReorgD)+redf_dephasing[D].conj()+redf_dephasing[A])*time_axis+gD+gA
+                energy = self.Om[A,D]+2*ReorgD
+                dephasing = redf_dephasing[D].conj()+redf_dephasing[A]
+                lineshape_function = gD+gA
+                exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
 
                 #A-->D rate
-                exponent = (1j*(self.Om[D,A]+2*ReorgA)+redf_dephasing[A].conj()+redf_dephasing[D])*time_axis+gD+gA
+                energy = self.Om[D,A]+2*ReorgA
+                dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
+                exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
 
+        #digonal fix
         rates[np.diag_indices_from(rates)] = 0.0
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
         self.forster_rates = rates
 
     def _calc_rates(self):
-        """This function computes the Redfield-Forster energy transfer rates"""
+        """This function computes the Redfield-Forster energy transfer rates."""
         
+        #get generalized forster rates
         if not hasattr(self,'forster_rates'):
             self._calc_forster_rates()
             
+        #get redfield rates
         if not hasattr(self,'redfield_rates'):
             self.redfield_rates = super().calc_redfield_rates()
         
+        #sum
         self.rates = self.forster_rates + self.redfield_rates
 
+    def _calc_tensor(self,secularize=True):
+        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass.
+        
+        secularize: Bool
+            if True, the relaxation tensor is secularized"""
+        
+        #get forster rates
+        if not hasattr(self, 'forster_rates'):
+            self._calc_forster_rates()
+
+        #put forster rates into a tensor
+        Forster_Tensor = np.zeros([self.dim,self.dim,self.dim,self.dim])
+        np.einsum('qqss->qs',Forster_Tensor) [...] = self.forster_rates
+
+        #get redfield tensor
+        if not hasattr(self,'redfield_tensor'):
+            super()._calc_rates()
+            self.redfield_tensor = self.calc_redfield_tensor(secularize=secularize)
+
+        #sum
+        self.RTen = self.redfield_tensor + Forster_Tensor
+
+        pass    
+    
     @property
     def dephasing(self):
-        """This function returns the absorption spectrum dephasing rates due to finite lifetime of excited states"""
+        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+        
+        Returns
+        -------
+        dephasing: np.array(np.float), shape = (self.dim)
+            dephasing rates in cm^-1."""
+        
         if not hasattr(self,'forster_rates'):
                 self._calc_forster_rates()
-        return (self.redfield_dephasing - 0.5*np.diag(self.forster_rates))
+        dephasing = self.redfield_dephasing - 0.5*np.diag(self.forster_rates)
+        return dephasing
