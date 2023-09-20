@@ -35,10 +35,10 @@ class ModifiedRedfieldTensor(RelTensor):
     def _calc_rates(self):
         "This function computes and stores the Modified Redfield energy transfer rates in cm^-1"
         
-        rates = self.calc_redfield_rates()
+        rates = self._calc_redfield_rates()
         self.rates = rates
     
-    def calc_redfield_rates(self):
+    def _calc_redfield_rates(self):
         """This function computes the Modified Redfield energy transfer rates in cm^-1.
         
         Arguments
@@ -79,10 +79,10 @@ class ModifiedRedfieldTensor(RelTensor):
         secularize: Boolean
             if True, the relaxation tensor is secularized"""
         
-        RTen = self.calc_redfield_tensor(secularize=secularize)
+        RTen = self._calc_redfield_tensor(secularize=secularize)
         self.RTen = RTen
 
-    def calc_redfield_tensor(self,secularize=True):
+    def _calc_redfield_tensor(self,secularize=True):
         """This function computes the Modified Redfield energy transfer tensor in cm^-1
         
         Arguments

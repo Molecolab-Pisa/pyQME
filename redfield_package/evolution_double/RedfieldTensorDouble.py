@@ -34,10 +34,10 @@ class RedfieldTensorDouble(RelTensorDouble):
     def _calc_rates(self):
         "This function computes and stores the Redfield energy transfer rates in cm^-1"
         
-        rates = self.calc_redfield_rates()
+        rates = self._calc_redfield_rates()
         self.rates = rates
     
-    def calc_redfield_rates(self):
+    def _calc_redfield_rates(self):
         """This function computes and stores the Redfield energy transfer rates in cm^-1
         
         Returns
@@ -71,10 +71,10 @@ class RedfieldTensorDouble(RelTensorDouble):
         """Compute and store Redfield energy transfer tensor
         """
         
-        RTen = self.calc_redfield_tensor(secularize=secularize)
+        RTen = self._calc_redfield_tensor(secularize=secularize)
         self.RTen = RTen
         
-    def calc_redfield_tensor(self,secularize=True):
+    def _calc_redfield_tensor(self,secularize=True):
         """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
         
         Arguments

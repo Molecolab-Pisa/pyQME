@@ -37,10 +37,10 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
     def _calc_rates(self):
         "This function computes and stores the Modified Redfield energy transfer rates in cm^-1"
         
-        rates = self.calc_redfield_rates()
+        rates = self._calc_redfield_rates()
         self.rates = rates
     
-    def calc_redfield_rates(self):
+    def _calc_redfield_rates(self):
         """This function computes the Modified Redfield energy transfer rates in cm^-1.
         
         Arguments

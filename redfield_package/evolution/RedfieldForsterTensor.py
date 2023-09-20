@@ -51,9 +51,9 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
         dephasing: np.array(np.float), shape = (self.dim)
             dephasing rates in cm^-1"""
         
-        #get the dephasing from the self.calc_redfield_rates function of the RedfieldTensorReal parent class
+        #get the dephasing from the self._calc_redfield_rates function of the RedfieldTensorReal parent class
         if not hasattr(self,'redfield_rates'):
-            self.redfield_rates = super().calc_redfield_rates()
+            self.redfield_rates = super()._calc_redfield_rates()
         dephasing = -0.5*np.diag(self.redfield_rates)
         return dephasing
         
@@ -128,7 +128,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
             
         #get redfield rates
         if not hasattr(self,'redfield_rates'):
-            self.redfield_rates = super().calc_redfield_rates()
+            self.redfield_rates = super()._calc_redfield_rates()
         
         #sum
         self.rates = self.forster_rates + self.redfield_rates
@@ -149,7 +149,7 @@ class RealRedfieldForsterTensor(RedfieldTensorReal):
 
         #get redfield tensor
         if not hasattr(self,'redfield_tensor'):
-            self.redfield_tensor = self.calc_redfield_tensor(secularize=secularize)
+            self.redfield_tensor = self._calc_redfield_tensor(secularize=secularize)
             
         #sum
         self.RTen = self.redfield_tensor + Forster_Tensor
@@ -299,7 +299,7 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
             
         #get redfield rates
         if not hasattr(self,'redfield_rates'):
-            self.redfield_rates = super().calc_redfield_rates()
+            self.redfield_rates = super()._calc_redfield_rates()
         
         #sum
         self.rates = self.forster_rates + self.redfield_rates
@@ -320,7 +320,7 @@ class ComplexRedfieldForsterTensor(RedfieldTensorComplex):
 
         #get redfield tensor
         if not hasattr(self,'redfield_tensor'):
-            self.redfield_tensor = self.calc_redfield_tensor(secularize=secularize)
+            self.redfield_tensor = self._calc_redfield_tensor(secularize=secularize)
 
         #sum
         self.RTen = self.redfield_tensor + Forster_Tensor
@@ -387,9 +387,9 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         dephasing: np.array(np.float), shape = (self.dim)
             dephasing rates in cm^-1."""
         
-        #get the dephasing from the self.calc_redfield_rates function of the RedfieldTensorReal parent class
+        #get the dephasing from the self._calc_redfield_rates function of the RedfieldTensorReal parent class
         if not hasattr(self,'redfield_rates'):
-            self.redfield_rates = super().calc_redfield_rates()
+            self.redfield_rates = super()._calc_redfield_rates()
         dephasing = -0.5*np.diag(self.redfield_rates)
         return dephasing
     
@@ -462,7 +462,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
             
         #get redfield rates
         if not hasattr(self,'redfield_rates'):
-            self.redfield_rates = super().calc_redfield_rates()
+            self.redfield_rates = super()._calc_redfield_rates()
             
         #sum
         self.rates = self.forster_rates + self.redfield_rates
@@ -484,7 +484,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         #get redfield tensor
         if not hasattr(self,'redfield_tensor'):
             super()._calc_rates()
-            self.redfield_tensor = self.calc_redfield_tensor(secularize=secularize)
+            self.redfield_tensor = self._calc_redfield_tensor(secularize=secularize)
 
         #sum
         self.RTen = self.redfield_tensor + Forster_Tensor
