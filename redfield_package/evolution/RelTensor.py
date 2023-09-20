@@ -4,25 +4,25 @@ from scipy import linalg as la
 from ..utils import wn2ips
 
 class RelTensor():
-    "Relaxation tensor class in the single-exciton manifold"
+    """Relaxation tensor class in the single-exciton manifold.
+    
+    Arguments
+    ---------
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham)."""
     
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        """This function initializes the RelTensor class, used to model the energy transfer processes in the single exciton manifold.
-        
-        Arguments
-        ---------
-        H: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham)."""
+        "This function initializes the RelTensor class, used to model the energy transfer processes in the single exciton manifold."
         
         #store variables given as input
         if H is not None:

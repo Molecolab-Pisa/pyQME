@@ -4,28 +4,28 @@ from ..utils import wn2ips
 
 class ModifiedRedfieldTensor(RelTensor):
     """Modified Redfield Tensor class where Modified Redfield Theory (https://doi.org/10.1063/1.476212) is used to model energy transfer processes.
-    This class is a subclass of the RelTensor Class."""
+    This class is a subclass of the RelTensor Class.
+    
+    Arguments
+    ---------
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+    damping_tau: np.float
+        standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain"""
 
 
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,damping_tau=None):
-        """This function handles the variables which are initialized to the main RelTensor Class
-        
-        Arguments
-        ---------
-        H: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
-        damping_tau: np.float
-            standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain"""
+        "This function handles the variables which are initialized to the main RelTensor Class"
         
         self.damping_tau = damping_tau
         super().__init__(H=H.copy(),specden=specden,

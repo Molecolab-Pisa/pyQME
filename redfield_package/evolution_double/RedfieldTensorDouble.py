@@ -5,25 +5,25 @@ from opt_einsum import contract
 
 class RedfieldTensorDouble(RelTensorDouble):
     """Redfield Tensor class where Redfield Theory (https://doi.org/10.1016/B978-1-4832-3114-3.50007-6) is used to model energy transfer processes.
-    This class is a subclass of the RelTensorDouble Class in the double exciton manifold."""
+    This class is a subclass of the RelTensorDouble Class in the double exciton manifold.
+    
+    Arguments
+    ---------
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
 
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        """This function handles the variables which are initialized to the main RelTensor Class
-        
-        Arguments
-        ---------
-        H: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
+        "This function handles the variables which are initialized to the main RelTensor Class."
         
         self.dim_single = np.shape(H)[0]
         self.H,self.pairs = get_H_double(H)
@@ -108,25 +108,25 @@ class RedfieldTensorDouble(RelTensorDouble):
 
 class RedfieldTensorRealDouble(RedfieldTensorDouble):
     """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes in the double exciton manifold.
-    This class is a subclass of RedfieldTensorDouble Class."""
+    This class is a subclass of RedfieldTensorDouble Class.
+    
+    Arguments
+    ---------
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
 
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        """This function handles the variables which are initialized to the main RedfieldTensor Class
-        
-        Arguments
-        ---------
-        H: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
+        "This function handles the variables which are initialized to the main RedfieldTensor Class."
         
         super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
         

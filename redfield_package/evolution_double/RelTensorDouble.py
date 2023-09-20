@@ -3,27 +3,27 @@ from opt_einsum import contract
 from ..utils import get_H_double
 
 class RelTensorDouble():
-    "Relaxation tensor class in the double-exciton manifold"
+    """Relaxation tensor class in the double-exciton manifold.
+    
+    Arguments
+    ---------
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+        Must be in the single-excited site basis.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        Must be in the single-excited site basis.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham)."""
     
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        """This function initializes the RelTensorDouble class, used to model the energy transfer processes in the double exciton manifold.
-        
-        Arguments
-        ---------
-        H: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1.
-            Must be in the single-excited site basis.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            Must be in the single-excited site basis.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham)."""
+        "This function initializes the RelTensorDouble class, used to model the energy transfer processes in the double exciton manifold."
         
         if H is not None:
             if not hasattr(self,'pairs'):

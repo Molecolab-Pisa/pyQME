@@ -39,23 +39,22 @@ def do_ifft_complete(omega,spec,t):
 
 
 class SpectralDensity():
-    "Spectral Density class. Every frequency or energy is in cm-1. Every time or time axis is in cm."
+    """Spectral Density class. Every frequency or energy is in cm-1. Every time or time axis is in cm.
+    
+    Arguments
+    ---------
+    w: np.array(dtype = np.float)
+        frequency axis on which the SDs are defined in cm^-1.
+    SD: np.array(dtype = np.float), shape = (w.size) or (n,w.size), where n is the number of SDs
+        spectral densities in cm^-1.
+    time: np.array(dtype = np.float)
+        time axis on which C(t) and g(t) is computed.
+        if None, the time axis is computed using FFT as conjugated axis of w.
+    temperature: np.float
+        temperature in Kelvin."""
     
     def __init__(self,w,SD,time = None,temperature=298):#,imag=False):
-        """This function initializes the Spectral Density class
-
-        Arguments
-        ---------
-        w: np.array(dtype = np.float)
-            frequency axis on which the SDs are defined in cm^-1.
-        SD: np.array(dtype = np.float), shape = (w.size) or (n,w.size), where n is the number of SDs
-            spectral densities in cm^-1.
-        time: np.array(dtype = np.float)
-            time axis on which C(t) and g(t) is computed.
-            if None, the time axis is computed using FFT as conjugated axis of w.
-        temperature: np.float
-            temperature in Kelvin.
-        """
+        "This function initializes the Spectral Density class."
 
         #store the variables given as input
         self.w  = w.copy()

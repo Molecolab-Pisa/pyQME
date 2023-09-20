@@ -4,24 +4,23 @@ from .utils import factOD,Kb
 
 class LinearSpectraCalculator():
     """Class for calculations of absorption and fluorescence spectra.
-       The lineshape theory adopted employs the Markovian and secular approximation.
-       References:
-       https://doi.org/10.1063/1.4918343"""
+    The lineshape theory adopted employs the Markovian and secular approximation.
+    References:
+    https://doi.org/10.1063/1.4918343
+
+    Arguments
+    ---------
+    rel_tensor: Class
+        class of the type RelTensor.
+    RWA: np.float
+        order of magnitude of frequencies at which the spectrum is evaluated.
+    include_dephasing: Boolean
+        if True, the dephasing term is included in the lineshape, otherwise, the dephasing term isn't included.
+    include_deph_real: Boolean        
+        if True, the real part of the dephasing term is included, otherwise, only the imaginary part is included."""
     
     def __init__(self,rel_tensor,RWA=None,include_dephasing=False,include_deph_real=True):
-        """initialize the class.
-        
-
-        Arguments
-        ---------
-        rel_tensor: Class
-            class of the type RelTensor.
-        RWA: np.float
-            order of magnitude of frequencies at which the spectrum is evaluated.
-        include_dephasing: Boolean
-            if True, the dephasing term is included in the lineshape, otherwise, the dephasing term isn't included.
-        include_deph_real: Boolean        
-            if True, the real part of the dephasing term is included, otherwise, only the imaginary part is included."""
+        """This function initializes the class LinearSpectraCalculator."""
         
         #store variables from input
         self.rel_tensor = rel_tensor

@@ -5,28 +5,28 @@ from .utils import factOD
 
 class PumpProbeSpectraCalculator():
     """Class for calculations of pump-probe spectra in the doorway-windows approximation.
-       The lineshape theory adopted employs the Markovian and secular approximation.
-       References: 
-       https://doi.org/10.1016/j.bpj.2010.04.039
-       https://doi.org/10.1063/1.1470200"""    
+    The lineshape theory adopted employs the Markovian and secular approximation.
+    References: 
+    https://doi.org/10.1016/j.bpj.2010.04.039
+    https://doi.org/10.1063/1.1470200
+
+    Arguments
+    ---------
+    rel_tensor_single: Class
+        single-exciton manifold relaxation tensor class of the type RelTensor.
+    rel_tensor_double: Class
+        double-exciton manifold relaxation tensor class of the type RelTensorDouble. The number of double excitons (rel_tensor_double.dim) must be compatible with the number of single excitons (rel_tensor_single.dim).
+    RWA:  np.float
+        order of magnitude of frequencies at which the spectrum is evaluated.
+    include_dephasing: Boolean
+        if True, the natural broadening of the pump-probe spectra is included, if False it isn't included.
+    include_gamma_a_real: Boolean
+        if True, the real part of the single exciton manifold dephasing is included, if False only the imaginary part is included.
+    include_gamma_q_real: Boolean
+        if True, the real part of the double exciton manifold dephasing is included, if False only the imaginary part is included."""
     
     def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_dephasing=False,include_gamma_a_real=True,include_gamma_q_real=True):
-        """initialize the class
-        
-        Arguments
-        ---------
-        rel_tensor_single: Class
-            single-exciton manifold relaxation tensor class of the type RelTensor.
-        rel_tensor_double: Class
-            double-exciton manifold relaxation tensor class of the type RelTensorDouble. The number of double excitons (rel_tensor_double.dim) must be compatible with the number of single excitons (rel_tensor_single.dim).
-        RWA:  np.float
-            order of magnitude of frequencies at which the spectrum is evaluated.
-        include_dephasing: Boolean
-            if True, the natural broadening of the pump-probe spectra is included, if False it isn't included.
-        include_gamma_a_real: Boolean
-            if True, the real part of the single exciton manifold dephasing is included, if False only the imaginary part is included.
-        include_gamma_q_real: Boolean
-            if True, the real part of the double exciton manifold dephasing is included, if False only the imaginary part is included."""
+        """This function initializes the class PumpProbeSpectraCalculator."""
         
         #store variables from input
         self.rel_tensor_single = rel_tensor_single

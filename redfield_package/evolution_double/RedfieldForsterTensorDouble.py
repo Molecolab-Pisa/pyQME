@@ -6,30 +6,30 @@ from ..utils import get_H_double,h_bar
 
 class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
     """Real Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes in the double-exciton manifold.
-    This class is a subclass of the RedfieldTensorRealDouble Class."""
+    This class is a subclass of the RedfieldTensorRealDouble Class.
+
+    Arguments
+    ---------
+    H_part: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
+    V: np.array(dtype=np.float), shape = (n_site,n_site)
+        matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+    include_redfield_dephasing: Boolean
+        if False, the "standard" Generalized-Forster expression for EET rates will be employed
+        if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates."""
 
     def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
-        """This function handles the variables which are initialized to the main RedfieldTensorRealDouble Class
-        
-        Arguments
-        ---------
-        H_part: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
-        V: np.array(dtype=np.float), shape = (n_site,n_site)
-            matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
-        include_redfield_dephasing: Boolean
-            if False, the "standard" Generalized-Forster expression for EET rates will be employed
-            if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates"""
+        "This function handles the variables which are initialized to the main RedfieldTensorRealDouble Class."
         
         self.V,pairs = get_H_double(V)
         np.fill_diagonal(self.V,0.0)
@@ -159,36 +159,36 @@ class RealRedfieldForsterTensorDouble(RedfieldTensorRealDouble):
 
 class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
     """Complex Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes in the double-exciton manifold.
-    This class is a subclass of the RedfieldTensorComplexDouble Class."""
+    This class is a subclass of the RedfieldTensorComplexDouble Class.
+    
+    Arguments
+    ---------
+    H_part: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
+    V: np.array(dtype=np.float), shape = (n_site,n_site)
+        matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+    include_redfield_dephasing: Boolean
+        if False, the "standard" Generalized-Forster expression for EET rates will be employed
+        if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates
+    include_redfield_dephasing_real: Boolean
+        if False, the real part of the dephasing induced by Redfield EET processes isn't included in the calculation of Generalized-Forster rates
+        if True, the real part of the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
+    include_exponential_term: Boolean
+        if False, the "standard" Generalized-Forster expression for EET rates will be employed
+        if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates."""
 
     def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True):
-        """This function handles the variables which are initialized to the main RedfieldTensorComplexDouble Class
-        
-        Arguments
-        ---------
-        H_part: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
-        V: np.array(dtype=np.float), shape = (n_site,n_site)
-            matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
-        include_redfield_dephasing: Boolean
-            if False, the "standard" Generalized-Forster expression for EET rates will be employed
-            if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates
-        include_redfield_dephasing_real: Boolean
-            if False, the real part of the dephasing induced by Redfield EET processes isn't included in the calculation of Generalized-Forster rates
-            if True, the real part of the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
-        include_exponential_term: Boolean
-            if False, the "standard" Generalized-Forster expression for EET rates will be employed
-            if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates"""
+        "This function handles the variables which are initialized to the main RedfieldTensorComplexDouble Class."
         
         self.V,pairs = get_H_double(V)
         np.fill_diagonal(self.V,0.0)
@@ -321,30 +321,30 @@ class ComplexRedfieldForsterTensorDouble(RedfieldTensorComplexDouble):
 
 class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
     """Modified Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes in the double-exciton manifold.
-    This class is a subclass of the ModifiedRedfieldTensorDouble Class."""
+    This class is a subclass of the ModifiedRedfieldTensorDouble Class.
+                
+    Arguments
+    ---------
+    H_part: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
+    V: np.array(dtype=np.float), shape = (n_site,n_site)
+        matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
+    include_redfield_dephasing: Boolean
+        if False, the "standard" Generalized-Forster expression for EET rates will be employed
+        if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates."""
 
     def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
-        """This function handles the variables which are initialized to the main RedfieldTensorComplex Class
-        
-        Arguments
-        ---------
-        H_part: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1, defining the transfer processes treated with the Redfield EET theory.
-        V: np.array(dtype=np.float), shape = (n_site,n_site)
-            matrix of residue couplings in cm^-1, defining the transfer process treated with the Forster EET theory.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
-        include_redfield_dephasing: Boolean
-            if False, the "standard" Generalized-Forster expression for EET rates will be employed
-            if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates"""
+        "This function handles the variables which are initialized to the main RedfieldTensorComplex Class."
         
         self.V,pairs = get_H_double(V)
         np.fill_diagonal(self.V,0.0)
