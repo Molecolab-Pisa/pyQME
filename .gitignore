@@ -3,3 +3,8 @@ develop_test/
 to_do_list.txt
 __pycache__/
 .gitignore
+*.swp
+*.pyc
+*.egg-info
+*.so
+Trash/
