@@ -1,5 +1,5 @@
 import numpy as np
-from .RelTensor import RelTensor
+from .relaxation_tensor import RelTensor
 
 class RedfieldTensor(RelTensor):
     """Redfield Tensor class where Redfield Theory (https://doi.org/10.1016/B978-1-4832-3114-3.50007-6) is used to model energy transfer processes.

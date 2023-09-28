@@ -1,5 +1,5 @@
 import numpy as np
-from .RelTensor import RelTensor
+from .relaxation_tensor import RelTensor
 from ..utils import wn2ips
 
 class ModifiedRedfieldTensor(RelTensor):

@@ -1,7 +1,7 @@
 import numpy as np
-from .RelTensorDouble import RelTensorDouble
-from .RedfieldTensorDouble import RedfieldTensorRealDouble,RedfieldTensorComplexDouble
-from .ModifiedRedfieldTensorDouble import ModifiedRedfieldTensorDouble
+from .relaxation_tensor_double import RelTensorDouble
+from .redfield_double import RedfieldTensorRealDouble,RedfieldTensorComplexDouble
+from .modified_redfield_double import ModifiedRedfieldTensorDouble
 from ..utils import get_H_double,h_bar
 
 class RedfieldForsterTensorRealDouble(RedfieldTensorRealDouble):

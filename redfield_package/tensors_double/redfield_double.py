@@ -1,5 +1,5 @@
 import numpy as np
-from .RelTensorDouble import RelTensorDouble
+from .relaxation_tensor_double import RelTensorDouble
 from ..utils import get_H_double
 from opt_einsum import contract
 

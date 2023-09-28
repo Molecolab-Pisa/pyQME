@@ -1,5 +1,5 @@
 import numpy as np
-from .RelTensorDouble import RelTensorDouble
+from .relaxation_tensor_double import RelTensorDouble
 from ..utils import h_bar,get_H_double
 
 class ForsterTensorDouble(RelTensorDouble):
