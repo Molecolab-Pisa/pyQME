@@ -52,8 +52,8 @@ class ModifiedRedfieldTensor(RelTensor):
         g_site,gdot_site,gddot_site = self.specden.get_gt(derivs=2)
         
         #compute the weights that we need for the transformation from site to exciton basis
-        self._calc_weight_kkkl()
-        self._calc_weight_kkll()        
+        self._calc_weight_aaab()
+        self._calc_weight_aabb()        
         
         #set the damper, if necessary
         if self.damping_tau is None:
@@ -62,7 +62,7 @@ class ModifiedRedfieldTensor(RelTensor):
             damper = np.exp(-(time_axis**2)/(2*(self.damping_tau**2))) 
         
         #compute the rates
-        rates = _calc_modified_redfield_rates(self.Om,self.weight_kkll,self.weight_kkkl,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis)
+        rates = _calc_modified_redfield_rates(self.Om,self.weight_aabb,self.weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis)
 
         #diagonal fix
         rates[np.diag_indices_from(rates)] = 0.0
@@ -100,33 +100,33 @@ class ModifiedRedfieldTensor(RelTensor):
             
         #diagonal part
         RTen = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
-        np.einsum('iijj->ij',RTen) [...] = self.rates
+        np.einsum('aabb->ab',RTen) [...] = self.rates
 
         #dephasing
-        diagonal = np.einsum ('iiii->i',RTen)
+        diagonal = np.einsum ('aaaa->a',RTen)
         dephasing = diagonal.T[:,None] + diagonal.T[None,:]
-        np.einsum('ijij->ij',RTen)[...] = dephasing/2
+        np.einsum('abab->ab',RTen)[...] = dephasing/2
 
         time_axis = self.specden.time
-        gdot_KKKK = self.get_g_a()
+        gdot_aaaa = self.get_g_a()
 
-        if not hasattr(self,'weight_kkll'):
-            self._calc_weight_kkll()
+        if not hasattr(self,'weight_aabb'):
+            self._calc_weight_aabb()
 
         #lineshape function
         _,gdot_site = self.specden.get_gt(derivs=1)
-        gdot_KKLL = np.dot(self.weight_kkll.T,gdot_site)
+        gdot_aabb = np.dot(self.weight_aabb.T,gdot_site)
 
         #pure dephasing (https://doi.org/10.1016/j.chemphys.2014.11.026)
-        for K in range(self.dim):        #FIXME: GO ONESHOT
-            for L in range(K+1,self.dim):
-                real = -0.5*np.real(gdot_KKKK[K,-1] + gdot_KKKK[L,-1] - 2*gdot_KKLL[K,L,-1])
-                imag = -0.5*np.imag(gdot_KKKK[K,-1] - gdot_KKKK[L,-1])
-                RTen[K,L,K,L] = RTen[K,L,K,L] + real + 1j*imag
-                RTen[L,K,L,K] = RTen[K,L,K,L] + real - 1j*imag
+        for a in range(self.dim):        #FIXME: GO ONESHOT
+            for b in range(a+1,self.dim):
+                real = -0.5*np.real(gdot_aaaa[a,-1] + gdot_aaaa[b,-1] - 2*gdot_aabb[a,b,-1])
+                imag = -0.5*np.imag(gdot_aaaa[a,-1] - gdot_aaaa[b,-1])
+                RTen[a,b,a,b] = RTen[a,b,a,b] + real + 1j*imag
+                RTen[b,a,b,a] = RTen[b,a,b,a] + real - 1j*imag
 
         #fix diagonal
-        np.einsum('iiii->i',RTen)[...] = np.diag(self.rates)
+        np.einsum('aaaa->a',RTen)[...] = np.diag(self.rates)
 
         #secularization
         if secularize:
@@ -153,52 +153,52 @@ class ModifiedRedfieldTensor(RelTensor):
                 self._calc_rates()
             return -0.5*np.diag(self.rates)
 
-def _calc_modified_redfield_rates(Om,weight_kkll,weight_kkkl,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis):
+def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis):
     "This function computes the Modified Redfield energy transfer rates in cm^-1"
     
     dim  = Om.shape[0]
     nsd  = reorg_site.shape[0]
     ntim = g_site.shape[1]
 
-    reorg_KKLL = np.zeros( (dim,dim) )
-    reorg_KKKL = np.zeros( (dim,dim) )
+    reorg_aabb = np.zeros( (dim,dim) )
+    reorg_aaab = np.zeros( (dim,dim) )
     for i in range(nsd):
-        reorg_KKLL += weight_kkll[i]*reorg_site[i]
-        reorg_KKKL += weight_kkkl[i]*reorg_site[i]
+        reorg_aabb += weight_aabb[i]*reorg_site[i]
+        reorg_aaab += weight_aaab[i]*reorg_site[i]
 
-    g_KKLL     = np.zeros((dim,dim,ntim),dtype=np.complex128)
-    gdot_KLLL  = np.zeros((dim,dim,ntim),dtype=np.complex128)
-    gddot_KLLK = np.zeros((dim,dim,ntim),dtype=np.complex128)
+    g_aabb     = np.zeros((dim,dim,ntim),dtype=np.complex128)
+    gdot_abbb  = np.zeros((dim,dim,ntim),dtype=np.complex128)
+    gddot_abba = np.zeros((dim,dim,ntim),dtype=np.complex128)
     
     
-    for i in range(nsd):
-        w2 = weight_kkll[i].reshape((dim,dim,-1))
-        w3 = weight_kkkl[i].T.reshape((dim,dim,-1))
+    for Z in range(nsd):
+        w2 = weight_aabb[Z].reshape((dim,dim,-1))
+        w3 = weight_aaab[Z].T.reshape((dim,dim,-1))
         
-        g_KKLL     += w2*g_site[i].reshape(1,1,-1)
-        gdot_KLLL  += w3*gdot_site[i].reshape(1,1,-1)
-        gddot_KLLK += w2*gddot_site[i].reshape(1,1,-1)
+        g_aabb     += w2*g_site[Z].reshape(1,1,-1)
+        gdot_abbb  += w3*gdot_site[Z].reshape(1,1,-1)
+        gddot_abba += w2*gddot_site[Z].reshape(1,1,-1)
 
-    rates = _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damper,time_axis)
+    rates = _mr_rates_loop(dim,Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis)
     
     return rates
 
-def _mr_rates_loop(dim,Om,g_KKLL,gdot_KLLL,gddot_KLLK,reorg_KKLL,reorg_KKKL,damper,time_axis):
+def _mr_rates_loop(dim,Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis):
     """This function computes the Modified Redfield energy transfer rates in cm^-1.
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier."""
     
     rates = np.zeros((dim,dim),dtype=np.float64)
     for D in range(dim):
-        gD = g_KKLL[D,D]
-        ReorgD = reorg_KKLL[D,D]
+        gD = g_aabb[D,D]
+        ReorgD = reorg_aabb[D,D]
         for A in range(dim):
             if D == A: continue
-            gA = g_KKLL[A,A]
-            ReorgA = reorg_KKLL[A,A]
+            gA = g_aabb[A,A]
+            ReorgA = reorg_aabb[A,A]
     
-            energy = Om[A,D]+2*(ReorgD-reorg_KKLL[D,A])
-            exponent = 1j*energy*time_axis + gD + gA - 2*g_KKLL[D,A]
-            g_derivatives_term = gddot_KLLK[D,A]-(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])*(gdot_KLLL[D,A]-gdot_KLLL[A,D]-2*1j*reorg_KKKL[D,A])
+            energy = Om[A,D]+2*(ReorgD-reorg_aabb[D,A])
+            exponent = 1j*energy*time_axis + gD + gA - 2*g_aabb[D,A]
+            g_derivatives_term = gddot_abba[D,A]-(gdot_abbb[D,A]-gdot_abbb[A,D]-2*1j*reorg_aaab[D,A])*(gdot_abbb[D,A]-gdot_abbb[A,D]-2*1j*reorg_aaab[D,A])
             integrand = np.exp(-exponent)*g_derivatives_term
             integral = np.trapz(integrand*damper,time_axis)
             rates[A,D] = 2.*integral.real
