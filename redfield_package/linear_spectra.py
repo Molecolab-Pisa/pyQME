@@ -325,6 +325,37 @@ class LinearSpectraCalculator():
         else:
             return self.freq,self.FL_a
         
+    def calc_FL_i(self,dipoles,freq=None):
+        """This function computes the fluorescence spectrum separately for each site.
+        
+        Arguments
+        ---------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies at which the spectrum is evaluated in cm^-1.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float), shape = (freq.size)
+            frequency axis of the spectrum in cm^-1.
+        FL_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
+            fluorescence spectrum of each site."""        
+        
+        #dipole-less absorption matrix in the exciton basis
+        freq,II_a = self.calc_FL_a(freq=freq)
+        
+        #conversion from exciton to site basis
+        II_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,II_a,self.rel_tensor.U)
+        
+        #we introduce dipoles directly in the site basis
+        M_ij = np.dot(dipoles,dipoles.T)
+        FL_ij = M_ij[:,:,None]*II_ij
+        
+        #we sum over rows (or, equivalently, over columns, since the matrix is symmetric)
+        FL_i = FL_ij.sum(axis=0)
+        return freq,FL_i
+    
     @property
     def factFT(self):
         """Fourier Transform factor used to compute spectra."""

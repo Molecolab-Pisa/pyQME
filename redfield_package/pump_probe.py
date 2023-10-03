@@ -64,7 +64,7 @@ class PumpProbeSpectraCalculator():
             raise ValueError('Sigle and double excitation relaxation tensor must share the same list of SD ID.')
 
         #consistency checks
-        if not rel_tensor_double.dim == int(0.5 * np.math.factorial(rel_tensor_single.dim)/np.math.factorial(rel_tensor_single.dim-2)):
+        if not rel_tensor_single.dim == 1 and not rel_tensor_double.dim == int(0.5 * np.math.factorial(rel_tensor_single.dim)/np.math.factorial(rel_tensor_single.dim-2)):
             raise ValueError('The number of double excitons is not compatible with the number of single excitons!')
 
     def _get_freqaxis(self):
