@@ -71,14 +71,6 @@ You can install it locally with:
 pip install -e .
 ```
 
-## Testing
-
-In the `test/` directory there is a simple test to verify the compilation. 
-Follow the instructions there and compare the results with the reference ones. 
-Note that there will most probably be roundoff errors, which do not impact the quality of the results.
-
-It is recommended to run the tests before pushing your changes to the upstream repository.
-
 ## Usage
 
 You may want to look at the examples.
