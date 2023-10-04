@@ -2,9 +2,9 @@
 <img src="images/logo.png" alt="logo"></img>
 </div>
 
-# PyQME
+# pyQME
 
-PyQME is a Package for Open Quantum System Dynamics and spectroscopies simulations in the exciton framework, written in Python 3.
+pyQME is a Package for Open Quantum System Dynamics and spectroscopies simulations in the exciton framework, written in Python 3.
 
 ## Disclaimer and Copyright
 
@@ -24,31 +24,31 @@ Via G. Moruzzi 13, I-56124, Pisa (PI), Italy
 
 ### System requirements
 
-When installing PyQME all the dependencies are included, however in case you have specific requirements for the PyQME installation,
-you may want to install PyQME separately, before installing PyQME.
+When installing pyQME all the dependencies are included, however in case you have specific requirements for the pyQME installation,
+you may want to install pyQME separately, before installing pyQME.
 
 An environment with any version of Python 3 is recommended. You can create it with `conda`, `virtualenv`, or `pyenv`.
 
 For example, with conda run the following code:
 
 ```shell
-conda create -n PyQME-env python=3.7
+conda create -n pyQME-env python=3.7
 ```
 ```shell
-conda activate PyQME-env
+conda activate pyQME-env
 ```
 
 ### Installation
 
-To clone the PyQME module, run:
+To clone the pyQME module, run:
 
 ```shell
-git clone git@molimen1.dcci.unipi.it:p.saraceno/redfield-package.git
+git clone git@molimen1.dcci.unipi.it:p.saraceno/pyQME.git
 ```
 
-This will create the `PyQME` repository.
+This will create the `pyQME` repository.
 
-From the `PyQME` folder, you can install the module with pip:
+From the `pyQME` folder, you can install the module with pip:
 
 ```shell
 pip install .
@@ -60,7 +60,7 @@ It is recommended to fork this repository and clone the "forked" one as `origin`
 can be added by running the following code:
 
 ```shell
-git remote add upstream git@molimen1.dcci.unipi.it:p.saraceno/redfield-package.git
+git remote add upstream git@molimen1.dcci.unipi.it:p.saraceno/pyQME.git
 ```
 
 More details on [configuring a remote repository for a fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/configuring-a-remote-repository-for-a-fork).
@@ -85,14 +85,14 @@ The temperature must be in Kelvin.
 
 The absorption and pump-probe spectra are returned in  in ${L}$ · ${cm}^{-1}$ · ${mol}^{-1}$ (molar extinction coefficient).
 
-Some useful conversion factors and physical constants in $cm^{-1}$ can be found in `PyQME/utils.py`.
+Some useful conversion factors and physical constants in $cm^{-1}$ can be found in `pyQME/utils.py`.
 
 ### Other informations
 
 - The spectral density axis must not contain $0$ $cm^{-1}$.
 - The spectral density used as input must not be divided by the frequency axis.
 - The spectral density used as input must be multiplied by $\pi$. 
-- The time axis used for the lineshape functions and for the spectra calculation must be defined in the spectral density class. If you're not sure about how to set it, use the `get_timeaxis` function in `PyQME/utils.py`.
+- The time axis used for the lineshape functions and for the spectra calculation must be defined in the spectral density class. If you're not sure about how to set it, use the `get_timeaxis` function in `pyQME/utils.py`.
 - Be sure that the Liouvillian of your system is diagonalizable before propagating the density matrix using the "eig" mode.
 - The spectra returned are already multiplied by the frequency axis (raised to the appropriate power).
 
@@ -105,7 +105,7 @@ Make sure that your main branch is up to date with the upstream:
 git pull upstream main
 ```
 
-If you feel your work is completed and want to merge it with the `main` branch of PyQME, you can
+If you feel your work is completed and want to merge it with the `main` branch of pyQME, you can
 make a merge request and ask for a review of your work.
 
 If, when contributing with some feature, you want to write some unit test for it, we are all super happy. 
