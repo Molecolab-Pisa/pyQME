@@ -2,7 +2,7 @@ import numpy as np
 from .relaxation_tensor_double import RelTensorDouble
 from .redfield_double import RedfieldTensorRealDouble,RedfieldTensorComplexDouble
 from .modified_redfield_double import ModifiedRedfieldTensorDouble
-from ..utils import get_H_double,h_bar
+from ..utils import _get_H_double,h_bar
 
 class RedfieldForsterTensorRealDouble(RedfieldTensorRealDouble):
     """Real Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes in the double-exciton manifold.
@@ -26,14 +26,19 @@ class RedfieldForsterTensorRealDouble(RedfieldTensorRealDouble):
         if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
     include_redfield_dephasing: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
-        if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates."""
+        if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates.
+    include_exponential_term: Boolean
+        if False, the "standard" Generalized-Forster expression for EET rates will be employed
+        if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
         "This function handles the variables which are initialized to the main RedfieldTensorRealDouble Class."
         
-        self.V,pairs = get_H_double(V)
+        self.V,pairs = _get_H_double(V)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
+        self.include_exponential_term = include_exponential_term
+        
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic)
@@ -73,6 +78,13 @@ class RedfieldForsterTensorRealDouble(RedfieldTensorRealDouble):
         else:
             redf_dephasing = np.zeros(self.dim)
             
+        if self.include_exponential_term:
+            self._calc_weight_qqrr()
+            g_site = self.specden.get_gt(derivs=0)
+            g_qqrr = np.dot(self.weight_qqrr.T,g_site)
+            reorg_site = self.specden.Reorg
+            reorg_qqrr = np.dot(self.weight_qqrr.T,reorg_site)
+            
         #loop over donors
         for D in range(self.dim):
             gD = g_q[D]
@@ -88,6 +100,8 @@ class RedfieldForsterTensorRealDouble(RedfieldTensorRealDouble):
                 lineshape_function = gD+gA
                 dephasing = redf_dephasing[D].conj()+redf_dephasing[A]
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_qqrr[A,D]+1j*time_axis*reorg_qqrr[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
@@ -96,6 +110,8 @@ class RedfieldForsterTensorRealDouble(RedfieldTensorRealDouble):
                 energy = self.Om[D,A]+2*ReorgA
                 dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_qqrr[D,A]+1j*time_axis*reorg_qqrr[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
@@ -187,13 +203,14 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorComplexDouble):
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates."""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True,include_exponential_term=False):
         "This function handles the variables which are initialized to the main RedfieldTensorComplexDouble Class."
         
-        self.V,pairs = get_H_double(V)
+        self.V,pairs = _get_H_double(V)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_redfield_dephasing_real = include_redfield_dephasing_real
+        self.include_exponential_term = include_exponential_term
 
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
@@ -233,6 +250,13 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorComplexDouble):
         else:
             redf_dephasing = np.zeros(self.dim)
         
+        if self.include_exponential_term:
+            self._calc_weight_qqrr()
+            g_site = self.specden.get_gt(derivs=0)
+            g_qqrr = np.dot(self.weight_qqrr.T,g_site)
+            reorg_site = self.specden.Reorg
+            reorg_qqrr = np.dot(self.weight_qqrr.T,reorg_site)
+            
         rates = np.empty([self.dim,self.dim])
         
         #loop over donors
@@ -250,6 +274,8 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorComplexDouble):
                 dephasing = redf_dephasing[D].conj()+redf_dephasing[A]
                 lineshape_function = gD+gA
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_qqrr[A,D]+1j*time_axis*reorg_qqrr[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
@@ -258,6 +284,8 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorComplexDouble):
                 energy = self.Om[D,A]+2*ReorgA
                 dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_qqrr[D,A]+1j*time_axis*reorg_qqrr[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
@@ -341,14 +369,18 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
     include_redfield_dephasing: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
-        if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates."""
+        if True, the dephasing induced by Redfield EET processes will be included in the calculation of Generalized-Forster rates.
+    include_exponential_term: Boolean
+        if False, the "standard" Generalized-Forster expression for EET rates will be employed
+        if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates."""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
         "This function handles the variables which are initialized to the main RedfieldTensorComplex Class."
         
-        self.V,pairs = get_H_double(V)
+        self.V,pairs = _get_H_double(V)
         np.fill_diagonal(self.V,0.0)
         self.include_redfield_dephasing = include_redfield_dephasing
+        self.include_exponential_term = include_exponential_term
             
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
@@ -389,6 +421,13 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         else:
             redf_dephasing = np.zeros(self.dim)
 
+        if self.include_exponential_term:
+            self._calc_weight_qqrr()
+            g_site = self.specden.get_gt(derivs=0)
+            g_qqrr = np.dot(self.weight_qqrr.T,g_site)
+            reorg_site = self.specden.Reorg
+            reorg_qqrr = np.dot(self.weight_qqrr.T,reorg_site)
+            
         #loop over donors        
         for D in range(self.dim):
             gD = g_q[D]
@@ -404,6 +443,8 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
                 dephasing = redf_dephasing[D].conj()+redf_dephasing[A]
                 lineshape_function = gD+gA
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_qqrr[A,D]+1j*time_axis*reorg_qqrr[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real
@@ -412,6 +453,8 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
                 energy = self.Om[D,A]+2*ReorgA
                 dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
+                if self.include_exponential_term:
+                    exponent = exponent - 2*(g_qqrr[D,A]+1j*time_axis*reorg_qqrr[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real

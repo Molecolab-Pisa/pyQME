@@ -3,7 +3,7 @@ import numpy as np
 import scipy.fftpack as fftpack
 from .utils import Kb
 
-def do_ifft_complete(omega,spec,t):
+def _do_ifft_complete(omega,spec,t):
     """This function performs inverse FT, spec(omega) -> x(t), where spec(omega) is defined over a *symmetric* range around 0, and time axis could be anything.
     
     Arguments
@@ -56,6 +56,15 @@ class SpectralDensity():
     def __init__(self,w,SD,time = None,temperature=298):#,imag=False):
         "This function initializes the Spectral Density class."
 
+        # preliminary check
+        if np.any(w<0):
+            raise ValueError('The frequency axis must not contain negative values!')
+            
+        #if the frquency axis starts with zero, remove it
+        if np.abs(w[0]) < 1e-15:
+            w = w[1:]
+            SD = np.atleast_2d(SD)[:,1:]
+            
         #store the variables given as input
         self.w  = w.copy()
         self.SD = np.atleast_2d(SD).copy()
@@ -260,7 +269,7 @@ class SpectralDensity():
         "Computes the correlation function of the spectral densities as inverse FT of the real part of the spectral densities."
         
         #perform inverse fourier transform on each spectral density 
-        Ct_list = [do_ifft_complete(self.omega,integ[::-1],self.time) for integ in self.ThermalSD_real]
+        Ct_list = [_do_ifft_complete(self.omega,integ[::-1],self.time) for integ in self.ThermalSD_real]
         
         self.Ct = np.asarray(Ct_list)
         pass

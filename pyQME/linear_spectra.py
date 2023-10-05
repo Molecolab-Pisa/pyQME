@@ -118,7 +118,7 @@ class LinearSpectraCalculator():
         time_OD = np.zeros(self.time.shape,dtype=np.complex128)
         dephasing = self.dephasing
         RWA = self.RWA
-        factFT = self.factFT
+        factFT = self._factFT
 
         #compute and sum up the spectra in the time domain for each exciton
         for (a,e_a) in enumerate(self.rel_tensor.ene):
@@ -167,7 +167,7 @@ class LinearSpectraCalculator():
         dephasing = self.dephasing
         RWA = self.RWA
         t = self.time
-        factFT = self.factFT
+        factFT = self._factFT
         
         #compute the spectra in the time domain for each exciton without summing up
         self.OD_a = np.empty([self.rel_tensor.dim,self.freq.size])
@@ -259,7 +259,7 @@ class LinearSpectraCalculator():
             time_FL += eqpop[a]*d_a*np.exp((1j*(-e0_a+RWA)-dephasing[a])*t - g_a[a].conj())
         
         # Do hermitian FFT (-> real output)
-        self.FL = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self.factFT
+        self.FL = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self._factFT
         self.FL = self.FL * self.freq**3 * factOD
                 
         #if the user provides a frequency axis, let's extrapolate the spectra over it
@@ -312,7 +312,7 @@ class LinearSpectraCalculator():
             time_FL = eqpop[a]*d_a*np.exp((1j*(-e0_a+RWA)-dephasing[a])*t - g_a[a].conj())
             
             #switch from time to frequency domain using hermitian FFT (-> real output)
-            FL_a = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self.factFT
+            FL_a = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self._factFT
             self.FL_a[a] = FL_a * self.freq**3 * factOD
             
         #if the user provides a frequency axis, let's extrapolate the spectra over it
@@ -357,7 +357,7 @@ class LinearSpectraCalculator():
         return freq,FL_i
     
     @property
-    def factFT(self):
+    def _factFT(self):
         """Fourier Transform factor used to compute spectra."""
         
         deltat = self.time[1]-self.time[0]

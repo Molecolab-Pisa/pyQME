@@ -57,7 +57,7 @@ def gauss_pulse(freq_axis,center,fwhm,amp):
     pulse = factor*np.exp(exponent)
     return pulse
 
-def get_pairs(dim):
+def _get_pairs(dim):
     """This function returns a list of double-excited pigment pairs
     
     Arguments
@@ -73,7 +73,7 @@ def get_pairs(dim):
     pairs = np.asarray([[i,j] for i in range(dim) for j in range(i+1,dim)])
     return pairs
 
-def get_H_double(H):
+def _get_H_double(H):
     """This function returns the double-exciton manifold Hamiltonian
     
     Arguments
@@ -88,43 +88,43 @@ def get_H_double(H):
     H_double: np.array(dtype=np.float), shape = (n_double_excitons,n_double_excitons)
         Double exciton manifold Hamiltonian. Can be used as input for the classes of type "RelTensorDouble".
         It's built as follows:
-        H_double[q,q] = H[k,k] + H[l,l] where k,l = pairs[q]
-        H_double[q,r] = H[k,l] if q and r share one excited pigment while k and l are the pigments that are not shared
-        H_double[q,r] = 0 if q and r don't share any excited pigment"""
+        H_double[u,u] = H[k,k] + H[l,l] where k,l = pairs[u]
+        H_double[u,v] = H[k,l] if u and v share one excited pigment while k and l are the pigments that are not shared
+        H_double[u,v] = 0 if u and r don't share any excited pigment"""
 
     dim_single = np.shape(H)[0]
     dim_double = int(comb(dim_single,2))
     H_double = np.zeros([dim_double,dim_double])
-    pairs = get_pairs(dim_single)
+    pairs = _get_pairs(dim_single)
 
     #site energies
-    for q in range(dim_double):
-        i,j = pairs[q]
-        H_double[q,q] = H[i,i] + H[j,j]
+    for u in range(dim_double):
+        i,j = pairs[u]
+        H_double[u,u] = H[i,i] + H[j,j]
         
     #coupling
-    for q in range(dim_double):
-        for r in range(q+1,dim_double):
-            msk = pairs[q] == pairs[r]
-            msk2 = pairs[q] == pairs[r][::-1]
+    for u in range(dim_double):
+        for v in range(u+1,dim_double):
+            msk = pairs[u] == pairs[v]
+            msk2 = pairs[u] == pairs[v][::-1]
             
-            #case 1a: r and q share one excited pigment
+            #case 1a: u and v share one excited pigment
             if np.any(msk):
                 index = np.where(msk==False)[0][0]
-                i = pairs[q][index]
-                j = pairs[r][index]
-                H_double[q,r] = H_double[r,q]  = H[i,j]
+                i = pairs[u][index]
+                j = pairs[v][index]
+                H_double[u,v] = H_double[v,u]  = H[i,j]
 
             #case 1b: r and q share one excited pigment
             elif np.any(msk2):
                 index = np.where(msk2==False)[0][0]
-                i = pairs[q][index]
-                j = pairs[r][::-1][index]
-                H_double[q,r] = H_double[r,q]  = H[i,j]
+                i = pairs[u][index]
+                j = pairs[v][::-1][index]
+                H_double[u,v] = H_double[v,u]  = H[i,j]
 
             #case 2: r and q don't share any excited pigment
             else:
-                H_double[q,r] = H_double[r,q] = 0.
+                H_double[u,v] = H_double[v,u] = 0.
 
     return H_double,pairs
 

@@ -135,7 +135,7 @@ class PumpProbeSpectraCalculator():
         g_site = self.rel_tensor_single.specden.get_gt()
         self.g_aq = np.transpose(np.dot(self.weight_aaqq.T,g_site),(1,0,2))
 
-    def build_d_qa(self,dipoles):
+    def _build_d_qa(self,dipoles):
         "This function computes the dipoles of k-->q transition."
         
         c_ijq = self.c_ijq
@@ -181,7 +181,7 @@ class PumpProbeSpectraCalculator():
         dim_single = self.dim_single
         
         t = self.time
-        factFT = self.factFT
+        factFT = self._factFT
         self_freq = self.freq
         RWA = self.RWA
         
@@ -194,7 +194,7 @@ class PumpProbeSpectraCalculator():
             d_a = self.rel_tensor_single.transform(dipoles,ndim=1)
             d2_a = np.sum(d_a**2,axis=1)
 
-            d_qa = self.build_d_qa(dipoles)
+            d_qa = self._build_d_qa(dipoles)
             d2_qa = np.sum(d_qa**2,axis=2)
         else:
             d2_a = np.ones(self.rel_tensor_single.dim)
@@ -384,7 +384,7 @@ class PumpProbeSpectraCalculator():
             return self.freq,self.GSB_a,self.SE_a,self.ESA_a,self.PP_a
 
     @property
-    def factFT(self):
+    def _factFT(self):
         """Fourier Transform factor used to compute spectra."""
     
         deltat = self.time[1]-self.time[0]

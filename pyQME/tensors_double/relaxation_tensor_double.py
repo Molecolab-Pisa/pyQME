@@ -1,6 +1,6 @@
 import numpy as np
 from opt_einsum import contract
-from ..utils import get_H_double
+from ..utils import _get_H_double
 
 class RelTensorDouble():
     """Relaxation tensor class in the double-exciton manifold.
@@ -32,7 +32,7 @@ class RelTensorDouble():
                 self.dim_single = np.shape(H)[0]
                 
                 #generate the exciton Hamiltonian in the double-excited site basis
-                self.H,self.pairs = get_H_double(H)
+                self.H,self.pairs = _get_H_double(H)
                 
             else:
                 self.H = H
@@ -159,12 +159,12 @@ class RelTensorDouble():
         
         return self.transform(*args,**kwargs,inverse=True)
     
-    def _secularize(self):
+    def _secularize_and_store(self):
         "This function stores the secularized relaxation tensor"
         
         self.RTen = self.secularize(self.RTen)
         
-    def secularize(self,RTen):
+    def _secularize(self,RTen):
         """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
         This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
         

@@ -49,7 +49,7 @@ class RedfieldTensor(RelTensor):
         
         #loop over the redundancies-free list of spectral densities
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-            Cw_matrix = self.evaluate_SD_in_freq(SD_id).real
+            Cw_matrix = self._evaluate_SD_in_freq(SD_id).real
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             
             #rates_ab = sum_Z J_z (w_ab) sum_{i in Z} c_ia**2 c_ib**2 
@@ -86,12 +86,12 @@ class RedfieldTensor(RelTensor):
 
         SD_id_list = self.SD_id_list
 
-        GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(0)[0,0]))
+        GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype = type(self._evaluate_SD_in_freq(0)[0,0]))
 
         #loop over the redundancies-free list of spectral densities
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
-            Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+            Cw_matrix = self._evaluate_SD_in_freq(SD_id)
 
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             
@@ -103,7 +103,7 @@ class RedfieldTensor(RelTensor):
         RTen = self._from_GammaF_to_RTen(GammF)        
 
         if secularize:
-            RTen = self.secularize(RTen)
+            RTen = self._secularize(RTen)
 
         return RTen
 
@@ -132,7 +132,7 @@ class RedfieldTensorReal(RedfieldTensor):
         super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
         
         
-    def evaluate_SD_in_freq(self,SD_id):
+    def _evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies
         
         Arguments
@@ -218,7 +218,7 @@ class RedfieldTensorComplex(RedfieldTensor):
         
         super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
         
-    def evaluate_SD_in_freq(self,SD_id):
+    def _evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies.
         
         Arguments
@@ -280,7 +280,7 @@ class RedfieldTensorComplex(RedfieldTensor):
             #loop over the redundancies-free list of spectral densities
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
-                Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+                Cw_matrix = self._evaluate_SD_in_freq(SD_id)
 
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
                 if SD_idx == 0:

@@ -1,6 +1,6 @@
 import numpy as np
 from .relaxation_tensor_double import RelTensorDouble
-from ..utils import get_H_double
+from ..utils import _get_H_double
 from opt_einsum import contract
 
 class RedfieldTensorDouble(RelTensorDouble):
@@ -26,7 +26,7 @@ class RedfieldTensorDouble(RelTensorDouble):
         "This function handles the variables which are initialized to the main RelTensor Class."
         
         self.dim_single = np.shape(H)[0]
-        self.H,self.pairs = get_H_double(H)
+        self.H,self.pairs = _get_H_double(H)
         super().__init__(H=self.H.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic)    
@@ -56,7 +56,7 @@ class RedfieldTensorDouble(RelTensorDouble):
         
         for SD_id in [*set(SD_id_list)]:
             
-            Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+            Cw_matrix = self._evaluate_SD_in_freq(SD_id)
             rates = rates + contract('qr,qr->qr',weight_qqrr[SD_id],Cw_matrix)
             
         if del_weigths:
@@ -90,10 +90,10 @@ class RedfieldTensorDouble(RelTensorDouble):
         
         SD_id_list = self.SD_id_list
 
-        GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype = type(self.evaluate_SD_in_freq(0)[0,0]))
+        GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype = type(self._evaluate_SD_in_freq(0)[0,0]))
         for SD_id in [*set(SD_id_list)]:
 
-            Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+            Cw_matrix = self._evaluate_SD_in_freq(SD_id)
 
             GammF = GammF + contract('qrst,rq->qrst',weight_qrst[SD_id],Cw_matrix/2)
 
@@ -102,7 +102,7 @@ class RedfieldTensorDouble(RelTensorDouble):
         RTen = self._from_GammaF_to_RTen(GammF)
 
         if secularize:
-            RTen = self.secularize(RTen)
+            RTen = self._secularize(RTen)
 
         return RTen
 
@@ -130,7 +130,7 @@ class RedfieldTensorRealDouble(RedfieldTensorDouble):
         
         super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
         
-    def evaluate_SD_in_freq(self,SD_id):
+    def _evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies
         
         Arguments
@@ -210,7 +210,7 @@ class RedfieldTensorComplexDouble(RedfieldTensorDouble):
         
         super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
     
-    def evaluate_SD_in_freq(self,SD_id):
+    def _evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies.
         
         Arguments
@@ -281,7 +281,7 @@ class RedfieldTensorComplexDouble(RedfieldTensorDouble):
             #loop over the redundancies-free list of spectral densities
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
-                Cw_matrix = self.evaluate_SD_in_freq(SD_id)
+                Cw_matrix = self._evaluate_SD_in_freq(SD_id)
 
                 #rates_qr = rates_qr + sum_Z J_Z(w_qr) W_qqrr_Z 
                 rates = rates + np.multiply(Cw_matrix,weight_qqrr[SD_id])

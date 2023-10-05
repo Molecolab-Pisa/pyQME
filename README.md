@@ -162,12 +162,21 @@ Some useful conversion factors and physical constants in $cm^{-1}$ can be found 
 ### Known issues
 
 - The spectral density axis must not contain $0$ $cm^{-1}$.
+- The frequency and time axes must be sorted in ascending order.
 - The spectral density used as input must not be divided by the frequency axis.
 - The spectral density used as input must be multiplied by $\pi$. 
 - The time axis used for the lineshape functions and for the spectra calculation must be defined in the spectral density class. If you're not sure about how to set it, use the `get_timeaxis` function in `pyQME/utils.py`.
 - Be sure that the Liouvillian of your system is diagonalizable before propagating the density matrix using the "eig" mode.
 - The spectra returned are already multiplied by the frequency axis (raised to the appropriate power).
 
+### Indices convention
+
+The indices convention employed in this code is the following:
+- **i,j,k,l**: site basis (single excitations)
+- **a,b,c,d**: single-exciton manifold
+- **u,v**: site basis (double excitations)
+- **q,r,s,t**: double-exciton manifold
+- **Z**: spectral density
 ## Notes for Developers
 
 We recommend making changes in a branch of your local version. 

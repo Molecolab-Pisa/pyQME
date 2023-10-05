@@ -1,6 +1,6 @@
 import numpy as np
 from .relaxation_tensor_double import RelTensorDouble
-from ..utils import h_bar,get_H_double
+from ..utils import h_bar,_get_H_double
 
 class ForsterTensorDouble(RelTensorDouble):
     """Forster Tensor class where Forster Resonance Energy Transfer (FRET) Theory (https://doi.org/10.1117/1.JBO.17.1.011002) is used to model energy transfer processes in the double-exciton manifold.
@@ -26,7 +26,7 @@ class ForsterTensorDouble(RelTensorDouble):
         
         ham = H.copy()
         self.dim_single = np.shape(ham)[0]
-        ham,self.pairs = get_H_double(ham)
+        ham,self.pairs = _get_H_double(ham)
         
         self.V = ham.copy()
         np.fill_diagonal(self.V,0.0)

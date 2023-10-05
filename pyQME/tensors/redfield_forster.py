@@ -29,7 +29,7 @@ class RedfieldForsterTensorReal(RedfieldTensorReal):
         if True, the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
     include_exponential_term: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
-        if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates"""
+        if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates."""
 
     def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
         "This function handles the variables which are initialized to the main RedfieldTensorReal Class"
@@ -43,7 +43,7 @@ class RedfieldForsterTensorReal(RedfieldTensorReal):
                          specden_adiabatic=specden_adiabatic)
     
     @property
-    def redfield_dephasing(self):
+    def _redfield_dephasing(self):
         """This function returns the dephasing induced by Redfield EET processes
         
         Returns
@@ -67,16 +67,16 @@ class RedfieldForsterTensorReal(RedfieldTensorReal):
         self.V_exc = self.transform(self.V)
         
         if self.include_redfield_dephasing:
-            redf_dephasing = self.redfield_dephasing
+            redf_dephasing = self._redfield_dephasing
         else:
             redf_dephasing = np.zeros(self.dim)
             
         if self.include_exponential_term:
-            self._calc_weight_kkll()
+            self._calc_weight_aabb()
             g_site = self.specden.get_gt(derivs=0)
-            g_KKLL = np.dot(self.weight_kkll.T,g_site)
+            g_aabb = np.dot(self.weight_aabb.T,g_site)
             reorg_site = self.specden.Reorg
-            reorg_KKLL = np.dot(self.weight_kkll.T,reorg_site)
+            reorg_aabb = np.dot(self.weight_aabb.T,reorg_site)
             
         rates = np.empty([self.dim,self.dim])
         
@@ -97,7 +97,7 @@ class RedfieldForsterTensorReal(RedfieldTensorReal):
                 lineshape_function = gD+gA
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 if self.include_exponential_term:
-                    exponent = exponent - 2*(g_KKLL[A,D]+1j*time_axis*reorg_KKLL[A,D])
+                    exponent = exponent - 2*(g_aabb[A,D]+1j*time_axis*reorg_aabb[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -107,7 +107,7 @@ class RedfieldForsterTensorReal(RedfieldTensorReal):
                 dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 if self.include_exponential_term:
-                    exponent = exponent - 2*(g_KKLL[D,A]+1j*time_axis*reorg_KKLL[D,A])
+                    exponent = exponent - 2*(g_aabb[D,A]+1j*time_axis*reorg_aabb[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -173,7 +173,7 @@ class RedfieldForsterTensorReal(RedfieldTensorReal):
         else:
             if not hasattr(self,'forster_rates'):
                     self._calc_forster_rates()
-            dephasing = self.redfield_dephasing - 0.5*np.diag(self.forster_rates)
+            dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         return dephasing
 
 class RedfieldForsterTensorComplex(RedfieldTensorComplex):
@@ -218,7 +218,7 @@ class RedfieldForsterTensorComplex(RedfieldTensorComplex):
                          specden_adiabatic=specden_adiabatic)
 
     @property
-    def redfield_dephasing(self):
+    def _redfield_dephasing(self):
         """This function returns the dephasing induced by Redfield EET processes
         
         Returns
@@ -241,16 +241,16 @@ class RedfieldForsterTensorComplex(RedfieldTensorComplex):
         self.V_exc = self.transform(self.V)
         
         if self.include_redfield_dephasing:
-            redf_dephasing = self.redfield_dephasing
+            redf_dephasing = self._redfield_dephasing
         else:
             redf_dephasing = np.zeros(self.dim)
 
         if self.include_exponential_term:
-            self._calc_weight_kkll()
+            self._calc_weight_aabb()
             g_site = self.specden.get_gt(derivs=0)
-            g_KKLL = np.dot(self.weight_kkll.T,g_site)
+            g_aabb = np.dot(self.weight_aabb.T,g_site)
             reorg_site = self.specden.Reorg
-            reorg_KKLL = np.dot(self.weight_kkll.T,reorg_site)
+            reorg_aabb = np.dot(self.weight_aabb.T,reorg_site)
             
         #loop over donors
         rates = np.empty([self.dim,self.dim])
@@ -269,7 +269,7 @@ class RedfieldForsterTensorComplex(RedfieldTensorComplex):
                 lineshape_function = gD+gA
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 if self.include_exponential_term:
-                    exponent = exponent - 2*(g_KKLL[A,D]+1j*time_axis*reorg_KKLL[A,D])
+                    exponent = exponent - 2*(g_aabb[A,D]+1j*time_axis*reorg_aabb[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -279,7 +279,7 @@ class RedfieldForsterTensorComplex(RedfieldTensorComplex):
                 dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
                 exponent = (1j*energy + dephasing)*time_axis+lineshape_function
                 if self.include_exponential_term:
-                    exponent = exponent - 2*(g_KKLL[D,A]+1j*time_axis*reorg_KKLL[D,A])
+                    exponent = exponent - 2*(g_aabb[D,A]+1j*time_axis*reorg_aabb[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -338,7 +338,7 @@ class RedfieldForsterTensorComplex(RedfieldTensorComplex):
         
         if not hasattr(self,'forster_rates'):
                 self._calc_forster_rates()
-        dephasing = self.redfield_dephasing - 0.5*np.diag(self.forster_rates)
+        dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         return dephasing
     
 class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
@@ -379,7 +379,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
                          specden_adiabatic=specden_adiabatic)
         
     @property
-    def redfield_dephasing(self):
+    def _redfield_dephasing(self):
         """This function returns the dephasing induced by Redfield EET processes.
         
         Returns
@@ -403,16 +403,16 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         self.V_exc = self.transform(self.V)
 
         if self.include_redfield_dephasing:
-            redf_dephasing = self.redfield_dephasing
+            redf_dephasing = self._redfield_dephasing
         else:
             redf_dephasing = np.zeros(self.dim)
             
         if self.include_exponential_term:
-            self._calc_weight_kkll()
+            self._calc_weight_aabb()
             g_site = self.specden.get_gt(derivs=0)
-            g_KKLL = np.dot(self.weight_kkll.T,g_site)
+            g_aabb = np.dot(self.weight_aabb.T,g_site)
             reorg_site = self.specden.Reorg
-            reorg_KKLL = np.dot(self.weight_kkll.T,reorg_site)
+            reorg_aabb = np.dot(self.weight_aabb.T,reorg_site)
             
         rates = np.empty([self.dim,self.dim])
 
@@ -432,7 +432,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
                 lineshape_function = gD+gA
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 if self.include_exponential_term:
-                    exponent = exponent - 2*(g_KKLL[A,D]+1j*time_axis*reorg_KKLL[A,D])
+                    exponent = exponent - 2*(g_aabb[A,D]+1j*time_axis*reorg_aabb[A,D])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[A,D] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -442,7 +442,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
                 dephasing = redf_dephasing[A].conj()+redf_dephasing[D]
                 exponent = (1j*energy+dephasing)*time_axis+lineshape_function
                 if self.include_exponential_term:
-                    exponent = exponent - 2*(g_KKLL[D,A]+1j*time_axis*reorg_KKLL[D,A])
+                    exponent = exponent - 2*(g_aabb[D,A]+1j*time_axis*reorg_aabb[D,A])
                 integrand = np.exp(-exponent)
                 integral = np.trapz(integrand,time_axis)
                 rates[D,A] =  2. * ((self.V_exc[D,A]/h_bar)**2) * integral.real                    
@@ -508,5 +508,5 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         else:
             if not hasattr(self,'forster_rates'):
                     self._calc_forster_rates()
-            dephasing = self.redfield_dephasing - 0.5*np.diag(self.forster_rates)
+            dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         return dephasing

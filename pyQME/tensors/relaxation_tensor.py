@@ -192,12 +192,12 @@ class RelTensor():
         
         return self.transform(*args,**kwargs,inverse=True)
     
-    def _secularize(self):
+    def _secularize_and_store(self):
         "This function stores the secularized relaxation tensor"
         
         self.RTen = self.secularize(self.RTen)
         
-    def secularize(self,RTen):
+    def _secularize(self,RTen):
         """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
         This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
         
@@ -250,7 +250,7 @@ class RelTensor():
             self._calc_tensor()
         return self.RTen
     
-    def apply_diss(self,rho):
+    def _apply_diss(self,rho):
         """This function lets the relaxation tensor to act on the rho matrix.
         
         Arguments
@@ -288,7 +288,7 @@ class RelTensor():
         shape_ = rho.shape
         
         #apply the Relaxation tensor
-        R_rho = self.apply_diss(rho).reshape((self.dim,self.dim))
+        R_rho = self._apply_diss(rho).reshape((self.dim,self.dim))
         
         #apply the commutator [H_S,rho_S]
         R_rho  += -1.j*self.Om*rho.reshape((self.dim,self.dim))

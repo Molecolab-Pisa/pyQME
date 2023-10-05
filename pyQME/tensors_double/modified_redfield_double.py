@@ -1,6 +1,6 @@
 import numpy as np
 from .relaxation_tensor_double import RelTensorDouble
-from ..utils import get_H_double
+from ..utils import _get_H_double
 
 class ModifiedRedfieldTensorDouble(RelTensorDouble):
     """Modified Redfield Tensor class where Modified Redfield Theory (https://doi.org/10.1063/1.476212) is used to model energy transfer processes in the double exciton manifold.
@@ -27,7 +27,7 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
         "This function handles the variables which are initialized to the main RelTensorDouble Class."
         
         self.dim_single = np.shape(H)[0]
-        self.H,self.pairs = get_H_double(H)
+        self.H,self.pairs = _get_H_double(H)
         self.damping_tau = damping_tau
         
         super().__init__(H=self.H.copy(),specden=specden,
@@ -58,12 +58,12 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
         self._calc_weight_qqrr()
         
         reorg_site = self.specden.Reorg
-        reorg_QQRR = np.dot(self.weight_qqrr.T,reorg_site)
-        reorg_QQQR = np.dot(self.weight_qqqr.T,reorg_site).T
+        reorg_qqrr = np.dot(self.weight_qqrr.T,reorg_site)
+        reorg_qqqr = np.dot(self.weight_qqqr.T,reorg_site).T
         g_site,gdot_site,gddot_site = self.specden.get_gt(derivs=2)
-        g_QQRR = np.dot(self.weight_qqrr.T,g_site)
-        gdot_QRRR = np.dot(self.weight_qqqr.T,gdot_site)
-        gddot_QRRQ = np.dot(self.weight_qqrr.T,gddot_site)
+        g_qqrr = np.dot(self.weight_qqrr.T,g_site)
+        gdot_qrrr = np.dot(self.weight_qqqr.T,gdot_site)
+        gddot_qrrq = np.dot(self.weight_qqrr.T,gddot_site)
         
         #set the damper, if necessary
         if self.damping_tau is None:
@@ -84,17 +84,17 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
                 ReorgA = Reorg_Q[A]
 
                 #rate D-->A
-                energy = self.Om[A,D]+2*(ReorgD-reorg_QQRR[D,A])
-                exponent = 1j*energy*time_axis+gD+gA-2*g_QQRR[D,A]
-                g_derivatives_term = gddot_QRRQ[D,A]-(gdot_QRRR[D,A]-gdot_QRRR[A,D]-2*1j*reorg_QQQR[D,A])*(gdot_QRRR[D,A]-gdot_QRRR[A,D]-2*1j*reorg_QQQR[D,A])
+                energy = self.Om[A,D]+2*(ReorgD-reorg_qqrr[D,A])
+                exponent = 1j*energy*time_axis+gD+gA-2*g_qqrr[D,A]
+                g_derivatives_term = gddot_qrrq[D,A]-(gdot_qrrr[D,A]-gdot_qrrr[A,D]-2*1j*reorg_qqqr[D,A])*(gdot_qrrr[D,A]-gdot_qrrr[A,D]-2*1j*reorg_qqqr[D,A])
                 integrand = np.exp(-exponent)*g_derivatives_term
                 integral = np.trapz(integrand*damper,time_axis)
                 rates[A,D] = 2.*integral.real
 
                 #rate A-->D
-                energy = self.Om[D,A]+2*(ReorgA-reorg_QQRR[A,D])
-                exponent = 1j*energy*time_axis+gD+gA-2*g_QQRR[A,D]
-                g_derivatives_term = gddot_QRRQ[A,D]-(gdot_QRRR[A,D]-gdot_QRRR[D,A]-2*1j*reorg_QQQR[A,D])*(gdot_QRRR[A,D]-gdot_QRRR[D,A]-2*1j*reorg_QQQR[A,D])
+                energy = self.Om[D,A]+2*(ReorgA-reorg_qqrr[A,D])
+                exponent = 1j*energy*time_axis+gD+gA-2*g_qqrr[A,D]
+                g_derivatives_term = gddot_qrrq[A,D]-(gdot_qrrr[A,D]-gdot_qrrr[D,A]-2*1j*reorg_qqqr[A,D])*(gdot_qrrr[A,D]-gdot_qrrr[D,A]-2*1j*reorg_qqqr[A,D])
                 integrand = np.exp(-exponent)*g_derivatives_term
                 integral = np.trapz(integrand*damper,time_axis)
                 rates[D,A] = 2.*integral.real
