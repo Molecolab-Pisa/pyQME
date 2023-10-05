@@ -5,10 +5,7 @@
 
 import numpy as np
 from scipy.sparse.linalg import expm_multiply
-import matplotlib.pyplot as plt
 
-plt.style.use('seaborn-talk')
-plt.rcParams.update({'figure.dpi': 120,'figure.figsize': (6,4)})     
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.linear_spectra import LinearSpectraCalculator
@@ -57,14 +54,6 @@ SD_1_data = overdamped_brownian(freq_axis_SD,30,37)
 SD_1_data = SD_1_data + underdamped_brownian(freq_axis_SD,5,30,600)
 
 
-plt.plot(freq_axis_SD,SD_0_data,color='black',label = '0');
-plt.plot(freq_axis_SD,SD_1_data,color='red',label = '1');
-plt.legend();
-plt.xlim(0,2000);
-plt.ylim(0,22000)
-plt.title('SPECTRAL DENSITY ($cm^{-1}$)');
-plt.xlabel('FREQUENCY ($cm^{-1}$)');
-plt.minorticks_on()
 
 
 SD_obj = SpectralDensity(freq_axis_SD,[SD_0_data,SD_1_data],temperature=temp)
@@ -88,16 +77,6 @@ spectrum_obj = LinearSpectraCalculator(rel_tens_obj,include_dephasing = True)
 
 
 freq_axis_FL,FL = spectrum_obj.calc_FL(dipoles=dipoles)   #to be saved
-
-
-# # Check the results
-
-plt.plot(freq_axis_FL,FL)
-plt.xlim(8000,11000)
-plt.xlabel('Wavenumber ($cm^{-1}$)');
-plt.ylabel('Intensity');
-
-
 
 
 

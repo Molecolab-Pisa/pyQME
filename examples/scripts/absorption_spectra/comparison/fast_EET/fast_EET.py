@@ -4,10 +4,7 @@
 # # Import needed packages
 
 import numpy as np
-import matplotlib.pyplot as plt
 
-plt.style.use('seaborn-talk')
-plt.rcParams.update({'figure.dpi': 120,'figure.figsize': (6,4)})     
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.linear_spectra import LinearSpectraCalculator
@@ -52,12 +49,6 @@ SD_data = overdamped_brownian(freq_axis_SD,30,37)
 SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
-plt.plot(freq_axis_SD,SD_data,color='black');
-plt.xlim(0,2000);
-plt.ylim(0,22000)
-plt.title('SPECTRAL DENSITY ($cm^{-1}$)');
-plt.xlabel('FREQUENCY ($cm^{-1}$)');
-plt.minorticks_on()
 
 
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
@@ -89,18 +80,6 @@ freq_axis_OD_real,OD_real = spectrum_obj_real.calc_OD(dipoles=dipoles)   #to be 
 freq_axis_OD_complex,OD_complex = spectrum_obj_complex.calc_OD(dipoles=dipoles)   #to be saved
 freq_axis_OD_imag,OD_imag = spectrum_obj_imag.calc_OD(dipoles=dipoles)   #to be saved
 
-
-# # Check the results
-
-plt.plot([],[],color='white',label='Redfield')
-plt.plot(freq_axis_OD_diag_approx,OD_diag_approx, label = 'Diagonal approx.')
-plt.plot(freq_axis_OD_real,OD_real,label = 'Real',lw=3)
-plt.plot(freq_axis_OD_complex,OD_complex,label= 'Complex')
-plt.plot(freq_axis_OD_imag,OD_imag,label= 'Imaginary')
-plt.xlim(9000,12500)
-plt.xlabel('Wavenumber ($cm^{-1}$)');
-plt.ylabel('OD');
-plt.legend();
 
 
 

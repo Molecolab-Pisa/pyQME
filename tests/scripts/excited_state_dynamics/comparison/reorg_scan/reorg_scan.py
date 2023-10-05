@@ -4,7 +4,6 @@
 # # Import of needed packages
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.tensors import RedfieldTensorReal,ForsterTensor,ModifiedRedfieldTensor
@@ -52,7 +51,6 @@ print('Reorg: {:7.1f} cm^-1'.format(SD.Reorg[0]))
 
 # Plot the temperature-dependent spectral density satisfying detailed balance
 
-plt.plot(SD.omega,SD.ThermalSD_real[0]);
 
 
 # ## Model Hamiltonian and EET calculations
@@ -139,23 +137,11 @@ k_modRedfield = np.asarray(k_modRedfield)     #to be saved
 k_Redfield = np.asarray(k_Redfield)     #to be saved
 
 
-fig,ax = plt.subplots(1,1,figsize=(4,3),dpi=150)
 
-plt.plot(reorg_scan,k_Forster,color='orange',label='F')
-plt.plot(reorg_scan,k_modRedfield,color='r',label='mR')
-plt.plot(reorg_scan,k_Redfield,color='b',label='sR')
-plt.legend()
 
-plt.xscale('log')
-plt.xlim(10,1000)
 
-plt.yscale('log')
-plt.ylim(8e-2,2e2)
 
-plt.xlabel('Reorg. energy (cm$^{-1}$)')
-plt.ylabel('Downhill rate (ps$^{-1}$)')
 
-plt.minorticks_on()
 
 
 

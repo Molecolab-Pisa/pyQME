@@ -4,10 +4,7 @@
 # # Import needed packages
 
 import numpy as np
-import matplotlib.pyplot as plt
 
-plt.style.use('seaborn-talk')
-plt.rcParams.update({'figure.dpi': 120,'figure.figsize': (6,4)})
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.pump_probe import PumpProbeSpectraCalculator
@@ -56,12 +53,6 @@ SD_data = overdamped_brownian(freq_axis_SD,30,37)
 SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,1000)
 
 
-plt.plot(freq_axis_SD,SD_data,color='black');
-plt.xlim(0,2000);
-plt.ylim(0,22000)
-plt.title('SPECTRAL DENSITY ($cm^{-1}$)');
-plt.xlabel('FREQUENCY ($cm^{-1}$)');
-plt.minorticks_on()
 
 
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
@@ -120,59 +111,6 @@ freq_axis,GSB_diag_approx,SE_diag_approx,ESA_diag_approx,PP_diag_approx = spectr
 _,GSB_real,SE_real,ESA_real,PP_real = spectrum_obj_real.get_pump_probe(pop_t_exc)     #to be saved
 _,GSB_complex,SE_complex,ESA_complex,PP_complex = spectrum_obj_complex.get_pump_probe(pop_t_exc)     #to be saved
 _,GSB_imag,SE_imag,ESA_imag,PP_imag = spectrum_obj_imag.get_pump_probe(pop_t_exc)     #to be saved
-
-
-# # Check the results
-
-for time_idx,time in enumerate(time_axis_ps):
-    
-    time_string = str(time)+'ps'
-    
-    fig, axs = plt.subplots(2,2,gridspec_kw={'wspace': 0.5, 'hspace': 0.4})
-    fig.set_size_inches(10,9)
-    fig.suptitle('Delay time: ' + str(time) + ' ps',size=15)
-    
-    #GSB
-    axs[0,0].plot([],[],color='white',label='Redfield')
-    axs[0,0].plot(freq_axis,GSB_diag_approx,label= 'Diagonal approx.')
-    axs[0,0].plot(freq_axis,GSB_real,label= 'Real')
-    axs[0,0].plot(freq_axis,GSB_complex,label= 'Complex')
-    axs[0,0].plot(freq_axis,GSB_imag,label= 'Imaginary')
-    axs[0,0].set_title('GSB')
-
-    #SE
-    axs[0,1].plot([],[],color='white',label='Redfield')
-    axs[0,1].plot(freq_axis,SE_diag_approx[time_idx],label= 'Diagonal approx.')
-    axs[0,1].plot(freq_axis,SE_real[time_idx],label= 'Real')
-    axs[0,1].plot(freq_axis,SE_complex[time_idx],label= 'Complex')
-    axs[0,1].plot(freq_axis,SE_imag[time_idx],label= 'Imaginary')
-    axs[0,1].set_title('SE')
-
-    #ESA
-    axs[1,0].plot([],[],color='white',label='Redfield')
-    axs[1,0].plot(freq_axis,ESA_diag_approx[time_idx],label= 'Diagonal approx.')
-    axs[1,0].plot(freq_axis,ESA_real[time_idx],label= 'Real')
-    axs[1,0].plot(freq_axis,ESA_complex[time_idx],label= 'Complex')
-    axs[1,0].plot(freq_axis,ESA_imag[time_idx],label= 'Imaginary')
-    axs[1,0].set_title('ESA')
-
-    #FULL
-    axs[1,1].plot([],[],color='white',label='Redfield')
-    axs[1,1].plot(freq_axis,PP_diag_approx[time_idx],label= 'Diagonal approx.')
-    axs[1,1].plot(freq_axis,PP_real[time_idx],label= 'Real')
-    axs[1,1].plot(freq_axis,PP_complex[time_idx],label= 'Complex')
-    axs[1,1].plot(freq_axis,PP_imag[time_idx],label= 'Imaginary')
-    axs[1,1].set_title('PUMP-PROBE')
-
-    for ax1 in axs:
-        for ax2 in ax1:
-            ax2.set_xlim(9000,12000)
-            ax2.minorticks_on()
-            ax2.set_xlabel("Wavelenght ($cm^{-1}$)")
-            ax2.set_ylabel("Intensity")
-            ax2.legend(fontsize=10)
-
-
 
 
 
