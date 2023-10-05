@@ -1,0 +1,3 @@
+When you want to simulate the excited state dynamics, the difference between Real Redfield and Complex Redfield arises only if you are interested in the evolution of the imaginary part of the coherences.
+
+The same is true for the difference between Real Redfield-Förster and Complex Redfield-Förster.
