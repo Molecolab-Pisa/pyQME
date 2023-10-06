@@ -78,13 +78,24 @@ class ForsterTensorDouble(RelTensorDouble):
         
         self.rates = self.transform(rates)
     
-    @property
-    def dephasing(self):
-        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+    def _calc_tensor(self):
+        "This function put the Forster energy transfer rates in tensor."
+
+        if not hasattr(self, 'rates'):
+            self._calc_rates()
+        
+        RTen = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
+        np.einsum('qqrr->qr',RTen) [...] = self.rates
+        self.RTen = RTen
+       
+        pass
+    
+    def _calc_dephasing(self):
+        """This function computes the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
         
         Returns
         -------
-        dephasing: np.array(np.float), shape = (self.dim)
+        dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1-"""
         
         if not hasattr(self,'rates'):

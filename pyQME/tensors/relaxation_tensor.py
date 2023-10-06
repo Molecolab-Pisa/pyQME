@@ -2,6 +2,7 @@ import numpy as np
 from scipy.sparse.linalg import expm_multiply
 from scipy import linalg as la
 from ..utils import wn2ips
+from copy import deepcopy
 
 class RelTensor():
     """Relaxation tensor class in the single-exciton manifold.
@@ -30,10 +31,10 @@ class RelTensor():
         elif not hasattr('self','H'):
             raise NotImplementedError('You should not initialize this class without Hamiltonian')
             
-        self.specden = specden
+        self.specden = deepcopy(specden)
         
         if specden_adiabatic is not None:
-            self.specden_adiabatic = specden_adiabatic
+            self.specden_adiabatic = deepcopy(specden_adiabatic)
         
         if SD_id_list is None:
             self.SD_id_list = [0]*self.dim
@@ -249,6 +250,18 @@ class RelTensor():
         if not hasattr(self, 'RTen'):
             self._calc_tensor()
         return self.RTen
+    
+    def get_dephasing(self):
+        """This function returns the dephasing
+        
+        Returns
+        -------
+        dephasing: np.array(), shape = (dim,dim,dim,dim)
+            dephasing."""
+        
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        return self.dephasing
     
     def _apply_diss(self,rho):
         """This function lets the relaxation tensor to act on the rho matrix.

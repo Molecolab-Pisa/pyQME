@@ -8,8 +8,8 @@ import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.pump_probe import PumpProbeSpectraCalculator
-from pyQME.tensors import RedfieldTensorReal,RedfieldTensorComplex
-from pyQME.tensors_double import RedfieldTensorRealDouble,RedfieldTensorComplexDouble
+from pyQME.tensors import RedfieldTensor,RedfieldTensor
+from pyQME.tensors_double import RedfieldTensorDouble,RedfieldTensorDouble
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
 
 
@@ -17,18 +17,15 @@ from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn
 
 # **Hamiltonian (1/cm)**
 
-nchrom = 3 #number of chromophores
+nchrom = 2 #number of chromophores
 
+coupling = 100
 E0 = 10000
-energy_gap = 100
-coupling_12 = 100
-coupling_23 = 30
-coupling_13 = 10
+energy_gap = 478
 H = np.zeros((nchrom,nchrom)) #hamiltonian
 
-H[0] = np.asarray([E0          , coupling_12     , coupling_13     ])
-H[1] = np.asarray([coupling_12 , E0+energy_gap   , coupling_23     ])
-H[2] = np.asarray([coupling_13 , coupling_23     , E0+2*energy_gap ])
+H[0] = np.asarray([E0      ,coupling     ])
+H[1] = np.asarray([coupling,E0+energy_gap])
 
 
 H
@@ -50,7 +47,7 @@ freq_axis_SD = np.arange(0.1,4000,0.1)
 
 
 SD_data = overdamped_brownian(freq_axis_SD,30,37)
-SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,1000)
+SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
 
@@ -67,11 +64,8 @@ SD_obj.time = time_axis
 
 # **Relaxation Tensors**
 
-rel_tens_obj_real = RedfieldTensorReal(H,SD_obj)
-rel_tens_obj_double_real = RedfieldTensorRealDouble(H,SD_obj)
-
-rel_tens_obj_complex = RedfieldTensorComplex(H,SD_obj)
-rel_tens_obj_double_complex = RedfieldTensorComplexDouble(H,SD_obj)
+rel_tens_obj = RedfieldTensor(H,SD_obj)
+rel_tens_obj_double = RedfieldTensorDouble(H,SD_obj)
 
 
 # # Excited State Dynamics
@@ -86,7 +80,7 @@ rho_t_site = rho_t_site_.reshape((time_axis_ps.size,nchrom,nchrom))
 
 # **Convert to exciton basis**
 
-rho_t_exc = rel_tens_obj_real.transform(rho_t_site)
+rho_t_exc = rel_tens_obj.transform(rho_t_site)
 
 
 # **Extract the population**
@@ -96,10 +90,10 @@ pop_t_exc = np.einsum('tkk->tk',rho_t_exc)
 
 # # Spectra calculation
 
-spectrum_obj_diag_approx = PumpProbeSpectraCalculator(rel_tens_obj_real,rel_tens_obj_double_real,include_dephasing=False)
-spectrum_obj_real = PumpProbeSpectraCalculator(rel_tens_obj_real,rel_tens_obj_double_real,include_dephasing=True)
-spectrum_obj_complex = PumpProbeSpectraCalculator(rel_tens_obj_complex,rel_tens_obj_double_complex,include_dephasing=True)
-spectrum_obj_imag = PumpProbeSpectraCalculator(rel_tens_obj_complex,rel_tens_obj_double_complex,include_dephasing=True,include_gamma_a_real=False,include_gamma_q_real=False)
+spectrum_obj_diag_approx = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'no dephasing')
+spectrum_obj_real = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'rR')
+spectrum_obj_complex = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'cR')
+spectrum_obj_imag = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'iR')
 
 
 spectrum_obj_diag_approx.calc_components_lineshape(dipoles=dipoles)

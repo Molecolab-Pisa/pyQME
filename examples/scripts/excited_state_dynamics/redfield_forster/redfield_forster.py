@@ -7,7 +7,7 @@ import numpy as np
 
 
 from pyQME.spectral_density import SpectralDensity
-from pyQME.tensors import RedfieldForsterTensorReal
+from pyQME.tensors import RedfieldForsterTensor
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips,partition_by_clusters,clusterize_popt
 
 
@@ -57,7 +57,7 @@ freq_axis_SD = np.arange(0.1,4000,0.1)
 
 
 SD_data = overdamped_brownian(freq_axis_SD,30,37)
-SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,1000)
+SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
 
@@ -74,14 +74,14 @@ SD_obj.time = time_axis
 
 # **Relaxation Tensor**
 
-rel_tens_obj = RedfieldForsterTensorReal(H_part,V,SD_obj)
+rel_tens_obj = RedfieldForsterTensor(H_part,V,SD_obj)
 
 
 # # Excited state dynamics
 
 # **Time axis**
 
-time_axis_ps = np.arange(0,3,0.001)     #to be saved
+time_axis_ps = np.arange(0,2,0.001)     #to be saved
 time_axis_cm = time_axis_ps*wn2ips
 
 

@@ -90,7 +90,8 @@ class RedfieldTensorDouble(RelTensorDouble):
         
         SD_id_list = self.SD_id_list
 
-        GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype = type(self._evaluate_SD_in_freq(0)[0,0]))
+        GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
+            
         for SD_id in [*set(SD_id_list)]:
 
             Cw_matrix = self._evaluate_SD_in_freq(SD_id)
@@ -106,110 +107,19 @@ class RedfieldTensorDouble(RelTensorDouble):
 
         return RTen
 
-class RedfieldTensorRealDouble(RedfieldTensorDouble):
-    """Redfield Tensor class where Real Redfield Theory is used to model energy transfer processes in the double exciton manifold.
-    This class is a subclass of RedfieldTensorDouble Class.
-    
-    Arguments
-    ---------
-    H: np.array(dtype=np.float), shape = (n_site,n_site)
-        excitonic Hamiltonian in cm^-1.
-    specden: Class
-        class of the type SpectralDensity
-    SD_id_list: list of integers, len = n_site
-        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-        example: [0,0,0,0,1,1,1,0,0,0,0,0]
-    initialize: Boolean
-        the relaxation tensor is computed when the class is initialized.
-    specden_adiabatic: class
-        SpectralDensity class.
-        if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
-
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        "This function handles the variables which are initialized to the main RedfieldTensor Class."
-        
-        super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
-        
     def _evaluate_SD_in_freq(self,SD_id):
-        """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies
+        """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies.
         
         Arguments
         ---------
         SD_id: integer
-            index of the spectral density (i.e. self.specden.SD[SD_id])
+            index of the spectral density (i.e. self.specden.SD[SD_id]).
         
         Returns
         -------
-        SD_w_qr: np.array(dtype=np.float), shape = (self.dim,self.dim)
+        SD_w_qr: np.array(dtype=np.complex), shape = (self.dim,self.dim)
             SD[q,r] = SD(w_qr) where w_qr = w_r - w_q and SD is self.specden.SD[SD_id]."""
         
-        #usage of self.specden.__call__
-        SD_w_qr = self.specden(self.Om.T,SD_id=SD_id,imag=False)
-        return SD_w_qr
-    
-    def _from_GammaF_to_RTen(self,GammF):
-        """This function computes the Redfield Tensor starting from GammF
-        
-        Arguments
-        ---------
-        GammF: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim)
-            Four-indexes tensor, GammF(qrst) = sum_i c_iq c_ir c_is c_it Cw(w_rq)
-        
-        Returns
-        -------
-        RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim)
-            Redfield relaxation tensor"""
-        
-        RTen = np.zeros(GammF.shape,dtype=np.float64)
-        
-        #RTen_qrst = GammF_sqrt + GammF_trsq*
-        RTen[:] = np.einsum('sqrt->qrst',GammF) + np.einsum('trsq->qrst',GammF.conj())
-        
-        #RTen_qrst = RTen_qrst + delta_qs sum_o GammF_root* + delta_rt sum_o GammF_qoos 
-        eye = np.eye(self.dim)
-        tmpac = np.einsum('sooq->qs',GammF)
-        RTen -= np.einsum('qs,rt->qrst',eye,tmpac.conj()) + np.einsum('qs,rt->qrst',tmpac,eye)
-    
-        return RTen
-    
-    @property
-    def dephasing(self):
-        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
-        
-        Returns
-        -------
-        dephasing: np.array(np.float), shape = (self.dim)
-            dephasing rates in cm^-1"""
-        
-        if not hasattr(self,'rates'):
-            self._calc_rates()
-        dephasing = -0.5*np.diag(self.rates)
-        return dephasing
-    
-class RedfieldTensorComplexDouble(RedfieldTensorDouble):
-    """Redfield Tensor class where Complex Redfield Theory is used to model energy transfer processes in the double exciton manifold.
-    This class is a subclass of RedfieldTensorDouble Class."""
-
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
-        """This function handles the variables which are initialized to the main RedfieldTensor Class
-        
-        Arguments
-        ---------
-        H: np.array(dtype=np.float), shape = (n_site,n_site)
-            excitonic Hamiltonian in cm^-1.
-        specden: Class
-            class of the type SpectralDensity
-        SD_id_list: list of integers, len = n_site
-            SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
-            example: [0,0,0,0,1,1,1,0,0,0,0,0]
-        initialize: Boolean
-            the relaxation tensor is computed when the class is initialized.
-        specden_adiabatic: class
-            SpectralDensity class.
-            if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
-        
-        super().__init__(H,specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
-    
     def _evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies.
         
@@ -252,9 +162,14 @@ class RedfieldTensorComplexDouble(RedfieldTensorDouble):
         
         return RTen
     
-    @property
-    def dephasing(self):
-        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+    def _calc_dephasing(self):
+        """This function stores the Redfield dephasing in cm^-1. This function makes easier the management of the Redfield-Forster subclasses."""
+        
+        dephasing = self._calc_redfield_dephasing()
+        self.dephasing = dephasing  
+        
+    def _calc_redfield_dephasing(self):
+        """This function computes the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
         
         Returns
         -------
@@ -294,4 +209,5 @@ class RedfieldTensorComplexDouble(RedfieldTensorDouble):
             rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
             dephasing = -0.5*np.diag(rates)
+                
         return dephasing

@@ -15,15 +15,18 @@ from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn
 
 # **Hamiltonian (1/cm)**
 
-nchrom = 2 #number of chromophores
+nchrom = 3 #number of chromophores
 
-coupling = 20
 E0 = 10000
 energy_gap = 100
+coupling_12 = 100
+coupling_23 = 30
+coupling_13 = 10
 H = np.zeros((nchrom,nchrom)) #hamiltonian
 
-H[0] = np.asarray([E0      ,coupling     ])
-H[1] = np.asarray([coupling,E0+energy_gap])
+H[0] = np.asarray([E0          , coupling_12     , coupling_13     ])
+H[1] = np.asarray([coupling_12 , E0+energy_gap   , coupling_23     ])
+H[2] = np.asarray([coupling_13 , coupling_23     , E0+2*energy_gap ])
 
 
 H
@@ -40,7 +43,7 @@ freq_axis_SD = np.arange(0.1,4000,0.1)
 
 
 SD_data = overdamped_brownian(freq_axis_SD,30,37)
-SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,1000)
+SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
 
@@ -64,7 +67,7 @@ rel_tens_obj = ModifiedRedfieldTensor(H,SD_obj)
 
 # **Time axis**
 
-time_axis_ps = np.arange(0,3,0.001)     #to be saved
+time_axis_ps = np.arange(0,2,0.001)     #to be saved
 time_axis_cm = time_axis_ps*wn2ips
 
 

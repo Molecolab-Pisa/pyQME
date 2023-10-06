@@ -1,6 +1,7 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
 from .utils import factOD,Kb
+from copy import deepcopy
 
 class LinearSpectraCalculator():
     """Class for calculations of absorption and fluorescence spectra.
@@ -14,23 +15,54 @@ class LinearSpectraCalculator():
         class of the type RelTensor.
     RWA: np.float
         order of magnitude of frequencies at which the spectrum is evaluated.
-    include_dephasing: Boolean
-        if True, the dephasing term is included in the lineshape, otherwise, the dephasing term isn't included.
-    include_deph_real: Boolean        
-        if True, the real part of the dephasing term is included, otherwise, only the imaginary part is included."""
+    include_deph_imag: Boolean
+        if True, the imaginary part of the dephasing term is included, otherwise, the imaginary part isn't included.
+    include_deph_real: Boolean
+        if True, the real part of the dephasing term is included, otherwise, the real part isn't included.
+    approximation: string
+        approximation used for the lineshape theory.
+        The use of this variable overwrites the use of the "include_deph_imag" and "include_deph_real" variables.
+        if 'no dephasing', the dephasing isn't included (Redfield theory with diagonal approximation).
+        if 'iR', the imaginary Redfield theory is used.
+        if 'rR', the real Redfield theory is used.
+        if 'cR', the complex Redfield theory is used."""
     
-    def __init__(self,rel_tensor,RWA=None,include_dephasing=False,include_deph_real=True):
+    def __init__(self,rel_tensor,RWA=None,include_deph_imag=True,include_deph_real=True,approximation=None):
         """This function initializes the class LinearSpectraCalculator."""
         
         #store variables from input
-        self.rel_tensor = rel_tensor
+        self.rel_tensor = deepcopy(rel_tensor)
         self.time = self.rel_tensor.specden.time #if you want to change the time axis, "specden.time" must be changed before initializing "rel_tensor"
         self.H = self.rel_tensor.H
         self.coef = self.rel_tensor.U.T
                         
-        self.include_dephasing= include_dephasing
-        self.include_deph_real = include_deph_real
+        #case 1: custom lineshape theory
+        if approximation is None:
+            self.include_deph_real = include_deph_real
+            self.include_deph_imag = include_deph_imag
+            
+        #case 2: a default approximation is given
+        else:
+            #set the include_deph_* variables according to the approximation used
+
+            if approximation == 'cR':
+                self.include_deph_real = True
+                self.include_deph_imag = True
+                
+            elif approximation == 'rR':
+                self.include_deph_real = True
+                self.include_deph_imag = False
         
+            elif approximation == 'iR':
+                self.include_deph_real = False
+                self.include_deph_imag = True
+                
+            elif approximation == 'no dephasing':
+                self.include_deph_real = False
+                self.include_deph_imag = False
+            else:
+                raise NotImplementedError
+                
         self.RWA = RWA
         if self.RWA is None:
             self.RWA = self.rel_tensor.H.diagonal().min()
@@ -50,15 +82,17 @@ class LinearSpectraCalculator():
     def _get_dephasing(self):
         "This function gets the dephasing lifetime rates in cm from the self.rel_tensor Class."
 
-        if self.include_dephasing:
-            self.dephasing = self.rel_tensor.dephasing
+        #get the real and imaginary part of the complex dephasing
+        self.dephasing = self.rel_tensor.get_dephasing()
             
-            #if specified,neglect the real part
-            if not self.include_deph_real:
-                self.dephasing = 1j*self.dephasing.imag
-        else:
-            self.dephasing = np.zeros(self.rel_tensor.dim)
-    
+        #if specified,neglect the real part
+        if not self.include_deph_real:
+            self.dephasing.real = 0.
+
+        #if specified,neglect the imaginary part
+        if not self.include_deph_imag:
+            self.dephasing.imag = 0.
+
     def _initialize(self):
         "This function initializes some variables needed for spectra."
         

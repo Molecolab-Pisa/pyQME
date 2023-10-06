@@ -1,4 +1,4 @@
 from .forster_double import ForsterTensorDouble
-from .redfield_forster_double import RedfieldForsterTensorRealDouble,RedfieldForsterTensorComplexDouble,ModifiedRedfieldForsterTensorDouble
-from .redfield_double import RedfieldTensorRealDouble,RedfieldTensorComplexDouble
+from .redfield_forster_double import RedfieldForsterTensorDouble,ModifiedRedfieldForsterTensorDouble
+from .redfield_double import RedfieldTensorDouble
 from .modified_redfield_double import ModifiedRedfieldTensorDouble

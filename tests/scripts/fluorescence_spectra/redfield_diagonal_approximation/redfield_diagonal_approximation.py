@@ -9,7 +9,7 @@ from scipy.sparse.linalg import expm_multiply
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.linear_spectra import LinearSpectraCalculator
-from pyQME.tensors import RedfieldTensorReal
+from pyQME.tensors import RedfieldTensor
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis
 
 
@@ -47,7 +47,7 @@ freq_axis_SD = np.arange(0.1,4000,0.1)
 
 
 SD_data = overdamped_brownian(freq_axis_SD,30,37)
-SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,1000)
+SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
 
@@ -64,12 +64,12 @@ SD_obj.time = time_axis
 
 # **Relaxation Tensor (Complex Redfield)**
 
-rel_tens_obj = RedfieldTensorReal(H,SD_obj)
+rel_tens_obj = RedfieldTensor(H,SD_obj)
 
 
 # # Spectrum calculation
 
-spectrum_obj = LinearSpectraCalculator(rel_tens_obj,include_dephasing = False)
+spectrum_obj = LinearSpectraCalculator(rel_tens_obj,include_deph_real=False,include_deph_imag=False)
 
 
 freq_axis_FL,FL = spectrum_obj.calc_FL(dipoles=dipoles)   #to be saved

@@ -71,19 +71,18 @@ class ForsterTensor(RelTensor):
         if not hasattr(self, 'rates'):
             self._calc_rates()
         
-        RTen = np.zeros([self.dim,self.dim,self.dim,self.dim])
+        RTen = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
         np.einsum('iijj->ij',RTen) [...] = self.rates
         self.RTen = RTen
        
         pass
     
-    @property
-    def dephasing(self):
+    def _calc_dephasing(self):
         """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
         
         Returns
         -------
-        dephasing: np.array(np.float), shape = (self.dim)
+        dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1"""
         
         if hasattr(self,'RTen'):

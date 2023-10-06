@@ -57,7 +57,7 @@ freq_axis_SD = np.arange(0.1,4000,0.1)
 
 
 SD_data = overdamped_brownian(freq_axis_SD,30,37)
-SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,1000)
+SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
 
@@ -81,7 +81,7 @@ rel_tens_obj = ModifiedRedfieldForsterTensor(H_part,V,SD_obj)
 
 # **Time axis**
 
-time_axis_ps = np.arange(0,3,0.001)     #to be saved
+time_axis_ps = np.arange(0,2,0.001)     #to be saved
 time_axis_cm = time_axis_ps*wn2ips
 
 

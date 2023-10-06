@@ -6,7 +6,7 @@
 import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
-from pyQME.tensors import RedfieldTensorReal,ForsterTensor,ModifiedRedfieldTensor
+from pyQME.tensors import RedfieldTensor,ForsterTensor,ModifiedRedfieldTensor
 
 from pyQME.utils import wn2ips
 
@@ -76,7 +76,7 @@ time = 1/rate
 print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 
 
-Redf = RedfieldTensorReal(H,SD)
+Redf = RedfieldTensor(H,SD)
 
 # Why this does not work?
 ##  rate = Redf.rates[0,1]*wn2ips
@@ -127,7 +127,7 @@ for reorg in reorg_scan:
     k_modRedfield.append(rate)
     
     # Do Redfield
-    Red = RedfieldTensorReal(Ham,SD_i)
+    Red = RedfieldTensor(Ham,SD_i)
     rate = Red.get_rates()[0,1]*wn2ips
     k_Redfield.append(rate)
     

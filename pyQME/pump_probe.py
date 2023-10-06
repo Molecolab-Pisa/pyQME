@@ -1,6 +1,7 @@
 from scipy.interpolate import UnivariateSpline,RegularGridInterpolator
 import numpy as np
 from .utils import factOD
+from copy import deepcopy
 
 
 class PumpProbeSpectraCalculator():
@@ -18,19 +19,28 @@ class PumpProbeSpectraCalculator():
         double-exciton manifold relaxation tensor class of the type RelTensorDouble. The number of double excitons (rel_tensor_double.dim) must be compatible with the number of single excitons (rel_tensor_single.dim).
     RWA:  np.float
         order of magnitude of frequencies at which the spectrum is evaluated.
-    include_dephasing: Boolean
-        if True, the natural broadening of the pump-probe spectra is included, if False it isn't included.
-    include_gamma_a_real: Boolean
-        if True, the real part of the single exciton manifold dephasing is included, if False only the imaginary part is included.
-    include_gamma_q_real: Boolean
-        if True, the real part of the double exciton manifold dephasing is included, if False only the imaginary part is included."""
-    
-    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_dephasing=False,include_gamma_a_real=True,include_gamma_q_real=True):
+    include_deph_single_real: Boolean
+        if True, the real part of the single exciton manifold dephasing is included, if False the real part isn't included.
+    include_deph_double_real: Boolean
+        if True, the real part of the double exciton manifold dephasing is included, if False the real part isn't included.
+    include_deph_single_imag: Boolean
+        if True, the imaginary part of the single exciton manifold dephasing is included, if False the imaginary part isn't included.
+    include_deph_double_imag: Boolean
+        if True, the imaginary part of the double exciton manifold dephasing is included, if False the imaginary part isn't included.
+    approximation: string
+        approximation used for the lineshape theory.
+        The use of this variable overwrites the use of the "include_deph_single_real","include_deph_double_real",include_deph_single_imag and "include_deph_double_imag" variables.
+        if 'no dephasing', the dephasing isn't included (Redfield theory with diagonal approximation).
+        if 'iR', the imaginary Redfield theory is used.
+        if 'rR', the real Redfield theory is used.
+        if 'cR', the complex Redfield theory is used."""
+
+    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_deph_single_real=True,include_deph_single_imag=True,include_deph_double_real=True,include_deph_double_imag=True,approximation=None):
         """This function initializes the class PumpProbeSpectraCalculator."""
         
         #store variables from input
-        self.rel_tensor_single = rel_tensor_single
-        self.rel_tensor_double = rel_tensor_double
+        self.rel_tensor_single = deepcopy(rel_tensor_single)
+        self.rel_tensor_double = deepcopy(rel_tensor_double)
         self.time = self.rel_tensor_single.specden.time #if you want to change the time axis, "specden.time" must be changed before initializing "rel_tensor_single"
                    
         self.dim_single = self.rel_tensor_single.dim
@@ -48,10 +58,43 @@ class PumpProbeSpectraCalculator():
         
         self.lambda_a = self.rel_tensor_single.get_lambda_a()
         
-        self.include_dephasing= include_dephasing
-        self.include_gamma_q_real = include_gamma_q_real
-        self.include_gamma_a_real = include_gamma_a_real
+        #case 1: custom lineshape theory
+        if approximation is None:
+            self.include_deph_single_real = include_deph_single_real
+            self.include_deph_single_imag = include_deph_single_imag
+            self.include_deph_double_real = include_deph_double_real
+            self.include_deph_double_imag = include_deph_double_imag
             
+        #case 2: a default approximation is given
+        else:
+            #set the include_deph_* variables according to the approximation used
+            
+            if approximation == 'cR':
+                self.include_deph_single_real = True
+                self.include_deph_single_imag = True
+                self.include_deph_double_real = True
+                self.include_deph_double_imag = True
+                
+            elif approximation == 'rR':
+                self.include_deph_single_real = True
+                self.include_deph_single_imag = False
+                self.include_deph_double_real = True
+                self.include_deph_double_imag = False
+            
+            elif approximation == 'iR':
+                self.include_deph_single_real = False
+                self.include_deph_single_imag = True
+                self.include_deph_double_real = False
+                self.include_deph_double_imag = True
+                
+            elif approximation == 'no dephasing':
+                self.include_deph_single_real = False
+                self.include_deph_single_imag = False
+                self.include_deph_double_real = False
+                self.include_deph_double_imag = False
+            else:
+                raise NotImplementedError
+                
         # Get RWA freq
         self.RWA = RWA
         if self.RWA is None:
@@ -81,25 +124,33 @@ class PumpProbeSpectraCalculator():
     def _get_dephasing(self):
         "This function gets the dephasing lifetime rates in cm from tensor."
         
-        if self.include_dephasing:
-            if self.include_gamma_a_real:
-                self.deph_a = self.rel_tensor_single.dephasing
-            else:
-                self.deph_a = 1j*np.imag(self.rel_tensor_single.dephasing)
-            if self.include_gamma_q_real:
-                self.deph_q = self.rel_tensor_double.dephasing
-            else:
-                self.deph_q = 1j*np.imag(self.rel_tensor_double.dephasing)
-            deph_aq = np.zeros([self.dim_single,self.dim_double],dtype=type(self.deph_a[0]))
-            for q in range(self.dim_double): #double exciton
-                for a in range(self.dim_single):
-                    deph_aq[a,q] = np.conj(self.deph_a[a]) + self.deph_q[q]
-            self.deph_aq = deph_aq
-        else:
-            self.deph_a = np.zeros(self.rel_tensor_single.dim)
-            self.deph_q = np.zeros(self.rel_tensor_double.dim)
-            self.deph_aq = np.zeros([self.dim_single,self.dim_double])
-    
+        #get the real and imaginary part of the complex dephasing
+        self.deph_a = self.rel_tensor_single.get_dephasing()
+        self.deph_q = self.rel_tensor_double.get_dephasing()
+        
+        #if specified,neglect the real part of the dephasing in the single-exciton manifold
+        if not self.include_deph_single_real:
+            self.deph_a.real = 0.
+        
+        #if specified,neglect the imaginary part of the dephasing in the single-exciton manifold
+        if not self.include_deph_single_imag:
+            self.deph_a.imag = 0.
+
+        #if specified,neglect the real part of the dephasing in the double-exciton manifold
+        if not self.include_deph_double_real:
+            self.deph_q.real = 0.
+
+        #if specified,neglect the imaginary part of the dephasing in the double-exciton manifold
+        if not self.include_deph_double_imag:
+            self.deph_q.imag = 0.
+            
+        #compute the dephasing terms associated to transition from single to double excitons
+        deph_aq = np.zeros([self.dim_single,self.dim_double],dtype=np.complex128)
+        for q in range(self.dim_double): #double exciton
+            for a in range(self.dim_single):
+                deph_aq[a,q] = np.conj(self.deph_a[a]) + self.deph_q[q]
+        self.deph_aq = deph_aq
+        
     def _calc_w_aq(self):
         "This function computes and stores the excitation energy from single to double exciton manifold."
         

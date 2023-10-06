@@ -1,6 +1,7 @@
 import numpy as np
 from opt_einsum import contract
 from ..utils import _get_H_double
+from copy import deepcopy
 
 class RelTensorDouble():
     """Relaxation tensor class in the double-exciton manifold.
@@ -40,10 +41,10 @@ class RelTensorDouble():
             raise NotImplementedError('You should not initialize this class without Hamiltonian')
             
         #store variables given as input
-        self.specden = specden
+        self.specden = deepcopy(specden)
         
         if specden_adiabatic is not None:
-            self.specden_adiabatic = specden_adiabatic
+            self.specden_adiabatic = deepcopy(specden_adiabatic)
             
         if SD_id_list is None:
             self.SD_id_list = [0]*self.dim_single
@@ -189,6 +190,18 @@ class RelTensorDouble():
         
         return RTen
         
+    def get_dephasing(self):
+        """This function returns the dephasing.
+        
+        Returns
+        -------
+        self.dephasing: np.array(dtype=np.float), shape = (self.dim)
+            dephasing."""
+
+        if not hasattr(self, 'dephasing'):
+            self._calc_dephasing()
+        return self.dephasing
+    
     def get_rates(self):
         """This function returns the energy transfer rates.
         

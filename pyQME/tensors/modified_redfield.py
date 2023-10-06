@@ -130,17 +130,22 @@ class ModifiedRedfieldTensor(RelTensor):
 
         #secularization
         if secularize:
-            RTen = self.secularize(RTen)
+            RTen = self._secularize(RTen)
             
         return RTen
 
-    @property
-    def dephasing(self):
-        """This function returns the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
+    def _calc_dephasing(self):
+        """This function stores the Modified Redfield dephasing in cm^-1. This function makes easier the management of the Redfield-Forster subclasses."""
+        
+        dephasing = self._calc_redfield_dephasing()
+        self.dephasing = dephasing   
+        
+    def _calc_redfield_dephasing(self):
+        """This function computes the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
         
         Returns
         -------
-        dephasing: np.array(np.float), shape = (self.dim)
+        dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1."""
         
         #case 1: the full relaxation tensor is available
