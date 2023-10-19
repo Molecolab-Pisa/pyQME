@@ -29,10 +29,13 @@ H[1] = np.asarray([coupling_12 , E0+energy_gap   , coupling_23     ])
 H[2] = np.asarray([coupling_13 , coupling_23     , E0+2*energy_gap ])
 
 
-H
+with np.printoptions(suppress=True):
+    print(H)
 
 
 # **Partitioning of the Hamiltonian**
+# 
+# Here we divide the Hamiltonian in clusters, taking into account that the first two sites are strongly coupled.
 
 clusters = [[0,1],[2]]
 
@@ -47,11 +50,15 @@ V
 
 
 # **Temperature (Kelvin)**
+# 
+# Define the temperature, in Kelvin
 
 temp = 298
 
 
 # **Spectral density**
+# 
+# We construct the spectral density as a sum of an overdamped and an underdamped contribution.
 
 freq_axis_SD = np.arange(0.1,4000,0.1)
 
@@ -62,10 +69,13 @@ SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
 
+# Build the spectral density object
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
 
 
 # **Time axis (cm)**
+# 
+# We define an internal time axis for computing integrals
 
 energies = np.diag(H)
 time_axis = get_timeaxis(SD_obj.Reorg,energies,5)
@@ -103,6 +113,7 @@ rho_t_exc = rel_tens_obj.propagate(rho_0_exc,time_axis_cm)     #to be saved
 #convert to site basis
 rho_t_site = rel_tens_obj.transform_back(rho_t_exc)     #to be saved
 
+# Get site populations
 pop_t_site = np.einsum('tkk->tk',rho_t_site).real
 
 #clusterize

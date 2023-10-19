@@ -90,7 +90,7 @@ pop_t_exc = np.einsum('tkk->tk',rho_t_exc)
 
 # # Spectra calculation
 
-spectrum_obj = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double)
+spectrum_obj = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation='cR')
 
 
 spectrum_obj.calc_components_lineshape(dipoles=dipoles)

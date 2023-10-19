@@ -29,15 +29,20 @@ H[1] = np.asarray([coupling_12 , E0+energy_gap   , coupling_23     ])
 H[2] = np.asarray([coupling_13 , coupling_23     , E0+2*energy_gap ])
 
 
-H
+with np.printoptions(suppress=True):
+    print(H)
 
 
 # **Temperature (Kelvin)**
+# 
+# Define the temperature, in Kelvin
 
 temp = 298
 
 
 # **Spectral density**
+# 
+# We construct the spectral density as a sum of an overdamped and an underdamped contribution.
 
 freq_axis_SD = np.arange(0.1,4000,0.1)
 

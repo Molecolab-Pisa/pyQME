@@ -168,6 +168,7 @@ Some useful conversion factors and physical constants in $cm^{-1}$ can be found 
 - The time axis used for the lineshape functions and for the spectra calculation must be defined in the spectral density class. If you're not sure about how to set it, use the `get_timeaxis` function in `pyQME/utils.py`.
 - Be sure that the Liouvillian of your system is diagonalizable before propagating the density matrix using the "eig" mode.
 - The spectra returned are already multiplied by the frequency axis (raised to the appropriate power).
+- When you use the same Spectral Density object for multiple calculations (for example for repeated spectra calculations along a Molecular Dynamics trajectory), you should calculate the lineshape function only one time using SDobj._calc_gt(), before passing SDobj to the Relaxation Tensor objects. 
 
 ### Indices convention
 

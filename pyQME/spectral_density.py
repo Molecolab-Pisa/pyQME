@@ -83,10 +83,30 @@ class SpectralDensity():
         #generate a spline representation of each spectral density
         self._gen_spline_repr()
         
+        #calculate lineshape function
+        self._calc_gt()
+        
+    @property
+    def time(self):
+        return self._time
+        
+    @time.setter
+    def time(self, value):
+        self._time = value
+        
+        #update the lineshape function
+        if hasattr(self,'gt'):
+            self._calc_gt()
+        
+        #update the correlation function
+        if hasattr(self,'Ct'):
+            self._calc_Ct()            
 
     def set_temperature(self,T):
         """This function sets the temperature.
         
+        Arguments
+        ---------
         T: np.float
            Temperature in Kelvin.
         """
@@ -117,7 +137,7 @@ class SpectralDensity():
             self.Cw = np.asarray([np.concatenate((-SD[::-1],SD)) for SD in self.SD])
         pass
     
-    def _gen_spline_repr(self,imag=None):
+    def _gen_spline_repr(self,imag=True):
         """This function generates spline representations of the spectral densities.
         
         Arguments
@@ -136,7 +156,7 @@ class SpectralDensity():
         
         pass
     
-    def __call__(self,freq,SD_id=None,imag=None):
+    def __call__(self,freq,SD_id=None,imag=True):
         """This function returns the value of the SD_id_th spectral density at frequency freq.
         
         Arguments
@@ -165,8 +185,8 @@ class SpectralDensity():
         """
         
         #generate the spline representation
-        if imag and not hasattr(self,'SDfunction_imag'):
-            self._gen_spline_repr(imag=True)
+        if not hasattr(self,'SDfunction_imag'):
+            self._gen_spline_repr(imag=imag)
             
         #separate cases according to which spectral density is required and whether the imaginary part is required
         
@@ -244,7 +264,7 @@ class SpectralDensity():
         
         #scaling factor
         reorg = reorg/(2*np.pi)
-
+        
         return reorg    
     
     @property

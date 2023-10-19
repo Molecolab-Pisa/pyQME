@@ -69,7 +69,7 @@ rel_tens_obj = RedfieldTensor(H,SD_obj)
 
 # # Spectrum calculation
 
-spectrum_obj = LinearSpectraCalculator(rel_tens_obj,include_deph_imag = True,include_deph_real=False)
+spectrum_obj = LinearSpectraCalculator(rel_tens_obj,approximation='iR')
 
 
 freq_axis_OD,OD = spectrum_obj.calc_OD(dipoles=dipoles)   #to be saved

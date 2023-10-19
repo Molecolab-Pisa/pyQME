@@ -110,7 +110,7 @@ class LinearSpectraCalculator():
         pop: np.array(dype=np.float), shape = (self.rel_tensor.dim)
             array of equilibrium population in the exciton basis."""
         
-        lambda_a = self.rel_tensor.get_lambda_a()
+        self.rel_tensor._calc_lambda_a()
 
         #for fluorescence spectra we need adiabatic equilibrium population, so we subtract the reorganization energy
         e00 = self.rel_tensor.ene  - self.rel_tensor.lambda_a
