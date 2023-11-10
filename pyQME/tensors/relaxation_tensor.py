@@ -325,7 +325,7 @@ class RelTensor():
             if 'eig', the density matrix is propagated using the eigendecomposition of the (reshaped) relaxation tensor.
             if 'exp', the density matrix is propagated using the exponential matrix of the (reshaped) relaxation tensor.
         units: string
-            can be 'ps' or '1/cm'
+            can be 'ps' or '1/cm' or 'fs'
             unit of measurement of the time axis.
         basis: string
             if 'exciton', the initial density matrix "rho" and the propagated density matrix "rhot" are in the eigenbasis (exciton basis)
@@ -338,6 +338,8 @@ class RelTensor():
         
         if units == 'ps':
             t = t*wn2ips
+        elif units == 'fs':
+            t = t*wn2ips/1000            
             
         if include_coh:
             if not hasattr(self,'RTen'):
@@ -346,18 +348,20 @@ class RelTensor():
             if not hasattr(self,'rates'):
                 self._calc_rates()
         
+        rho0 = rho.copy()
         if basis == 'site':
-            rho_site = rho
-            rho = self.transform(rho_site)
+            rho_site = rho0
+            rho0 = self.transform(rho_site)
         elif basis == 'exciton':
             pass
         else:
             raise ValueError('basis not recognized')
+        self.rho0 = rho0
         
         if propagation_mode == 'eig':
-            rhot = self._propagate_eig(rho,t,include_coh=include_coh)
+            rhot = self._propagate_eig(rho0,t,include_coh=include_coh)
         elif propagation_mode == 'exp':
-            rhot = self._propagate_exp(rho,t,include_coh=include_coh)
+            rhot = self._propagate_exp(rho0,t,include_coh=include_coh)
         
         if basis == 'site':
             rhot_site = self.transform_back(rhot)
