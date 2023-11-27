@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="pyQME",
@@ -7,6 +7,6 @@ setup(
     author="Piermarco Saraceno, Lorenzo Cupellini",
     author_email="piermarco.saraceno@phd.unipi.it",
     description=open("README.md").read(),
-    packages=["pyQME"],
+    packages=find_packages(),
     install_requires=["numpy", "scipy", "opt_einsum"],
 )

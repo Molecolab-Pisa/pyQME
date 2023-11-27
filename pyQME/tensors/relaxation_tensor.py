@@ -308,7 +308,7 @@ class RelTensor():
         
         return R_rho.reshape(shape_)
     
-    def propagate(self,rho,t,include_coh=True,propagation_mode='eig',units='1/cm',basis='exciton'):
+    def propagate(self,rho,t,include_coh=True,propagation_mode='exp',units='1/cm',basis='exciton'):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor.
         
         Arguments
