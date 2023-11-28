@@ -111,10 +111,11 @@ class ForsterTensor(RelTensor):
         dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1"""
         
+        dephasing = np.zeros(self.dim,dtype=np.complex128)
         if hasattr(self,'RTen'):
-            dephasing = -0.5*np.einsum('aaaa->a',self.RTen)
+            dephasing[:] = -0.5*np.einsum('aaaa->a',self.RTen)
         else:
             if not hasattr(self,'rates'):
                 self._calc_rates()
-            dephasing = -0.5*np.diag(self.rates)
+            dephasing[:] = -0.5*np.diag(self.rates)
         self.dephasing = dephasing
