@@ -101,4 +101,4 @@ class ForsterTensorDouble(RelTensorDouble):
         if not hasattr(self,'rates'):
             self._calc_rates()
         dephasing = -0.5*np.diag(self.rates)
-        return dephasing
+        self.dephasing = dephasing

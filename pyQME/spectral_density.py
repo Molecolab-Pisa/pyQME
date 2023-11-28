@@ -265,7 +265,7 @@ class SpectralDensity():
         #scaling factor
         reorg = reorg/(2*np.pi)
         
-        return reorg    
+        return reorg
     
     @property
     def Huang_Rhys(self):

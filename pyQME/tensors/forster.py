@@ -1,6 +1,7 @@
 import numpy as np
 from .relaxation_tensor import RelTensor
-from ..utils import h_bar
+from ..utils import h_bar,factOD
+from ..linear_spectra import LinearSpectraCalculator
 
 class ForsterTensor(RelTensor):
     """Forster Tensor class where Forster Resonance Energy Transfer (FRET) Theory (https://doi.org/10.1117/1.JBO.17.1.011002) is used to model energy transfer processes.
@@ -64,6 +65,31 @@ class ForsterTensor(RelTensor):
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
         
         self.rates = self.transform(rates)
+        
+    def _calc_rates_freq_domain(self,approximation=None):
+        """This function computes the Forster energy transfer rates by directly calculating the overlap between the fluorescence spectrum of the donor and the absorption spectrum of the acceptor."""
+        
+        lin_spec = LinearSpectraCalculator(self,approximation=approximation)
+        
+        w,OD_a = lin_spec.calc_OD_a()
+        OD_a = OD_a/(factOD*w)
+
+        w,FL_a = lin_spec.calc_FL_a(eqpop=np.ones(self.dim))
+        FL_a = FL_a/(factOD*(w**3))
+        
+        rates = np.empty([self.dim,self.dim])
+        for D in range(self.dim):
+            for A in range(D+1,self.dim):
+                
+                rates[A,D] = np. pi * 2. * ((self.V[A,D])**2)*np.trapz(FL_a[D]*OD_a[A],w).real/h_bar
+                rates[D,A] = np. pi * 2. * ((self.V[A,D])**2)*np.trapz(OD_a[D]*FL_a[A],w).real/h_bar
+                
+        #fix diagonal
+        rates[np.diag_indices_from(rates)] = 0.0
+        rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
+        
+        self.rates = self.transform(rates)
+
     
     def _calc_tensor(self):
         "This function put the Forster energy transfer rates in tensor."
@@ -91,4 +117,4 @@ class ForsterTensor(RelTensor):
             if not hasattr(self,'rates'):
                 self._calc_rates()
             dephasing = -0.5*np.diag(self.rates)
-        return dephasing
+        self.dephasing = dephasing
