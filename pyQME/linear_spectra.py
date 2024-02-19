@@ -397,3 +397,43 @@ class LinearSpectraCalculator():
         deltat = self.time[1]-self.time[0]
         factFT = deltat/(2*np.pi)
         return factFT
+    
+    def calc_CD(self,dipoles,cent,freq=None):
+        """This function computes the circular dicroism spectrum (Cupellini, L., Lipparini, F., & Cao, J. (2020). Absorption and Circular Dichroism Spectra of Molecular Aggregates with the Full Cumulant Expansion. Journal of Physical Chemistry B, 124(39), 8610–8617. https://doi.org/10.1021/acs.jpcb.0c05180).
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array containing the geometrical centre of each chromophore
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        CD: np.array(dtype = np.float)
+            circular dicroism spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+            
+        n = self.rel_tensor.dim #number of chromophores
+        H = self.rel_tensor.H #hamiltonian
+        freq,I_a =  self.calc_OD_a(freq=freq) #single-exciton contribution to the absorption spectrum
+        I_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,I_a,self.rel_tensor.U) #chomophore-pair contribution to the absorption spectrum
+        
+        #we compute the dipole strenght matrix
+        M_ij = np.zeros([n,n])
+        for i in range(n):
+            for j in range(n):
+                R_ij = cent[i] - cent[j]
+                tprod =         R_ij[0]*(dipoles[i,1]*dipoles[j,2]-dipoles[i,2]*dipoles[j,1])
+                tprod = tprod - R_ij[1]*(dipoles[i,0]*dipoles[j,2]-dipoles[i,2]*dipoles[j,0])
+                tprod = tprod + R_ij[2]*(dipoles[i,0]*dipoles[j,1]-dipoles[i,1]*dipoles[j,0])
+                M_ij[i,j] = tprod*np.sqrt(H[i,i]*H[j,j])
+                
+        CD_ij = M_ij[:,:,None]*I_ij #chomophore-pair contribution to the circular dicroism spectrum
+        CD = CD_ij.sum(axis=(0,1)) #circular dicroism spectrum
+        return freq,CD
+        
