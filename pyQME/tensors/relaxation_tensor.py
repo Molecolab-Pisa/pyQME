@@ -39,7 +39,10 @@ class RelTensor():
         if SD_id_list is None:
             self.SD_id_list = [0]*self.dim
         else:
-            self.SD_id_list = SD_id_list.copy()
+            if self.dim==len(SD_id_list):   #check dimension consistency
+                self.SD_id_list = SD_id_list.copy()
+            else:
+                raise ValueError('The lenght of SD_id_list must match the dimension of H!')
         
         #compute some preliminary quantities
         self._diagonalize_ham()
