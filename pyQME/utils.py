@@ -420,3 +420,61 @@ def clusterize_popt(popt,clusters):
         for i in cluster:
             popt_clusterized [:,cluster_idx] = popt_clusterized [:,cluster_idx] + popt[:,i]
     return popt_clusterized
+
+def get_maxtime(tensor_class,rho0 = None,threshold=0.05,units='fs',fact = 100):
+    """This function estimates the time after which the thermal equilibrium is established
+    
+    Arguments
+    ---------
+    tensor_class: class of the type RelTensor
+        class of Relaxation tensor
+    rho: np.array(dtype=complex), shape = (dim,dim)
+        dim must be equal to self.dim.
+        density matrix at t=0 in the site basis
+        if None, the population is set on the site with highest energ
+    threshold: np.float
+        maximum change of population of coherence allowed at the equilibrium
+    units: string
+        unit of measure of the maxtime in output
+    fact: int
+        factor multiplied by the maxtime before the convergence check
+        
+    Returns
+    -------
+    maxtime: np.float
+        time after which the thermal equilibrium is established"""
+    
+    #estimate maxtime
+    rate_cmm1 = np.abs(tensor_class.get_rates()).min()
+    maxtime_cm = 1/rate_cmm1
+    maxtime_cm = maxtime_cm*fact
+    
+    #estimate timestep
+    time_step_cmm1 = tensor_class.Om.max() + tensor_class.specden.Reorg.max()
+    time_step_cm = 1/time_step_cmm1
+    
+    #define time axis
+    time_axis_cm = np.arange(0.,maxtime_cm,time_step_cm)
+    time_axis_fs = time_axis_cm*1000/wn2ips
+    
+    #density matrix at t=0
+    if rho0 is None:
+        rho0 = np.zeros([tensor_class.dim,tensor_class.dim],dtype=np.complex128)
+        rho0[-1,-1] = 1.
+    
+    #propagate
+    rhot = tensor_class.propagate(rho0,time_axis_fs,basis='site',propagation_mode='eig',units='fs')
+    if np.any(np.einsum('tkk->tk',rhot)) < 1e-10: rhot = tensor_class.propagate(rho0,time_axis_fs,basis='site',propagation_mode='exp',units='fs')
+    
+    #equilibrium density matrix
+    rhot_inf = rhot[-1]
+
+    #find the time at which the population has established
+    for t_idx in range(time_axis_fs.size)[::-1]:
+        if np.abs(rhot[t_idx] - rhot_inf).max() > threshold:
+            break
+    
+    if units == 'fs':
+        return time_axis_fs[t_idx+1]
+    else:
+        return time_axis_cm[t_idx+1]
