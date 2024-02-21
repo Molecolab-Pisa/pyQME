@@ -228,4 +228,4 @@ https://doi.org/10.1063/1.1470200
 
 Double-exciton manifold:
 
-https://chemrxiv.org/engage/chemrxiv/article-details/6516c4f8a69febde9eeb8ad2
+https://doi.org/10.1063/5.0170295

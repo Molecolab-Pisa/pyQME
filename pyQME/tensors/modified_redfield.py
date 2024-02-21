@@ -52,8 +52,11 @@ class ModifiedRedfieldTensor(RelTensor):
         g_site,gdot_site,gddot_site = self.specden.get_gt(derivs=2)
         
         #compute the weights that we need for the transformation from site to exciton basis
-        self._calc_weight_aaab()
-        self._calc_weight_aabb()        
+        if not hasattr(self,'weight_aaab'):
+            self._calc_weight_aaab()
+            
+        if not hasattr(self,'weight_aabb'):
+            self._calc_weight_aabb()        
         
         #set the damper, if necessary
         if self.damping_tau is None:
@@ -94,13 +97,11 @@ class ModifiedRedfieldTensor(RelTensor):
         -------
         RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim)
             Modified Redfield relaxation tensor"""
-
-        if not hasattr(self, 'rates'):
-            self._calc_rates()
             
         #diagonal part
         RTen = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
-        np.einsum('aabb->ab',RTen) [...] = self.rates
+        rates = self._calc_redfield_rates()
+        np.einsum('aabb->ab',RTen) [...] = rates
 
         #dephasing
         diagonal = np.einsum ('aaaa->a',RTen)
@@ -126,7 +127,7 @@ class ModifiedRedfieldTensor(RelTensor):
                 RTen[b,a,b,a] = RTen[b,a,b,a] + real - 1j*imag
 
         #fix diagonal
-        np.einsum('aaaa->a',RTen)[...] = np.diag(self.rates)
+        np.einsum('aaaa->a',RTen)[...] = np.diag(rates)
 
         #secularization
         if secularize:
@@ -154,9 +155,7 @@ class ModifiedRedfieldTensor(RelTensor):
         
         #case 2: the full relaxation tensor is not available --> use rates
         else:
-            if not hasattr(self,'rates'):
-                self._calc_rates()
-            return -0.5*np.diag(self.rates)
+            return -0.5*np.diag(self._calc_redfield_rates())
 
 def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis):
     "This function computes the Modified Redfield energy transfer rates in cm^-1"
@@ -184,11 +183,11 @@ def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,g
         gdot_abbb  += w3*gdot_site[Z].reshape(1,1,-1)
         gddot_abba += w2*gddot_site[Z].reshape(1,1,-1)
 
-    rates = _mr_rates_loop(dim,Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis)
+    rates = _mr_rates_loop(dim,Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,weight_aaab,gdot_site,reorg_site)
     
     return rates
 
-def _mr_rates_loop(dim,Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis):
+def _mr_rates_loop(dim,Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,weight_aaab,gdot_site,reorg_site):
     """This function computes the Modified Redfield energy transfer rates in cm^-1.
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier."""
     
@@ -199,13 +198,13 @@ def _mr_rates_loop(dim,Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damp
         for A in range(dim):
             if D == A: continue
             gA = g_aabb[A,A]
-            ReorgA = reorg_aabb[A,A]
     
             energy = Om[A,D]+2*(ReorgD-reorg_aabb[D,A])
             exponent = 1j*energy*time_axis + gD + gA - 2*g_aabb[D,A]
-            g_derivatives_term = gddot_abba[D,A]-(gdot_abbb[D,A]-gdot_abbb[A,D]-2*1j*reorg_aaab[D,A])*(gdot_abbb[D,A]-gdot_abbb[A,D]-2*1j*reorg_aaab[D,A])
+            tmp = gdot_abbb[A,D]-gdot_abbb[D,A]+2*1j*reorg_aaab[D,A]
+            g_derivatives_term = gddot_abba[D,A]-tmp**2
             integrand = np.exp(-exponent)*g_derivatives_term
             integral = np.trapz(integrand*damper,time_axis)
             rates[A,D] = 2.*integral.real
-
+    
     return rates

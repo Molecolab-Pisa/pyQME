@@ -147,6 +147,7 @@ class RelTensor():
         ---------
         arr: np.array()
             state or operator to be transformed.
+            if an additional axis is given (e.g. time axis), it must be axis 0 (e.g. propagated density matrix must be of shape [time.size,dim,dim])
         ndim: integer
             number of dimensions (rank) of arr (e.g. arr = vector --> ndim=1, arr = matrix --> ndim = 2).
         inverse: Boolean

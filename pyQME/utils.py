@@ -2,10 +2,10 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.special import comb
 
-wn2ips = 0.188495559215 #conversion factor from ps to cm^-1
+wn2ips = 0.188495559215 #conversion factor from ps to cm
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
-factOD = 108.86039 #conversion factor from 
+factOD = 108.86039 #conversion factor for optical spectra
 
 def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
     """This function returns a density matrix whose diagonal is populated according to the overlap between the linear absorption spectrum of each exciton and the spectrum of the pulse. 
@@ -429,7 +429,7 @@ def get_maxtime(tensor_class,rho0 = None,threshold=0.05,units='fs',fact = 100):
     tensor_class: class of the type RelTensor
         class of Relaxation tensor
     rho: np.array(dtype=complex), shape = (dim,dim)
-        dim must be equal to self.dim.
+        dim must be equal to dim.
         density matrix at t=0 in the site basis
         if None, the population is set on the site with highest energ
     threshold: np.float
@@ -478,3 +478,59 @@ def get_maxtime(tensor_class,rho0 = None,threshold=0.05,units='fs',fact = 100):
         return time_axis_fs[t_idx+1]
     else:
         return time_axis_cm[t_idx+1]
+    
+def transform(arr,H,ndim=None,inverse=False):
+    """Transform state or operator to eigenstate basis (i.e. from the site basis to the exciton basis).
+
+    Arguments
+    ---------
+    arr: np.array()
+        state or operator to be transformed.
+        if an additional axis is given (e.g. time axis), it must be axis 0 (e.g. propagated density matrix must be of shape [time.size,dim,dim])
+    ndim: integer
+        number of dimensions (rank) of arr (e.g. arr = vector --> ndim=1, arr = matrix --> ndim = 2).
+    inverse: Boolean
+        if True, the transformation performed is from the exciton basis to the site basis.
+        if False, the transformation performed is from the site basis to the exciton basis.
+
+    Returns
+    -------
+    arr_transformed: np.array(dtype=type(arr)), shape = np.shape(arr)
+        Transformed state or operator"""
+
+    ene,U = np.linalg.eigh(H.real)
+    
+    if ndim is None:
+        ndim = arr.ndim
+    SS =  U
+
+    #in this case we just need to use c_ai instead of c_ia
+    if inverse:
+        SS =  U.T
+
+    #case 1: arr_transformed_a = sum_i c_ia arr_i 
+    if ndim == 1:
+        # N
+        arr_transformed = SS.T.dot(arr)
+
+    #case 2: arr_transformed_ab = sum_ij c_ia c_jb arr_ij 
+    elif ndim == 2:
+        # N x N
+        arr_transformed = np.dot(SS.T.dot(arr),SS)
+
+    #case 3: arr_transformed_tab = sum_ij c_ia c_jb arr_tij 
+    elif ndim == 3:
+        # M x N x N
+        tmp = np.dot(arr,SS)
+        arr_transformed = tmp.transpose(0,2,1).dot(SS).transpose(0,2,1)
+
+    if 'arr_transformed' in locals():
+        return arr_transformed
+    else:
+        raise NotImplementedError
+
+def transform_back(arr,H,ndim=None):
+    """This function transforms state or operator from eigenstate basis to site basis.
+    See "transform" function for input and output."""
+
+    return transform(arr,H,ndim=ndim,inverse=True)
