@@ -1,12 +1,12 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
-    name="redfield_package",
+    name="pyQME",
     version="0.0.1",
-    url="https://molimen1.dcci.unipi.it/p.saraceno/redfield-package",
+    url="https://molimen1.dcci.unipi.it/p.saraceno/pyQME",
     author="Piermarco Saraceno, Lorenzo Cupellini",
     author_email="piermarco.saraceno@phd.unipi.it",
     description=open("README.md").read(),
-    packages=["redfield_package"],
+    packages=find_packages(),
     install_requires=["numpy", "scipy", "opt_einsum"],
 )
