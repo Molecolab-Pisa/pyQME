@@ -1,3 +1,5 @@
 As preliminary step for the calculation of pump-probe spectra, the simulation of excited-state dynamics has to be performed (either with PyQME or any external method or software).
 
-For simplicity, here we will use the "excited_state_dynamics/excited_state_dynamics.dat" file generated using "excysted_state_dynamics.ipynb".
+For simplicity, here we will use the "excited_state_dynamics/excited_state_dynamics.dat" file generated using "excited_state_dynamics/excysted_state_dynamics.ipynb".
+
+Note: The contributions analysis of single chromophores to the pump-probe spectra is work in progress. Stay tuned!

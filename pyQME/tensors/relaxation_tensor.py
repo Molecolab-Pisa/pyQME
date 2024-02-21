@@ -295,7 +295,7 @@ class RelTensor():
         
         return R_rho.reshape(shape_)
     
-    def propagate(self,rho,t,include_coh=True,propagation_mode='eig',units='1/cm'):
+    def propagate(self,rho,t,include_coh=True,propagation_mode='eig',units='1/cm',basis='exciton'):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor.
         
         Arguments
@@ -314,6 +314,9 @@ class RelTensor():
         units: string
             can be 'ps' or '1/cm'
             unit of measurement of the time axis.
+        basis: string
+            if 'exciton', the initial density matrix "rho" and the propagated density matrix "rhot" are in the eigenbasis (exciton basis)
+            if 'site', the initial density matrix "rho" and the propagated density matrix "rhot" are in the site basis
             
         Returns
         -------
@@ -330,12 +333,24 @@ class RelTensor():
             if not hasattr(self,'rates'):
                 self._calc_rates()
         
+        if basis == 'site':
+            rho_site = rho
+            rho = self.transform(rho_site)
+        elif basis == 'exciton':
+            pass
+        else:
+            raise ValueError('basis not recognized')
+        
         if propagation_mode == 'eig':
             rhot = self._propagate_eig(rho,t,include_coh=include_coh)
         elif propagation_mode == 'exp':
             rhot = self._propagate_exp(rho,t,include_coh=include_coh)
         
-        return rhot
+        if basis == 'site':
+            rhot_site = self.transform_back(rhot)
+            return rhot_site
+        else:
+            return rhot
 
     def _propagate_eig(self,rho,t,include_coh=True):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.

@@ -1,5 +1,4 @@
 <div align="center">
-<img src="images/logo.png" alt="logo"></img>
 </div>
 
 # pyQME
@@ -40,14 +39,6 @@ conda activate pyQME-env
 
 ### Installation
 
-To clone the pyQME module, run:
-
-```shell
-git clone git@molimen1.dcci.unipi.it:p.saraceno/pyQME.git
-```
-
-This will create the `pyQME` repository.
-
 From the `pyQME` folder, you can install the module with pip:
 
 ```shell
@@ -56,28 +47,109 @@ pip install .
 
 #### Developer mode installation
 
-It is recommended to fork this repository and clone the "forked" one as `origin`. The `upstream` version
-can be added by running the following code:
-
-```shell
-git remote add upstream git@molimen1.dcci.unipi.it:p.saraceno/pyQME.git
-```
-
-More details on [configuring a remote repository for a fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/configuring-a-remote-repository-for-a-fork).
-
-You can install it locally with:
+You can install pyQME locally with:
 
 ```shell
 pip install -e .
 ```
 
+so that possible code changes take effect immediately on the installed version.
+
 ## Usage
 
-You may want to look at the examples.
+You may want to look at the examples. The package doesn't come with a Command Line Interface (CLI), so it must be used via Python (or any hosting platform, such as Jupyter Lab).
 
-### Units of measure
+### Spectral density
 
-The frequency and time axes, the exciton Hamiltonian and the EET rates must be in $cm^{-1}$.
+Spectral density are created (generally) from a frequency axis and the spectral density.
+
+For example,
+
+```
+# freq_axis is a 1D numpy array of size N
+# SD is a 1D numpy array of size N
+
+SD_obj = SpectralDensity(freq_axis,SD,temperature=298)
+```
+
+### Relaxation tensors
+
+Relaxation tensors are created (generally) from a Hamiltonian and a spectral density object.
+
+For example, to create a Real Redfield tensor, 
+
+```
+# H is a NxN numpy array
+# SD_obj is a SpectralDensity object
+
+redf = RedfieldTensorReal(H,SD_obj,initialize=True)
+relaxation_tensor = redf.get_tensor()
+```
+
+The same procedure is valid for the Relaxation tensors in the double exciton manifold, needed for pump-probe calculations.
+
+For example,
+
+```
+# H is a NxN numpy array
+# SD_obj is a SpectralDensity object
+
+redf_double = RedfieldTensorRealDouble(H,SD_obj)
+```
+
+### Density matrix propagation
+
+Once the Relaxation tensor object has been created, it can be used to propagate a density matrix.
+
+For example,
+
+```
+# time_axis_ps is a 1D Numpy array of size T (in picoseconds)
+# rho_0 is the density matrix (NxN numpy array) at the beginning of the simulation in the exciton basis
+
+rho_t = redf.propagate(rho0,units='ps',basis='exciton')
+
+# rho_t is the propagated density matrix (TxNxN numpy array) in the exciton basis
+```
+
+### Linear spectra
+
+The simulation of absorption and fluorescence spectra takes as input the relaxation tensor object and the transition dipoles.
+
+For example, to simulate an absorption spectrum:
+
+```
+# dipoles is a Nx3 numpy array
+
+lin_spec_obj = LinearSpectraCalculator(redf)
+freq_axis,OD = lin_spec_obj.calc_OD(dipoles)
+
+# freq_axis and OD are 1D numpy arrays of size W
+```
+
+### Pump-probe spectra
+
+The simulation of pump-probe spectra takes as input the relaxation tensors object in the single and double exciton-manifold, the transition dipoles and the populations.
+
+For example:
+
+```
+# dipoles is a Nx3 numpy array
+# pop_t_exc is a TxN numpy array (diagonal of the density matrix in the exciton basis)
+
+pump_probe_obj = PumpProbeSpectraCalculator(redf,redf_double)
+pump_probe_obj.calc_components_lineshape(dipoles=dipoles)
+freq_axis,GSB,SE,ESA,PP = spectrum_obj.get_pump_probe(pop_t_exc)
+
+# freq_axis is a numpy array of size W
+# GSB,SE,ESA,PP are numpy arrays of shape TxW
+```
+
+### Units
+
+The frequency axis, the time axis of the spectral density, the exciton Hamiltonian and the EET rates must be in $cm^{-1}$.
+
+The time axis for the density matrix propagation can be either in cm or in ps (see the "units" argument of the method `/pyQME/tensors/relaxation_tensor/RelTensor.propagate`)
 
 The electric transition dipoles must be in Debye (x,y,z components).
 
@@ -87,7 +159,7 @@ The absorption and pump-probe spectra are returned in  in ${L}$ Â· ${cm}^{-1}$ Â
 
 Some useful conversion factors and physical constants in $cm^{-1}$ can be found in `pyQME/utils.py`.
 
-### Other informations
+### Known issues
 
 - The spectral density axis must not contain $0$ $cm^{-1}$.
 - The spectral density used as input must not be divided by the frequency axis.

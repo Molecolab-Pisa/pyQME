@@ -1,5 +1,6 @@
 import numpy as np
-import scipy
+from scipy.integrate import simps
+from scipy.special import comb
 
 wn2ips = 0.188495559215 #conversion factor from ps to cm^-1
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
@@ -28,7 +29,7 @@ def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
     freq_step = freq_axis[1]-freq_axis[0]
     
     for k,OD in enumerate(OD_k):
-        overlap = scipy.integrate.simps(OD*pulse) * freq_step  # Overlap of the abs with the pump
+        overlap = simps(OD*pulse) * freq_step  # Overlap of the abs with the pump
         rho0[k,k] = overlap
     return rho0
 
@@ -92,7 +93,7 @@ def get_H_double(H):
         H_double[q,r] = 0 if q and r don't share any excited pigment"""
 
     dim_single = np.shape(H)[0]
-    dim_double = int(scipy.special.comb(dim_single,2))
+    dim_double = int(comb(dim_single,2))
     H_double = np.zeros([dim_double,dim_double])
     pairs = get_pairs(dim_single)
 
@@ -373,78 +374,7 @@ def get_gelzinis_eq(H,lambda_site,temp=300.):
     #fro exciton basis to site basis
     eq_pop_site = np.einsum('ia,a->i',CC_eff**2,eq_pop) 
 
-    return eq_pop_site
-
-def clusterize_rho(rho,clusters):
-    """This function returns the density matrix clusterized (summed up) according to the clusters given as input.
-    
-    Arguments
-    ---------
-    rho: np.array(np.complex), shape = (dim,dim)
-        density matrix before clusterization
-    clusters: list of list of integers (len = n_clusters) 
-        clusters used for the clusterization. Each element of the list is a list of integers representing the indices of the density matrix to be summed up toghether.
-    
-    Returns
-    -------
-    rho_clusterized: np.array(np.complex), shape = (n_clusters,n_clusters)
-        density matrix after clusterization, defined as:
-        rho_clusterized[cl_i,cl_j] = sum_ij rho[i,j] for i in clusters(cl_i) and j in clusters(cl_j)"""
-    
-    rho_clusterized = np.zeros([len(clusters),len(clusters)],dtype = type(rho[0,0])) #sometimes the user doesn't care about the imaginary part of coherences so let's also consider the case of a real density matrix
-    
-    for cluster_idx_i,cluster_i in enumerate(clusters):
-        for i in cluster_i:
-            
-            #populations
-            rho_clusterized [cluster_idx_i,cluster_idx_i] = rho_clusterized [cluster_idx_i,cluster_idx_i] + rho[i,i]
-            
-    for cluster_idx_i,cluster_i in enumerate(clusters):
-        for cluster_idx_j, cluster_j in enumerate(clusters):
-            if not cluster_idx_i==cluster_idx_j:
-                for i in cluster_i:
-                    for j in cluster_j:
-                        
-                        #coherences
-                        rho_clusterized [cluster_idx_i,cluster_idx_j] = rho_clusterized [cluster_idx_i,cluster_idx_i] + rho[i,j]
-                            
-    return rho_clusterized
-
-def clusterize_rhot(rhot,clusters):
-    """This function returns the propagated density matrix clusterized (summed up) according to the clusters given as input.
-    
-    Arguments
-    ---------
-    rhot: np.array(np.complex), shape = (n_step,dim,dim)
-        density matrix before clusterization
-    clusters: list of list of integers (len = n_clusters) 
-        clusters used for the clusterization. Each element of the list is a list of integers representing the indices of the density matrix to be summed up toghether.
-    
-    Returns
-    -------
-    rho_clusterized: np.array(np.complex), shape = (n_step,n_clusters,n_clusters)
-        density matrix after clusterization, defined as:
-        rho_clusterized[time_step,cl_i,cl_j] = sum_ij rho[time_step,i,j] for i in clusters(cl_i) and j in clusters(cl_j)"""
-    
-    rhot_clusterized = np.zeros([rhot.shape[0],len(clusters),len(clusters)],dtype = type(rhot[0,0])) #sometimes the user doesn't care about the imaginary part of coherences so let's also consider the case of a real density matrix
-    
-    for cluster_idx_i,cluster_i in enumerate(clusters):
-        for i in cluster_i:
-            
-            #populations
-            rhot_clusterized [:,cluster_idx_i,cluster_idx_i] = rhot_clusterized [:,cluster_idx_i,cluster_idx_i] + rhot[:,i,i]
-            
-    for cluster_idx_i,cluster_i in enumerate(clusters):
-        for cluster_idx_j, cluster_j in enumerate(clusters):
-            if not cluster_idx_i==cluster_idx_j:
-                for i in cluster_i:
-                    for j in cluster_j:
-                        
-                        #coherences
-                        rhot_clusterized [:,cluster_idx_i,cluster_idx_j] = rhot_clusterized [:,cluster_idx_i,cluster_idx_i] + rhot[:,i,j]
-                            
-    return rhot_clusterized
-                        
+    return eq_pop_site  
             
 def clusterize_pop(pop,clusters):
     """This function returns the population clusterized (summed up) according to the clusters given as input.
@@ -463,13 +393,13 @@ def clusterize_pop(pop,clusters):
         pop_clusterized[cl_i] = sum_i pop[i] for i in clusters(cl_i)"""
 
     pop_clusterized = np.zeros([len(clusters)]) #the populations are always real
-    for cluster_idx,cluster in enumerate(clusters):
-        for i in cluster:
+    for cluster_idx,cluster in clusters:
+        for i in enumerate(cluster):
             pop_clusterized [cluster_idx] = pop_clusterized [cluster_idx] + pop[i]
     return pop_clusterized
-
+            
 def clusterize_popt(popt,clusters):
-    """This function returns the population clusterized (summed up) according to the clusters given as input.
+    """This function returns the propagated population clusterized (summed up) according to the clusters given as input.
     
     Arguments
     ---------
@@ -480,11 +410,12 @@ def clusterize_popt(popt,clusters):
         
     Returns
     -------
-    popt_clusterized: np.array(np.float), shape = (n_step,n_clusters)
+    pop_clusterized: np.array(np.float), shape = (n_step,n_clusters)
         population after clusterization, defined as:
-        pop_clusterized[time_step,cl_i] = sum_i pop[time_step,i] for i in clusters(cl_i)"""
+        pop_clusterized[step,cl_i] = sum_i pop[step,i] for i in clusters(cl_i)"""
 
     popt_clusterized = np.zeros([popt.shape[0],len(clusters)]) #the populations are always real
+    
     for cluster_idx,cluster in enumerate(clusters):
         for i in cluster:
             popt_clusterized [:,cluster_idx] = popt_clusterized [:,cluster_idx] + popt[:,i]
