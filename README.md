@@ -192,40 +192,60 @@ make a merge request and ask for a review of your work.
 
 If, when contributing with some feature, you want to write some unit test for it, we are all super happy. 
 
+## Citing pyQME
+
+When using pyQME, please cite the following paper.
+
+Saraceno, P.; Sl ama, V.; Cupellini, L. The Journal of Chemical Physics 2023,159, 184112.
+https://doi.org/10.1063/5.0170295
+
 ## Reference Papers
 
 Redfield theory:
 
+REDFIELD, A. In Advances in Magnetic Resonance, Waugh, J. S., Ed.; Advances in Magnetic and Optical Resonance, Vol. 1; Academic Press: 1965, 1–32.
 https://doi.org/10.1016/B978-1-4832-3114-3.50007-6
+
+Renger, T.; Marcus, R. A. The Journal of Chemical Physics 2002, 116, 9997–10019.
 https://doi.org/10.1063/1.1470200
 
 
 Förster theory:
 
+F ̈orster, T. Journal of Biomedical Optics 2012, 17, 011002.
 https://doi.org/10.1117/1.JBO.17.1.011002
 
 
 Modified Redfield theory:
 
+Zhang, W. M.; Meier, T.; Chernyak, V.; Mukamel, S. The Journal of Chemical Physics 1998, 108, 7763–7774.
 https://doi.org/10.1063/1.476212
+
+Hwang-Fu, Y.-H.; Chen, W.; Cheng, Y.-C. Chemical Physics 2015, 447, 46–53.
 https://doi.org/10.1016/j.chemphys.2014.11.026
 
 
 Redfield-Förster theory:
 
+Yang, M.; Damjanovi ́c, A.; Vaswani, H. M.; Fleming, G. R. Biophysical Journal 2003, 85, 140–158.
 https://doi.org/10.1016/S0006-3495(03)74461-0
 
 
 Linear spectra:
 
+Gelzinis, A.; Abramavicius, D.; Valkunas, L. The Journal of Chemical Physics 2015, 142, 154107.
 https://doi.org/10.1063/1.4918343
 
 
 Pump-probe:
 
+Novoderezhkin, V. I.; Doust, A. B.; Curutchet, C.; Scholes, G. D.; van Grondelle, R. Biophysical Journal 2010, 99, 344–352.
 https://doi.org/10.1016/j.bpj.2010.04.039
+
+Renger, T.; Marcus, R. A. The Journal of Chemical Physics 2002, 116, 9997–10019.
 https://doi.org/10.1063/1.1470200
 
 Double-exciton manifold:
 
+Saraceno, P.; Sl ama, V.; Cupellini, L. The Journal of Chemical Physics 2023,159, 184112.
 https://doi.org/10.1063/5.0170295
