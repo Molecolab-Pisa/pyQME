@@ -161,14 +161,13 @@ Some useful conversion factors and physical constants in $cm^{-1}$ can be found 
 
 ### Known issues
 
-- The spectral density axis must not contain $0$ $cm^{-1}$.
 - The frequency and time axes must be sorted in ascending order.
 - The spectral density used as input must not be divided by the frequency axis.
-- The spectral density used as input must be multiplied by $\pi$. 
+- The spectral density used as input must contain the $\pi$ factor. To be sure about it, you can check that SDobj.Reorg corresponds to the expected reorganization energy. 
 - The time axis used for the lineshape functions and for the spectra calculation must be defined in the spectral density class. If you're not sure about how to set it, use the `get_timeaxis` function in `pyQME/utils.py`.
-- Be sure that the Liouvillian of your system is diagonalizable before propagating the density matrix using the "eig" mode.
-- The spectra returned are already multiplied by the frequency axis (raised to the appropriate power).
-- When you use the same Spectral Density object for multiple calculations (for example for repeated spectra calculations along a Molecular Dynamics trajectory), you should calculate the lineshape function only one time using SDobj._calc_gt(), before passing SDobj to the Relaxation Tensor objects. 
+- If you are propagating the density matrix using the "eig" mode of relaxation_tensor.propagate, be sure that the Liouvillian of your system (relaxation_tensor.get_Liouv()) is diagonalizable. For this, you can also compare the density matrix propagated using the "exp" mode with that propagated using the "eig", which is in general faster.
+- The spectra returned have already been multiplied by the frequency axis (raised to the appropriate power).
+- When you use the same Spectral Density object for multiple calculations (for example for repeated spectra calculations along a Molecular Dynamics trajectory), you need to calculate the lineshape function only once, using SDobj._calc_gt(), before passing SDobj to the Relaxation Tensor objects. 
 
 ### Indices convention
 

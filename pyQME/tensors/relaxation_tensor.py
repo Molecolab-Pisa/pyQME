@@ -372,7 +372,19 @@ class RelTensor():
             return rhot_site
         else:
             return rhot
-
+        
+    def get_Liouv(self):
+        """This function computes the representaiton tensor of the Liouvillian super-operator.
+        
+        Returns
+        -------
+        Liouv: np.array(dtype=complex), shape = (dim,dim,mdim,dim)
+            Liouvillian"""
+        
+        eye   = np.eye(self.dim)
+        Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
+        return Liouv
+    
     def _propagate_eig(self,rho,t,include_coh=True):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
         
@@ -394,9 +406,7 @@ class RelTensor():
 
         #case 1: coherences are propagated
         if include_coh:
-            eye   = np.eye(self.dim)
-            Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
-
+            Liouv = self.get_Liouv() 
             A = Liouv.reshape(self.dim**2,self.dim**2)
             rho_ = rho.reshape(self.dim**2)
 
@@ -404,10 +414,6 @@ class RelTensor():
             kk,vl,vr = la.eig(A,left=True,right=True)
 
             vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
-
-            self.liouv_vr = vr
-            self.liouv_vl = vl
-            self.liouv_ev = kk
 
             # Compute exponentials
             y0 = np.dot(vl.conj().T,rho_)
@@ -427,10 +433,6 @@ class RelTensor():
             kk,vl,vr = la.eig(A,left=True,right=True)
 
             vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
-
-            self.liouv_vr = vr
-            self.liouv_vl = vl
-            self.liouv_ev = kk
 
             # Compute exponentials
             y0 = np.dot(vl.conj().T,pop)
@@ -470,8 +472,7 @@ class RelTensor():
                 
             assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
 
-            eye   = np.eye(self.dim)
-            Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
+            Liouv = self.get_Liouv() 
 
             A = Liouv.reshape(self.dim**2,self.dim**2)
             rho_ = rho.reshape(self.dim**2)
