@@ -235,6 +235,12 @@ Linear spectra:
 Gelzinis, A.; Abramavicius, D.; Valkunas, L. The Journal of Chemical Physics 2015, 142, 154107.
 https://doi.org/10.1063/1.4918343
 
+Cupellini, L.; Lipparini, F.; Cao, J. The Journal of Physical Chemistry B 2020, 124, 8610–8617.
+https://doi.org/10.1021/acs.jpcb.0c05180
+
+Nothling, J. A.; Mancal, T.; Kruger, T. P. J. The Journal of Chemical Physics2022, 157, 095103.
+https://doi.org/10.1063/5.0100977
+
 
 Pump-probe:
 

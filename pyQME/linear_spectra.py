@@ -437,3 +437,36 @@ class LinearSpectraCalculator():
         CD = CD_ij.sum(axis=(0,1)) #circular dicroism spectrum
         return freq,CD
         
+    def calc_LD(self,dipoles,freq=None):
+        """This function computes the linear dicroism spectrum (J. A. Nöthling, Tomáš Mančal, T. P. J. Krüger; Accuracy of approximate methods for the calculation of absorption-type linear spectra with a complex system–bath coupling. J. Chem. Phys. 7 September 2022; 157 (9): 095103. https://doi.org/10.1063/5.0100977).
+        Here we assume disk-shaped pigments. For LHCs, we disk is ideally aligned to the thylacoidal membrane (i.e. to the z-axis).
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        LD: np.array(dtype = np.float)
+            linear dicroism spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+            
+        n = self.rel_tensor.dim #number of chromophores
+        H = self.rel_tensor.H #hamiltonian
+        freq,I_a =  self.calc_OD_a(freq=freq) #single-exciton contribution to the absorption spectrum
+        I_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,I_a,self.rel_tensor.U) #chomophore-pair contribution to the absorption spectrum
+        
+        #we compute the dipole strenght matrix
+        M_ij = np.zeros([n,n])
+        for i in range(n):
+            for j in range(n):
+                M_ij[i,j] = np.dot(dipoles[i],dipoles[j]) - 3*dipoles[i,2]*dipoles[j,2]
+
+        LD_ij = M_ij[:,:,None]*I_ij
+        LD = LD_ij.sum(axis=(0,1))
+        return freq,LD
