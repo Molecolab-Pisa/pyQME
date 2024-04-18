@@ -123,6 +123,53 @@ class LinearSpectraCalculator():
         pop = boltz/partition
         return pop
     
+    def calc_spec_abs(self,dipoles,freq=None):
+        """This function computes the absorption spectrum.
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        spec_abs: np.array(dtype = np.float)
+            absorption spectrum (debye**2)."""
+        
+        self._initialize()
+        t = self.time
+        
+        #get the squared modulus of dipoles in the exciton basis
+        self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
+        self.excd2 = np.sum(self.excdip**2,axis=1)
+        
+        g_a = self.g_a
+        time_spec = np.zeros(self.time.shape,dtype=np.complex128)
+        dephasing = self.dephasing
+        RWA = self.RWA
+        factFT = self._factFT
+
+        #compute and sum up the spectra in the time domain for each exciton
+        for (a,e_a) in enumerate(self.rel_tensor.ene):
+            d_a = self.excd2[a]
+            time_spec += d_a*np.exp((1j*(-e_a+RWA) - dephasing[a])*t - g_a[a])
+        
+        #switch from time to frequency domain using hermitian FFT (-> real output)
+        self.spec_abs = np.flipud(np.fft.fftshift(np.fft.hfft(time_spec)))*factFT
+                
+        #if the user provides a frequency axis, let's extrapolate the spectra over it
+        if freq is not None:
+            spec_abs_spl = UnivariateSpline(self.freq,self.spec_abs,s=0)
+            spec_abs = spec_abs_spl(freq)
+            return freq,spec_abs
+        else:
+            return self.freq,self.spec_abs
+        
     def calc_OD(self,dipoles,freq=None):
         """This function computes the absorption spectrum.
 
@@ -141,35 +188,10 @@ class LinearSpectraCalculator():
         OD: np.array(dtype = np.float)
             absorption spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
         
-        self._initialize()
-        t = self.time
+        freq,spec_abs = self.calc_spec_abs(dipoles,freq=freq)
+        OD = spec_abs*freq*factOD
+        return freq,OD
         
-        #get the squared modulus of dipoles in the exciton basis
-        self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
-        self.excd2 = np.sum(self.excdip**2,axis=1)
-        
-        g_a = self.g_a
-        time_OD = np.zeros(self.time.shape,dtype=np.complex128)
-        dephasing = self.dephasing
-        RWA = self.RWA
-        factFT = self._factFT
-
-        #compute and sum up the spectra in the time domain for each exciton
-        for (a,e_a) in enumerate(self.rel_tensor.ene):
-            d_a = self.excd2[a]
-            time_OD += d_a*np.exp((1j*(-e_a+RWA) - dephasing[a])*t - g_a[a])
-        
-        #switch from time to frequency domain using hermitian FFT (-> real output)
-        self.OD = np.flipud(np.fft.fftshift(np.fft.hfft(time_OD)))*factFT
-        self.OD = self.OD * self.freq * factOD
-                
-        #if the user provides a frequency axis, let's extrapolate the spectra over it
-        if freq is not None:
-            ODspl = UnivariateSpline(self.freq,self.OD,s=0)
-            OD = ODspl(freq)
-            return freq,OD
-        else:
-            return self.freq,self.OD
         
     def calc_OD_a(self,dipoles=None,freq = None):
         """This function computes the absorption spectrum separately for each exciton.
