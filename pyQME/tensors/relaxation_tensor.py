@@ -373,17 +373,23 @@ class RelTensor():
         else:
             return rhot
         
-    def get_Liouv(self):
-        """This function computes the representaiton tensor of the Liouvillian super-operator.
+    def _calc_Liouv(self,secularize=True):
+        if not hasattr(self,'RTen'):
+            self._calc_tensor(secularize=secularize)
+        eye   = np.eye(self.dim)
+        self.Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
+        
+    def get_Liouv(self,secularize=True):
+        """This function returns the representaiton tensor of the Liouvillian super-operator.
         
         Returns
         -------
         Liouv: np.array(dtype=complex), shape = (dim,dim,mdim,dim)
             Liouvillian"""
         
-        eye   = np.eye(self.dim)
-        Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
-        return Liouv
+        if not hasattr(self,'Liouv'):
+            self._calc_Liouv(secularize=secularize)
+        return self.Liouv
     
     def _propagate_eig(self,rho,t,include_coh=True):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
@@ -476,6 +482,7 @@ class RelTensor():
 
             A = Liouv.reshape(self.dim**2,self.dim**2)
             rho_ = rho.reshape(self.dim**2)
+            
             rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
             
             return rhot.reshape(-1,self.dim,self.dim)
