@@ -2,7 +2,7 @@ import numpy as np
 from .relaxation_tensor import RelTensor
 
 class RedfieldTensor(RelTensor):
-    """Redfield Tensor class where Redfield Theory (https://doi.org/10.1016/B978-1-4832-3114-3.50007-6) is used to model energy transfer processes.
+    """Redfield Tensor class where Redfield Theory (https://doi.org/10.1063/1.4918343) is used to model energy transfer processes.
     This class is a subclass of the RelTensor Class.
 
     Arguments
@@ -50,7 +50,7 @@ class RedfieldTensor(RelTensor):
         
         #loop over the redundancies-free list of spectral densities
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-            Cw_matrix = self._evaluate_SD_in_freq(SD_id).real
+            Cw_matrix = self.specden(self.Om.T,SD_id=SD_id,imag=False)
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             
             #rates_ab = sum_Z J_z (w_ab) sum_{i in Z} c_ia**2 c_ib**2 
@@ -92,7 +92,7 @@ class RedfieldTensor(RelTensor):
         #loop over the redundancies-free list of spectral densities
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
-            Cw_matrix = self._evaluate_SD_in_freq(SD_id)
+            Cw_matrix = self.specden(self.Om.T,SD_id=SD_id,imag=True)
 
             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
             
@@ -175,7 +175,7 @@ class RedfieldTensor(RelTensor):
             #loop over the redundancies-free list of spectral densities
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
-                Cw_matrix = self._evaluate_SD_in_freq(SD_id)
+                Cw_matrix = self.specden(self.Om.T,SD_id=SD_id,imag=True)
 
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
                 if SD_idx == 0:
@@ -188,3 +188,9 @@ class RedfieldTensor(RelTensor):
             dephasing = -0.5*(GammF_aaaa - np.einsum('ab->a',GammF_abba))
             
         return dephasing
+    
+    def get_zeta(self):
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return zeta_at

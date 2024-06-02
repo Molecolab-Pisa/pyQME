@@ -294,7 +294,7 @@ class SpectralDensity():
         self.Ct = np.asarray(Ct_list)
         pass
         
-    def get_Ct(self):
+    def get_Ct(self,time_axis=None):
         """This function computes and returns the correlation function of the spectral densities.
         
         Returns
@@ -302,9 +302,14 @@ class SpectralDensity():
         self.Ct: np.array(dtype=np.complex), shape = (self.time.size)
             correlation functions of the spectral densities."""
         
-        if not hasattr(self,'gt'):
+        if time_axis is None:
+            if not hasattr(self,'gt'):
+                self._calc_Ct()
+            return self.Ct
+        else:
+            self.time = time_axis
             self._calc_Ct()
-        return self.Ct
+            return self.Ct
                 
                     
     def _calc_gt(self):

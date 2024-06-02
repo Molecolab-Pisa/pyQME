@@ -172,7 +172,12 @@ class RedfieldForsterTensor(RedfieldTensor):
             dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         self.dephasing = dephasing
 
-        
+    def get_zeta(self):
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return zeta_at
+    
 class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     """Redfield-Forster Tensor class where Redfield-Forster Theory is used to model energy transfer processes.
     This class is a subclass of the ModifiedRedfieldTensor Class. In this specific implementation, the full expression for the Redfield-Forster rates is implemented, proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0). 
@@ -294,6 +299,13 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
             dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         self.dephasing = dephasing
 
+
+    def get_zeta(self):
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return zeta_at
+    
 def _calc_forster_rates(time_axis,V_exc,redf_dephasing,g_site,gdot_site,weight_aabb,reorg_site,weight_aaab,Om):
     "This function computes the Generalized Forster contribution to Redfield-Forster energy transfer rates in cm^-1."
 
@@ -527,3 +539,10 @@ class ModifiedRedfieldForsterTensorNoYang(ModifiedRedfieldTensor):
                     self._calc_forster_rates()
             dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         self.dephasing = dephasing
+        
+
+    def get_zeta(self):
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return zeta_at

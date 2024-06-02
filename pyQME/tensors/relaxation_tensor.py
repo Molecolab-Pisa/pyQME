@@ -3,6 +3,7 @@ from scipy.sparse.linalg import expm_multiply
 from scipy import linalg as la
 from ..utils import wn2ips
 from copy import deepcopy
+from opt_einsum import contract
 
 class RelTensor():
     """Relaxation tensor class in the single-exciton manifold.
@@ -142,7 +143,23 @@ class RelTensor():
             #W_aaab_Z = sum_{i in Z} c_ia**3 c_ib
             self.weight_aaab [SD_idx] = np.einsum('iaa,iab->ab',X[mask,:,:],X[mask,:,:])
             
-    
+    def _calc_weight_abcd(self):
+        """Given a generic system-bath property P (e.g. reorganization energy or lineshape function),
+        which is diagonal in the site basis (i.e. only the P_iiii terms are non-null),
+        this function computes the weights used for the transformation
+        from the site basis to the exciton basis of the elements P_abcd."""
+        
+        X =self.X
+        SD_id_list = self.SD_id_list
+        self.weight_abcd = np.zeros([len([*set(SD_id_list)]),self.dim,self.dim,self.dim,self.dim])
+
+        #loop over the redundancies-free list of spectral densities
+        for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]                
+
+            #W_aaab_Z = sum_{i in Z} c_ia**3 c_ib
+            self.weight_abcd [SD_idx] = np.einsum('iab,icd->abcd',X[mask,:,:],X[mask,:,:])
+        
     def transform(self,arr,ndim=None,inverse=False):
         """Transform state or operator to eigenstate basis (i.e. from the site basis to the exciton basis).
         
@@ -218,8 +235,8 @@ class RelTensor():
         
         eye = np.eye(self.dim)
         
-        tmp1 = np.einsum('abcd,ab,cd->abcd',RTen,eye,eye)
-        tmp2 = np.einsum('abcd,ac,bd->abcd',RTen,eye,eye)
+        tmp1 = contract('abcd,ab,cd->abcd',RTen,eye,eye)
+        tmp2 = contract('abcd,ac,bd->abcd',RTen,eye,eye)
         
         RTen_secular = tmp1 + tmp2
         
@@ -373,13 +390,17 @@ class RelTensor():
         else:
             return rhot
         
-    def _calc_Liouv(self,secularize=True):
-        if not hasattr(self,'RTen'):
+    def _calc_Liouv(self,secularize=None):
+        
+        if secularize is None:
+            if not hasattr(self,'RTen'):
+                self._calc_tensor(secularize=secularize)
+        else:
             self._calc_tensor(secularize=secularize)
         eye   = np.eye(self.dim)
-        self.Liouv = self.RTen + 1.j*np.einsum('cd,ac,bd->abcd',self.Om.T,eye,eye)
+        self.Liouv = self.RTen + 1.j*contract('cd,ac,bd->abcd',self.Om.T,eye,eye)
         
-    def get_Liouv(self,secularize=True):
+    def get_Liouv(self):
         """This function returns the representaiton tensor of the Liouvillian super-operator.
         
         Returns
@@ -388,7 +409,7 @@ class RelTensor():
             Liouvillian"""
         
         if not hasattr(self,'Liouv'):
-            self._calc_Liouv(secularize=secularize)
+            self._calc_Liouv()
         return self.Liouv
     
     def _propagate_eig(self,rho,t,include_coh=True):
@@ -487,7 +508,7 @@ class RelTensor():
             
             return rhot.reshape(-1,self.dim,self.dim)
         
-        #case 2: only popultions are propagated
+        #case 2: only popultions are propagated 
         else:
             
             rhot_diagonal = expm_multiply(self.rates,np.diag(rho),start=t[0],stop=t[-1],num=len(t) )

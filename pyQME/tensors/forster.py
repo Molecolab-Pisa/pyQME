@@ -119,3 +119,10 @@ class ForsterTensor(RelTensor):
                 self._calc_rates()
             dephasing[:] = -0.5*np.diag(self.rates)
         self.dephasing = dephasing
+        
+
+    def get_zeta(self):
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return zeta_at
