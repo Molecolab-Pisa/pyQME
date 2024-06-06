@@ -482,7 +482,7 @@ class LinearSpectraCalculator():
         
     def calc_LD(self,dipoles,freq=None):
         """This function computes the linear dicroism spectrum (J. A. Nöthling, Tomáš Mančal, T. P. J. Krüger; Accuracy of approximate methods for the calculation of absorption-type linear spectra with a complex system–bath coupling. J. Chem. Phys. 7 September 2022; 157 (9): 095103. https://doi.org/10.1063/5.0100977).
-        Here we assume disk-shaped pigments. For LHCs, we disk is ideally aligned to the thylacoidal membrane (i.e. to the z-axis).
+        Here we assume disk-shaped pigments, ideally aligned to the z-axis.
 
         Arguments
         --------
