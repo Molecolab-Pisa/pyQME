@@ -1,7 +1,9 @@
 import numpy as np
 from scipy.integrate import simps
 from scipy.special import comb
-
+from scipy.interpolate import UnivariateSpline
+from .linear_spectra import LinearSpectraCalculator
+from .spectral_density import SpectralDensity
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
@@ -534,3 +536,190 @@ def transform_back(arr,H,ndim=None):
     See "transform" function for input and output."""
 
     return transform(arr,H,ndim=ndim,inverse=True)
+
+def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_type,freq_axis_spec,approx=None,SD_id_list=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None):
+    """This function computes the absorption spectrum treating as localized one part of the spectral density.
+
+    Arguments
+    ---------
+    SDobj_delocalized: Class
+        class of the type SpectralDensity containing the part of spectral density which should be treated as delocalized
+    SDobj_localized: Class
+        class of the type SpectralDensity containing the part of spectral density which should be treated as localized
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    dipoles: np.array(dtype = np.float), shape = (n_site,3)
+        array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+    rel_tensor: Class
+        class of the type RelTensor used to calculate the component of the spectrum.
+    freq_axis_spec: np.array(dtype = np.float)
+        array of frequencies at which the spectrum is evaluated in cm^-1.
+    approx: string
+        approximation used for the lineshape theory.
+        if 'no zeta', the zeta isn't included (Redfield theory with diagonal approximation).
+        if 'iR', the imaginary Redfield theory is used.
+        if 'rR', the real Redfield theory is used.
+        if 'cR', the complex Redfield theory is used.
+    dephasing_localized:
+        np.array(dtype = np.float), shape = (n_site) or
+        np.array(dtype = np.complex128), shape = (n_site) or
+        np.float or
+        np.complex128
+        dephasing used to broaden the spectrum component due to the localized part
+    spec_type: string
+        if 'abs':  the absorption   spectrum is calculated
+        if 'fluo': the fluorescence spectrum is calculated
+        if 'LD': the linear dichroism spectrum is calculated
+        if 'CD': the circular dichroism spectrum is calculated
+    units_type: string
+        if 'lineshape': the spectrum is not multiplied by any power of the frequency axis
+        if 'OD': the spectrum is multiplied by the frequency axis to some power, according to "spec_type"
+    spec_components: string
+        if 'exciton': the single-exciton contribution to the spectrum is returned
+        if 'site': the single-site contribution to the spectrum is returned
+        if 'None': the total spectrum is returned
+        
+    Returns
+    -------
+    freq: np.array(dtype = np.float), shape = (freq.size)
+        frequency axis of the spectrum in cm^-1.
+    spec: np.array(dtype = np.float)
+        spectrum."""
+   
+    #initialize spec type and units type from input
+    if spec_components is None:
+        if spec_type == 'abs' and units_type == 'lineshape':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_abs_lineshape
+        elif spec_type == 'abs' and units_type == 'OD':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_abs_OD
+        elif spec_type == 'fluo' and units_type == 'lineshape':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_fluo_lineshape
+        elif spec_type == 'fluo' and units_type == 'OD':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_fluo_OD
+        elif spec_type == 'LD' and units_type == 'lineshape':
+            raise NotImplementedError
+        elif spec_type == 'LD' and units_type == 'OD':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_LD
+        elif spec_type == 'CD' and units_type == 'lineshape':
+            raise NotImplementedError
+        elif spec_type == 'CD' and units_type == 'OD':
+            raise NotImplementedError
+        
+    elif spec_components=='exciton':
+        if spec_type == 'abs' and units_type == 'lineshape':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_abs_lineshape_a
+        elif spec_type == 'abs' and units_type == 'OD':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_abs_OD_a
+        elif spec_type == 'fluo' and units_type == 'lineshape':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_fluo_lineshape_a
+        elif spec_type == 'fluo' and units_type == 'OD':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_fluo_OD_a
+        elif spec_type == 'LD' and units_type == 'lineshape':
+            raise NotImplementedError
+        elif spec_type == 'LD' and units_type == 'OD':
+            raise NotImplementedError
+        elif spec_type == 'CD' and units_type == 'lineshape':
+            raise NotImplementedError
+        elif spec_type == 'CD' and units_type == 'OD':
+            raise NotImplementedError
+            
+    elif spec_components=='site':
+        if spec_type == 'abs' and units_type == 'lineshape':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_abs_lineshape_i
+        elif spec_type == 'abs' and units_type == 'OD':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_abs_OD_i
+        elif spec_type == 'fluo' and units_type == 'lineshape':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_fluo_lineshape_i
+        elif spec_type == 'fluo' and units_type == 'OD':
+            LinearSpectraCalculator.spec_calculator = LinearSpectraCalculator.calc_fluo_OD_i
+        elif spec_type == 'LD' and units_type == 'lineshape':
+            raise NotImplementedError
+        elif spec_type == 'LD' and units_type == 'OD':
+            raise NotImplementedError
+        elif spec_type == 'CD' and units_type == 'lineshape':
+            raise NotImplementedError
+        elif spec_type == 'CD' and units_type == 'OD':
+            raise NotImplementedError
+        
+    if not hasattr(LinearSpectraCalculator,'spec_calculator'):
+        raise ValueError('spectrum calculator not recongnized!')
+    
+    nchrom = H.shape[0]
+    
+    #initialize dephasing for the localized part from input 
+    if dephasing_localized is None:
+        dephasing_localized = np.ones(nchrom)*wn2ips
+    elif dephasing_localized.size == 1 and nchrom>1:
+        dephasing_localized = np.ones(nchrom)*dephasing_localized
+            
+    #initialize spectral densities from input
+    if np.all(SDobj_delocalized.w == SDobj_localized.w):
+        w = SDobj_delocalized.w.copy()
+        SD_data = SDobj_delocalized.SD + SDobj_localized.SD
+    else:
+        w_min = min(SDobj_delocalized.w.min(),SDobj_localized.w.min())
+        w_max = max(SDobj_delocalized.w.max(),SDobj_localized.w.max())
+        
+        dw_delocalized = SDobj_delocalized.w[1]-SDobj_delocalized.w[0]
+        dw_localized = SDobj_localized.w[1]-SDobj_localized.w[0]
+        dw    = min(dw_delocalized,dw_localized)
+        
+        w = np.arange(w_min,w_max,dw)
+        SD_data  = UnivariateSpline(SDobj_delocalized.w,SDobj_delocalized.SD,ok=1,s=0.)(w)
+        SD_data += UnivariateSpline(SDobj_localized.w,SDobj_localized.SD,ok=1,s=0.)(w)        
+    
+    if SDobj_delocalized.temperature == SDobj_localized.temperature:        
+        SDobj = SpectralDensity(w,SD_data,temperature=SDobj_localized.temperature)
+    else:
+        raise ValueError('The temperature of the delocalized and localized spectral densities must match!')        
+        
+    if freq_axis_spec is None:
+        w_min = np.diag(H).min() - SDobj.Reorg.max()
+        w_max = np.diag(H).max() - SDobj.Reorg.max()
+        freq_axis_spec = np.arange(w_min,w_max,1.)
+        
+    #initialize relaxation tensor
+    rel_tens = tensor_type(H,SDobj,SD_id_list=SD_id_list)    
+    
+    #partition dipoles
+    SD_id_list = rel_tens.SD_id_list
+    HR_high_list = np.asarray([SDobj_localized.Huang_Rhys[SD_idx] for SD_idx in SD_id_list])
+    reorg_high_list = np.asarray([SDobj_localized.Reorg[SD_idx] for SD_idx in SD_id_list])
+    exp = np.exp(-HR_high_list)
+
+    dipoles_low = np.sign(dipoles)*np.sqrt(exp[:,np.newaxis] * dipoles**2)
+    dipoles_high = np.sign(dipoles)*np.sqrt((1 - exp)[:,np.newaxis] * dipoles**2)
+    
+    #partition Hamiltonian
+    H_diag = np.diag(np.diag(H))
+
+    H_no_localized_part = np.zeros_like(H)
+    for i in range(nchrom):
+        H_no_localized_part[i,i] = H[i,i] - reorg_high_list[i]
+        for j in range(nchrom):
+            if not i==j:
+                H_no_localized_part[i,j] = H[i,j]*exp[i]*exp[j]
+                    
+    #create tensor objects
+    tensor_low = tensor_type(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
+    tensor_low_no_coup = tensor_type(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
+    tensor_diag = tensor_type(H_diag,SDobj,SD_id_list=SD_id_list)
+    
+    #assign dephasing for the localized part
+    tensor_low_no_coup.dephasing = dephasing_localized
+
+    #create spectra objects
+    spec_obj_low = LinearSpectraCalculator(tensor_low,approximation=approx)
+    spec_obj_low_no_coup = LinearSpectraCalculator(tensor_low_no_coup,approximation=approx)
+    spec_obj_diag = LinearSpectraCalculator(tensor_diag,approximation=approx)
+    
+    #calculate spectrum contributions
+    freq_axis_spec,spec_low  = spec_obj_low.spec_calculator(dipoles_low,freq=freq_axis_spec)
+    freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.spec_calculator(dipoles_low,freq=freq_axis_spec)
+    freq_axis_spec,spec_diag = spec_obj_diag.spec_calculator(dipoles,freq=freq_axis_spec)
+
+    #calculate the resulting spectrum
+    spec_high = spec_diag - spec_low_no_coup
+    spec = spec_low + spec_high
+    
+    return freq_axis_spec,spec

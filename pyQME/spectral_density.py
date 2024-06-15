@@ -1,7 +1,8 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
 import scipy.fftpack as fftpack
-from .utils import Kb
+
+Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 
 def _do_ifft_complete(omega,spec,t):
     """This function performs inverse FT, spec(omega) -> x(t), where spec(omega) is defined over a *symmetric* range around 0, and time axis could be anything.

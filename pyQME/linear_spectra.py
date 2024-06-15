@@ -1,7 +1,10 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
-from .utils import factOD,Kb
 from copy import deepcopy
+
+Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
+factOD = 108.86039 #conversion factor for optical spectra
+
 
 class LinearSpectraCalculator():
     """Class for calculations of absorption and fluorescence spectra.
@@ -123,77 +126,7 @@ class LinearSpectraCalculator():
         pop = boltz/partition
         return pop
     
-    def calc_spec_abs(self,dipoles,freq=None):
-        """This function computes the absorption spectrum.
-
-        Arguments
-        --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
-        freq: np.array(dtype = np.float)
-            array of frequencies used to evaluate the spectra in cm^-1.
-            if None, the frequency axis is computed using FFT on self.time.
-            
-        Returns
-        -------
-        freq: np.array(dtype = np.float)
-            frequency axis of the spectrum in cm^-1.
-        spec_abs: np.array(dtype = np.float)
-            absorption spectrum (debye**2)."""
-        
-        self._initialize()
-        t = self.time
-        
-        #get the squared modulus of dipoles in the exciton basis
-        self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
-        self.excd2 = np.sum(self.excdip**2,axis=1)
-        
-        g_a = self.g_a
-        time_spec = np.zeros(self.time.shape,dtype=np.complex128)
-        zeta = self.zeta_at
-        RWA = self.RWA
-        factFT = self._factFT
-
-        #compute and sum up the spectra in the time domain for each exciton
-        for (a,e_a) in enumerate(self.rel_tensor.ene):
-            d_a = self.excd2[a]
-            time_spec += d_a*np.exp((1j*(-e_a+RWA))*t - g_a[a] - zeta[a])
-        
-        #switch from time to frequency domain using hermitian FFT (-> real output)
-        self.spec_abs = np.flipud(np.fft.fftshift(np.fft.hfft(time_spec)))*factFT
-                
-        #if the user provides a frequency axis, let's extrapolate the spectra over it
-        if freq is not None:
-            spec_abs_spl = UnivariateSpline(self.freq,self.spec_abs,s=0)
-            spec_abs = spec_abs_spl(freq)
-            return freq,spec_abs
-        else:
-            return self.freq,self.spec_abs
-        
-    def calc_OD(self,dipoles,freq=None):
-        """This function computes the absorption spectrum.
-
-        Arguments
-        --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
-        freq: np.array(dtype = np.float)
-            array of frequencies used to evaluate the spectra in cm^-1.
-            if None, the frequency axis is computed using FFT on self.time.
-            
-        Returns
-        -------
-        freq: np.array(dtype = np.float)
-            frequency axis of the spectrum in cm^-1.
-        OD: np.array(dtype = np.float)
-            absorption spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
-        
-        freq,spec_abs = self.calc_spec_abs(dipoles,freq=freq)
-        OD = spec_abs*freq*factOD
-        return freq,OD
-        
-        
-    def calc_OD_a(self,dipoles=None,freq = None):
+    def calc_abs_lineshape_a(self,dipoles,freq=None):
         """This function computes the absorption spectrum separately for each exciton.
         
         Arguments
@@ -213,12 +146,9 @@ class LinearSpectraCalculator():
         self._initialize()
 
         #get the squared modulus of dipoles in the exciton basis
-        if dipoles is not None:
-            self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
-            self.excd2 = np.sum(self.excdip**2,axis=1)
-        else:
-            self.excd2 = np.ones((self.rel_tensor.dim)) #this is needed in the function "calc_OD_i"
-        
+        self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
+        self.excd2 = np.sum(self.excdip**2,axis=1)
+
         g_a = self.g_a
         zeta = self.zeta_at
         RWA = self.RWA
@@ -226,26 +156,91 @@ class LinearSpectraCalculator():
         factFT = self._factFT
         
         #compute the spectra in the time domain for each exciton without summing up
-        self.OD_a = np.empty([self.rel_tensor.dim,self.freq.size])
+        self.abs_lineshape_a = np.empty([self.rel_tensor.dim,self.freq.size])
         for (a,e_a) in enumerate(self.rel_tensor.ene):
             d_a = self.excd2[a]
-            time_OD = d_a*np.exp((1j*(-e_a+RWA) )*t - g_a[a] - zeta[a])
+            time_abs = d_a*np.exp((1j*(-e_a+RWA) )*t - g_a[a] - zeta[a])
         
             #switch from time to frequency domain using hermitian FFT (-> real output)
-            self.OD_a[a] = np.flipud(np.fft.fftshift(np.fft.hfft(time_OD)))*factFT
-            self.OD_a[a] = self.OD_a[a] * self.freq * factOD
+            self.abs_lineshape_a[a] = np.flipud(np.fft.fftshift(np.fft.hfft(time_abs)))*factFT
         
         #if the user provides a frequency axis, let's extrapolate the spectra over it
         if freq is not None:
-            OD_a = np.empty([self.rel_tensor.dim,freq.size])
+            abs_lineshape_a = np.empty([self.rel_tensor.dim,freq.size])
             for a in range(self.rel_tensor.dim):
-                ODspl = UnivariateSpline(self.freq,self.OD_a[a],s=0)
-                OD_a[a] = ODspl(freq)
-            return freq,OD_a
+                spl = UnivariateSpline(self.freq,self.abs_lineshape_a[a],s=0)
+                abs_lineshape_a[a] = spl(freq)
+            return freq,abs_lineshape_a
         else:
-            return self.freq,self.OD_a
+            return self.freq,self.abs_lineshape_a
         
-    def calc_OD_i(self,dipoles,freq=None):
+    def calc_abs_OD_a(self,dipoles,freq=None):
+        """This function computes the absorption spectrum.
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        spec_abs: np.array(dtype = np.float)
+            absorption spectrum (debye**2)."""
+        
+        freq,abs_lineshape_a = self.calc_abs_lineshape_a(dipoles=dipoles,freq=freq)
+        abs_OD_a = abs_lineshape_a* freq * factOD
+        return freq,abs_OD_a
+    
+    def calc_abs_lineshape(self,dipoles,freq=None):
+        """This function computes the absorption spectrum.
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        spec_abs: np.array(dtype = np.float)
+            absorption spectrum (debye**2)."""
+        
+        freq,abs_lineshape_a = self.calc_abs_lineshape_a(dipoles=dipoles,freq=freq)
+        abs_lineshape = abs_lineshape_a.sum(axis=0)
+        return freq,abs_lineshape
+        
+    def calc_abs_OD(self,dipoles,freq=None):
+        """This function computes the absorption spectrum.
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        spec_abs: np.array(dtype = np.float)
+            absorption spectrum (debye**2)."""
+        
+        freq,abs_lineshape = self.calc_abs_lineshape(dipoles=dipoles,freq=freq)
+        abs_OD = abs_lineshape* freq * factOD
+        return freq,abs_OD
+    
+    def calc_abs_lineshape_i(self,dipoles,freq=None):
         """This function computes the absorption spectrum separately for each site.
         
         Arguments
@@ -262,23 +257,46 @@ class LinearSpectraCalculator():
         OD_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
             absorption spectrum of each site (molar extinction coefficient in L · cm-1 · mol-1)."""        
         
-        #dipole-less absorption matrix in the exciton basis
-        freq,II_a = self.calc_OD_a(freq=freq)
+        dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
+        dipoles_dummy_exc[:,0] = 1.        
+        dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
+        freq,abs_lineshape_a = self.calc_abs_lineshape_a(dipoles=dipoles_dummy_site,freq=freq)
         
         #conversion from exciton to site basis
-        II_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,II_a,self.rel_tensor.U)
+        abs_lineshape_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,abs_lineshape_a,self.rel_tensor.U)
         
         #we introduce dipoles directly in the site basis
         M_ij = np.dot(dipoles,dipoles.T)
-        A_ij = M_ij[:,:,None]*II_ij
+        abs_lineshape_ij = M_ij[:,:,None]*abs_lineshape_ij
         
         #we sum over rows (or, equivalently, over columns, since the matrix is symmetric)
-        A_i = A_ij.sum(axis=0)
-        return freq,A_i
+        abs_lineshape_i = abs_lineshape_ij.sum(axis=0)
+        return freq,abs_lineshape_i
+    
+    def calc_abs_OD_i(self,dipoles,freq=None):
+        """This function computes the absorption spectrum separately for each site.
         
-    def calc_FL_lineshape(self,dipoles,eqpop=None,freq=None):
+        Arguments
+        ---------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies at which the spectrum is evaluated in cm^-1.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float), shape = (freq.size)
+            frequency axis of the spectrum in cm^-1.
+        OD_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
+            absorption spectrum of each site (molar extinction coefficient in L · cm-1 · mol-1)."""        
+        
+        freq,abs_lineshape_i = self.calc_abs_lineshape_i(dipoles=dipoles,freq=freq)
+        abs_OD_i = abs_lineshape_i * freq * factOD        
+        return freq,abs_OD_i
+        
+    def calc_fluo_lineshape_a(self,dipoles,eqpop=None,freq=None):
         """Compute fluorescence spectrum.
-        
+
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
@@ -306,48 +324,28 @@ class LinearSpectraCalculator():
 
         if eqpop is None:
             eqpop = self._get_eq_populations()
-               
-        #compute and sum up the spectra in the time domain for each exciton
-        time_FL = np.zeros(self.time.shape,dtype=np.complex128)
+        
+        #compute the spectra in the time domain for each exciton without summing up
+        self.fluo_lineshape_a = np.empty([self.rel_tensor.dim,self.freq.size])
         for (a,e_a) in enumerate(self.rel_tensor.ene):
             d_a = self.excd2[a]
             e0_a = e_a - 2*lambda_a[a]
-            time_FL += eqpop[a]*d_a*np.exp((1j*(-e0_a+RWA))*t - g_a[a].conj() - zeta[a])
-        
-        # Do hermitian FFT (-> real output)
-        self.FL = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self._factFT
-                
+            time_FL = eqpop[a]*d_a*np.exp((1j*(-e0_a+RWA))*t - g_a[a].conj()-zeta[a])
+            
+            #switch from time to frequency domain using hermitian FFT (-> real output)
+            self.fluo_lineshape_a[a] = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self._factFT
+            
         #if the user provides a frequency axis, let's extrapolate the spectra over it
         if freq is not None:
-            FLspl = UnivariateSpline(self.freq,self.FL,s=0)
-            FL = FLspl(freq)
-            return freq,FL
+            fluo_lineshape_a = np.empty([self.rel_tensor.dim,freq.size])
+            for a in range(self.rel_tensor.dim):
+                spl = UnivariateSpline(self.freq,self.fluo_lineshape_a[a],s=0)
+                fluo_lineshape_a[a] = spl(freq)                
+            return freq,fluo_lineshape_a
         else:
-            return self.freq,self.FL
+            return self.freq,self.fluo_lineshape_a
         
-    def calc_FL(self,dipoles,freq=None):
-        """This function computes the absorption spectrum.
-
-        Arguments
-        --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
-        freq: np.array(dtype = np.float)
-            array of frequencies used to evaluate the spectra in cm^-1.
-            if None, the frequency axis is computed using FFT on self.time.
-            
-        Returns
-        -------
-        freq: np.array(dtype = np.float)
-            frequency axis of the spectrum in cm^-1.
-        FL: np.array(dtype = np.float)
-            absorption spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
-        
-        freq,spec_fluo_lineshape = self.calc_FL_lineshape(dipoles,freq=freq)
-        FL = spec_fluo_lineshape*(freq**3)*factOD
-        return freq,FL
-    
-    def calc_FL_a(self,dipoles=None,eqpop=None,freq=None):
+    def calc_fluo_lineshape_a_det_bal(self,dipoles,eqpop=None,freq=None):
         """Compute fluorescence spectrum.
 
         Arguments
@@ -366,43 +364,109 @@ class LinearSpectraCalculator():
         
         self._initialize()
         g_a = self.g_a
-        zeta = self.zeta_at
+
+        #zeta_at = self.zeta_at
+        zeta_at = self.rel_tensor._calc_redfield_zeta_C_conj()
+        self.zeta_at = zeta_at
+        
         RWA = self.RWA
         t = self.time
         lambda_a = self.rel_tensor.get_lambda_a()
         
         #get the squared modulus of dipoles in the exciton basis
-        if dipoles is not None:
-            self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
-            self.excd2 = np.sum(self.excdip**2,axis=1)
-        else:
-            self.excd2 = np.ones((self.rel_tensor.dim)) 
+        self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
+        self.excd2 = np.sum(self.excdip**2,axis=1)
 
         if eqpop is None:
             eqpop = self._get_eq_populations()
         
         #compute the spectra in the time domain for each exciton without summing up
-        self.FL_a = np.empty([self.rel_tensor.dim,self.freq.size])
+        self.fluo_lineshape_a = np.empty([self.rel_tensor.dim,self.freq.size])
         for (a,e_a) in enumerate(self.rel_tensor.ene):
             d_a = self.excd2[a]
-            e0_a = e_a - 2*lambda_a[a]
-            time_FL = eqpop[a]*d_a*np.exp((1j*(-e0_a+RWA))*t - g_a[a].conj()-zeta[a])
+            g = g_a[a].conj() - 1j*2*lambda_a[a]*t #- beta*t
+            zeta = zeta_at[a] - 1j*2*lambda_a[a]*t #- beta*t
+            time_FL = eqpop[a]*d_a*np.exp((1j*(-e_a+RWA))*t - g-zeta)
             
             #switch from time to frequency domain using hermitian FFT (-> real output)
-            FL_a = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self._factFT
-            self.FL_a[a] = FL_a * self.freq**3 * factOD
+            self.fluo_lineshape_a[a] = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self._factFT
             
         #if the user provides a frequency axis, let's extrapolate the spectra over it
         if freq is not None:
-            FL_a = np.empty([self.rel_tensor.dim,freq.size])
+            fluo_lineshape_a = np.empty([self.rel_tensor.dim,freq.size])
             for a in range(self.rel_tensor.dim):
-                FLspl = UnivariateSpline(self.freq,self.FL_a[a],s=0)
-                FL_a[a] = FLspl(freq)                
-            return freq,FL_a
+                spl = UnivariateSpline(self.freq,self.fluo_lineshape_a[a],s=0)
+                fluo_lineshape_a[a] = spl(freq)                
+            return freq,fluo_lineshape_a
         else:
-            return self.freq,self.FL_a
+            return self.freq,self.fluo_lineshape_a
         
-    def calc_FL_i(self,dipoles,freq=None):
+    def calc_fluo_lineshape(self,dipoles,eqpop=None,freq=None):
+        """Compute fluorescence spectrum.
+        
+        Arguments
+        ---------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies at which the spectrum is evaluated.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum.
+        FL: np.array(dtype = np.float), shape = (freq.size)
+            fluorescence intensity."""
+        
+        freq,fluo_lineshape_a = self.calc_fluo_lineshape_a(dipoles,freq=freq,eqpop=eqpop)
+        fluo_lineshape = fluo_lineshape_a.sum(axis=0)
+        return freq,fluo_lineshape        
+        
+    def calc_fluo_OD_a(self,dipoles,eqpop=None,freq=None):
+        """This function computes the absorption spectrum.
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        FL: np.array(dtype = np.float)
+            absorption spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+        
+        freq,spec_fluo_lineshape_a = self.calc_fluo_lineshape_a(dipoles,freq=freq,eqpop=eqpop)
+        spec_fluo_OD_a = spec_fluo_lineshape_a*(freq**3)*factOD
+        return freq,spec_fluo_OD_a
+    
+    def calc_fluo_OD(self,dipoles,eqpop=None,freq=None):
+        """This function computes the absorption spectrum.
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        FL: np.array(dtype = np.float)
+            absorption spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+        
+        freq,spec_fluo_lineshape = self.calc_fluo_lineshape(dipoles,freq=freq,eqpop=eqpop)
+        spec_fluo_OD = spec_fluo_lineshape*(freq**3)*factOD
+        return freq,spec_fluo_OD
+        
+    def calc_fluo_lineshape_i(self,dipoles,eqpop=None,freq=None):
         """This function computes the fluorescence spectrum separately for each site.
         
         Arguments
@@ -419,19 +483,44 @@ class LinearSpectraCalculator():
         FL_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
             fluorescence spectrum of each site."""        
         
+        dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
+        dipoles_dummy_exc[:,0] = 1.        
+        dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
+        
         #dipole-less absorption matrix in the exciton basis
-        freq,II_a = self.calc_FL_a(freq=freq)
+        freq,fluo_lineshape_a = self.calc_fluo_lineshape_a(dipoles=dipoles_dummy_site,freq=freq,eqpop=eqpop)
         
         #conversion from exciton to site basis
-        II_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,II_a,self.rel_tensor.U)
+        fluo_lineshape_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,fluo_lineshape_a,self.rel_tensor.U)
         
         #we introduce dipoles directly in the site basis
         M_ij = np.dot(dipoles,dipoles.T)
-        FL_ij = M_ij[:,:,None]*II_ij
+        fluo_lineshape_ij = M_ij[:,:,None]*fluo_lineshape_ij
         
         #we sum over rows (or, equivalently, over columns, since the matrix is symmetric)
-        FL_i = FL_ij.sum(axis=0)
-        return freq,FL_i
+        fluo_lineshape_i = fluo_lineshape_ij.sum(axis=0)
+        return freq,fluo_lineshape_i
+    
+    def calc_fluo_OD_i(self,dipoles,eqpop=None,freq=None):
+        """This function computes the fluorescence spectrum separately for each site.
+        
+        Arguments
+        ---------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        freq: np.array(dtype = np.float)
+            array of frequencies at which the spectrum is evaluated in cm^-1.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float), shape = (freq.size)
+            frequency axis of the spectrum in cm^-1.
+        FL_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
+            fluorescence spectrum of each site."""
+        
+        freq,fluo_lineshape_i = self.calc_fluo_lineshape_i(dipoles,eqpop=eqpop,freq=freq)
+        fluo_OD_i = fluo_lineshape_i*(freq**3)*factOD
+        return freq,fluo_OD_i
     
     @property
     def _factFT(self):
@@ -463,7 +552,12 @@ class LinearSpectraCalculator():
             
         n = self.rel_tensor.dim #number of chromophores
         H = self.rel_tensor.H #hamiltonian
-        freq,I_a =  self.calc_OD_a(freq=freq) #single-exciton contribution to the absorption spectrum
+        
+        dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
+        dipoles_dummy_exc[:,0] = 1.        
+        dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
+        
+        freq,I_a =  self.calc_abs_OD_a(dipoles=dipoles_dummy_site,freq=freq) #single-exciton contribution to the absorption spectrum
         I_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,I_a,self.rel_tensor.U) #chomophore-pair contribution to the absorption spectrum
         
         #we compute the dipole strenght matrix
@@ -482,7 +576,7 @@ class LinearSpectraCalculator():
         
     def calc_LD(self,dipoles,freq=None):
         """This function computes the linear dicroism spectrum (J. A. Nöthling, Tomáš Mančal, T. P. J. Krüger; Accuracy of approximate methods for the calculation of absorption-type linear spectra with a complex system–bath coupling. J. Chem. Phys. 7 September 2022; 157 (9): 095103. https://doi.org/10.1063/5.0100977).
-        Here we assume disk-shaped pigments, ideally aligned to the z-axis.
+        Here we assume disk-shaped pigments. For LHCs, we disk is ideally aligned to the thylacoidal membrane (i.e. to the z-axis).
 
         Arguments
         --------
@@ -501,7 +595,12 @@ class LinearSpectraCalculator():
             
         n = self.rel_tensor.dim #number of chromophores
         H = self.rel_tensor.H #hamiltonian
-        freq,I_a =  self.calc_OD_a(freq=freq) #single-exciton contribution to the absorption spectrum
+        
+        dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
+        dipoles_dummy_exc[:,0] = 1.        
+        dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
+    
+        freq,I_a =  self.calc_abs_OD_a(dipoles=dipoles_dummy_site,freq=freq) #single-exciton contribution to the absorption spectrum
         I_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,I_a,self.rel_tensor.U) #chomophore-pair contribution to the absorption spectrum
         
         #we compute the dipole strenght matrix
