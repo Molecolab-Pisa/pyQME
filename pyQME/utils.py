@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import simps
 from scipy.special import comb
+from scipy.linalg import expm,logm
 
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
@@ -534,3 +535,59 @@ def transform_back(arr,H,ndim=None):
     See "transform" function for input and output."""
 
     return transform(arr,H,ndim=ndim,inverse=True)
+
+def clusterize_rates(rates,clusters,time_step):
+    """
+    Function for partition-based clusterization of a rate matrix describing population transfer (Pauli master equation).
+    Sorry for so many 'for loops' but I'm lazy today and clusterization is computationally cheap.
+    
+    Arguments
+    -----------
+    rates:  np.array(dtype = np.float)
+            rates matrix describing transfer efficiency between populations
+            must be a square matrix with diagonal elements corresponding to sum over columns (sign reversed)
+    
+    clusters: list of list of integers
+            each list contains the elements of the population belonging to the same cluster
+            
+    time_step: np.float
+            time step used to switch from rate matrix to propagator and vice-versa
+            must have the same units of rates
+    Returns
+    --------
+    rates_clusterized:
+            
+    """
+    
+    n_clusters = len(clusters)
+    
+    if rates.shape[0] == rates.shape[1]:
+        dim = rates.shape[0]
+    else:
+        raise NotImplementedError
+    
+    lamb,U = np.linalg.eig(rates)
+    eq_pop = U[:,np.abs(lamb).argmin()].real
+    eq_pop = eq_pop/np.sum(eq_pop)
+    
+    U_ij = expm(rates*time_step)
+
+    U_IJ = np.zeros([n_clusters,n_clusters])
+    for J,cl_J in enumerate(clusters):
+        
+        eq_pop_J = np.zeros(dim)    
+        for j in cl_J:
+            eq_pop_J[j] = eq_pop[j]
+        eq_pop_J = eq_pop_J/eq_pop_J.sum()
+            
+        for I,cl_I in enumerate(clusters):
+            for j in cl_J:
+                for i in cl_I:
+                    U_IJ[I,J] = U_IJ[I,J] + eq_pop_J[j]*U_ij[i,j]
+
+    rates_clusterized = logm(U_IJ)/time_step
+    
+    np.fill_diagonal(rates_clusterized,0)
+    np.fill_diagonal(rates_clusterized,-rates_clusterized.sum(axis=0))
+    
+    return rates_clusterized
