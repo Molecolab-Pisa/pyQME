@@ -4,6 +4,8 @@ from scipy.special import comb
 from scipy.interpolate import UnivariateSpline
 from .linear_spectra import LinearSpectraCalculator
 from .spectral_density import SpectralDensity
+from scipy.linalg import expm,logm
+
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
@@ -648,14 +650,19 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
     
     #initialize dephasing for the localized part from input 
     if dephasing_localized is None:
-        dephasing_localized = np.ones(nchrom)*wn2ips
-    elif dephasing_localized.size == 1 and nchrom>1:
-        dephasing_localized = np.ones(nchrom)*dephasing_localized
-            
+        dephasing_localized = np.zeros([nchrom],dtype=np.complex128)
+    else:
+        if dephasing_localized.size == 1:
+            dephasing_localized = np.zeros([nchrom],dtype=np.complex128) + dephasing_localized
+        elif not(dephasing_localized.size == nchrom):
+            raise ValueError('dephasing_localized must be a single value or a np.array of size n_site.')
+                
     #initialize spectral densities from input
+    
+    #make sure that all SD objects have the same frequency axis
     if np.all(SDobj_delocalized.w == SDobj_localized.w):
         w = SDobj_delocalized.w.copy()
-        SD_data = SDobj_delocalized.SD + SDobj_localized.SD
+        SD_data = SDobj_delocalized.SD.copy() + SDobj_localized.SD.copy()
     else:
         w_min = min(SDobj_delocalized.w.min(),SDobj_localized.w.min())
         w_max = max(SDobj_delocalized.w.max(),SDobj_localized.w.max())
@@ -665,11 +672,25 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         dw    = min(dw_delocalized,dw_localized)
         
         w = np.arange(w_min,w_max,dw)
-        SD_data  = UnivariateSpline(SDobj_delocalized.w,SDobj_delocalized.SD,ok=1,s=0.)(w)
-        SD_data += UnivariateSpline(SDobj_localized.w,SDobj_localized.SD,ok=1,s=0.)(w)        
-    
+        SD_data  = UnivariateSpline(SDobj_delocalized.w,SDobj_delocalized.SD,k=1,s=0.)(w)
+        SD_data += UnivariateSpline(SDobj_localized.w,SDobj_localized.SD,k=1,s=0.)(w)
+        
+    #make sure that all SD objects have the same time axis
+    if np.all(SDobj_delocalized.time == SDobj_localized.time):
+        time = SDobj_delocalized.time.copy()
+    else:
+        t_min = min(SDobj_delocalized.time.min(),SDobj_localized.time.min())
+        t_max = max(SDobj_delocalized.time.max(),SDobj_localized.time.max())
+        
+        dt_delocalized = SDobj_delocalized.time[1]-SDobj_delocalized.time[0]
+        dt_localized = SDobj_localized.time[1]-SDobj_localized.time[0]
+        dt    = min(dt_delocalized,dt_localized)
+        
+        time = np.arange(w_min,t_max,dt)
+
     if SDobj_delocalized.temperature == SDobj_localized.temperature:        
         SDobj = SpectralDensity(w,SD_data,temperature=SDobj_localized.temperature)
+        SDobj.time = time
     else:
         raise ValueError('The temperature of the delocalized and localized spectral densities must match!')        
         
@@ -677,6 +698,8 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         w_min = np.diag(H).min() - SDobj.Reorg.max()
         w_max = np.diag(H).max() - SDobj.Reorg.max()
         freq_axis_spec = np.arange(w_min,w_max,1.)
+        
+    
         
     #initialize relaxation tensor
     rel_tens = tensor_type(H,SDobj,SD_id_list=SD_id_list)    
@@ -688,7 +711,6 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
     exp = np.exp(-0.5*HR_high_list)
     
     dipoles_low = dipoles*exp[:,np.newaxis]
-    dipoles_high = dipoles*np.sqrt((1 - exp[:,np.newaxis]**2))    
     
     #partition Hamiltonian
     H_diag = np.diag(np.diag(H))
@@ -699,27 +721,84 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         for j in range(nchrom):
             if not i==j:
                 H_no_localized_part[i,j] = H[i,j]*exp[i]*exp[j]
-                    
-    #create tensor objects
+    
+    #for each spectrum contribution, create tensor object, spectrum object and calculate the spectrum
+    
+    #first contribution to the spectrum: delocalized 0-0 band without sideband
     tensor_low = tensor_type(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
-    tensor_low_no_coup = tensor_type(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
-    tensor_diag = tensor_type(H_diag,SDobj,SD_id_list=SD_id_list)
-    
-    #assign dephasing for the localized part
-    tensor_low_no_coup.dephasing = dephasing_localized
-
-    #create spectra objects
     spec_obj_low = LinearSpectraCalculator(tensor_low,approximation=approx)
-    spec_obj_low_no_coup = LinearSpectraCalculator(tensor_low_no_coup,approximation=approx)
-    spec_obj_diag = LinearSpectraCalculator(tensor_diag,approximation=approx)
-    
-    #calculate spectrum contributions
     freq_axis_spec,spec_low  = spec_obj_low.spec_calculator(dipoles_low,freq=freq_axis_spec)
+    
+    #second contribution to the spectrum: localized 0-0 band without sideband
+    tensor_low_no_coup = tensor_type(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
+    tensor_low_no_coup.dephasing = dephasing_localized
+    spec_obj_low_no_coup = LinearSpectraCalculator(tensor_low_no_coup,approximation='rR')
     freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.spec_calculator(dipoles_low,freq=freq_axis_spec)
-    freq_axis_spec,spec_diag = spec_obj_diag.spec_calculator(dipoles,freq=freq_axis_spec)
 
+    #third contribution to the spectrum: localized 0-0 band + localized sideband
+    tensor_diag = tensor_type(H_diag,SDobj,SD_id_list=SD_id_list)
+    tensor_diag.dephasing = dephasing_localized
+    spec_obj_diag = LinearSpectraCalculator(tensor_diag,approximation='rR')
+    freq_axis_spec,spec_diag = spec_obj_diag.spec_calculator(dipoles,freq=freq_axis_spec)    
+    
     #calculate the resulting spectrum
     spec_high = spec_diag - spec_low_no_coup
     spec = spec_low + spec_high
     
     return freq_axis_spec,spec
+
+def clusterize_rates(rates,clusters,time_step):
+    """
+    Function for partition-based clusterization of a rate matrix describing population transfer (Pauli master equation).
+    Sorry for so many 'for loops' but I'm lazy today and clusterization is computationally cheap.
+    
+    Arguments
+    -----------
+    rates:  np.array(dtype = np.float)
+            rates matrix describing transfer efficiency between populations
+            must be a square matrix with diagonal elements corresponding to sum over columns (sign reversed)
+    
+    clusters: list of list of integers
+            each list contains the elements of the population belonging to the same cluster
+            
+    time_step: np.float
+            time step used to switch from rate matrix to propagator and vice-versa
+            must have the same units of rates
+    Returns
+    --------
+    rates_clusterized:
+            
+    """
+    
+    n_clusters = len(clusters)
+    
+    if rates.shape[0] == rates.shape[1]:
+        dim = rates.shape[0]
+    else:
+        raise NotImplementedError
+    
+    lamb,U = np.linalg.eig(rates)
+    eq_pop = U[:,np.abs(lamb).argmin()].real
+    eq_pop = eq_pop/np.sum(eq_pop)
+    
+    U_ij = expm(rates*time_step)
+
+    U_IJ = np.zeros([n_clusters,n_clusters])
+    for J,cl_J in enumerate(clusters):
+        
+        eq_pop_J = np.zeros(dim)    
+        for j in cl_J:
+            eq_pop_J[j] = eq_pop[j]
+        eq_pop_J = eq_pop_J/eq_pop_J.sum()
+            
+        for I,cl_I in enumerate(clusters):
+            for j in cl_J:
+                for i in cl_I:
+                    U_IJ[I,J] = U_IJ[I,J] + eq_pop_J[j]*U_ij[i,j]
+
+    rates_clusterized = logm(U_IJ)/time_step
+    
+    np.fill_diagonal(rates_clusterized,0)
+    np.fill_diagonal(rates_clusterized,-rates_clusterized.sum(axis=0))
+    
+    return rates_clusterized

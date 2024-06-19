@@ -142,7 +142,18 @@ class LinearSpectraCalculator():
             frequency axis of the spectrum in cm^-1.
         OD_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
             absorption spectrum of each exciton (molar extinction coefficient in L · cm-1 · mol-1)."""
-
+        
+        self._calc_time_abs_a(dipoles)
+        self.abs_lineshape_a = self._do_FFT(self.time_abs_a)
+        
+        #if the user provides a frequency axis, let's extrapolate the spectra over it
+        if freq is not None:
+            abs_lineshape_a = self._fit_spline_spec(freq,self.abs_lineshape_a)
+            return freq,abs_lineshape_a
+        else:
+            return self.freq,self.abs_lineshape_a
+        
+    def _calc_time_abs_a(self,dipoles):
         self._initialize()
 
         #get the squared modulus of dipoles in the exciton basis
@@ -153,26 +164,26 @@ class LinearSpectraCalculator():
         zeta = self.zeta_at
         RWA = self.RWA
         t = self.time
-        factFT = self._factFT
         
         #compute the spectra in the time domain for each exciton without summing up
-        self.abs_lineshape_a = np.empty([self.rel_tensor.dim,self.freq.size])
+        self.time_abs_a = np.empty([self.rel_tensor.dim,self.time.size],dtype=np.complex128)
         for (a,e_a) in enumerate(self.rel_tensor.ene):
             d_a = self.excd2[a]
-            time_abs = d_a*np.exp((1j*(-e_a+RWA) )*t - g_a[a] - zeta[a])
-        
+            self.time_abs_a[a] = d_a*np.exp((1j*(-e_a+RWA) )*t - g_a[a] - zeta[a])
+            
+    def _do_FFT(self,signal_a_time):
+        signal_a_freq = np.empty([self.rel_tensor.dim,self.freq.size])
+        for a in range(self.rel_tensor.dim):        
             #switch from time to frequency domain using hermitian FFT (-> real output)
-            self.abs_lineshape_a[a] = np.flipud(np.fft.fftshift(np.fft.hfft(time_abs)))*factFT
+            signal_a_freq[a] = np.flipud(np.fft.fftshift(np.fft.hfft(signal_a_time[a])))*self._factFT
+        return signal_a_freq
         
-        #if the user provides a frequency axis, let's extrapolate the spectra over it
-        if freq is not None:
-            abs_lineshape_a = np.empty([self.rel_tensor.dim,freq.size])
-            for a in range(self.rel_tensor.dim):
-                spl = UnivariateSpline(self.freq,self.abs_lineshape_a[a],s=0)
-                abs_lineshape_a[a] = spl(freq)
-            return freq,abs_lineshape_a
-        else:
-            return self.freq,self.abs_lineshape_a
+    def _fit_spline_spec(self,freq,signal_a):
+        signal_a_fitted = np.empty([self.rel_tensor.dim,freq.size])
+        for a in range(self.rel_tensor.dim):
+            spl = UnivariateSpline(self.freq,signal_a[a],s=0)
+            signal_a_fitted[a] = spl(freq)
+        return signal_a_fitted
         
     def calc_abs_OD_a(self,dipoles,freq=None):
         """This function computes the absorption spectrum.
@@ -311,6 +322,18 @@ class LinearSpectraCalculator():
         FL: np.array(dtype = np.float), shape = (freq.size)
             fluorescence intensity."""
         
+        self._calc_time_fluo_a(dipoles,eqpop)
+        self.fluo_lineshape_a = self._do_FFT(self.time_fluo_a)
+        
+        #if the user provides a frequency axis, let's extrapolate the spectra over it
+        if freq is not None:
+            fluo_lineshape_a = self._fit_spline_spec(freq,self.fluo_lineshape_a)
+            return freq,fluo_lineshape_a
+        else:
+            return self.freq,self.fluo_lineshape_a
+        
+    def _calc_time_fluo_a(self,dipoles,eqpop):
+        
         self._initialize()
         g_a = self.g_a
         zeta = self.zeta_at
@@ -326,24 +349,11 @@ class LinearSpectraCalculator():
             eqpop = self._get_eq_populations()
         
         #compute the spectra in the time domain for each exciton without summing up
-        self.fluo_lineshape_a = np.empty([self.rel_tensor.dim,self.freq.size])
+        self.time_fluo_a = np.empty([self.rel_tensor.dim,self.time.size],dtype=np.complex128)
         for (a,e_a) in enumerate(self.rel_tensor.ene):
             d_a = self.excd2[a]
             e0_a = e_a - 2*lambda_a[a]
-            time_FL = eqpop[a]*d_a*np.exp((1j*(-e0_a+RWA))*t - g_a[a].conj()-zeta[a])
-            
-            #switch from time to frequency domain using hermitian FFT (-> real output)
-            self.fluo_lineshape_a[a] = np.flipud(np.fft.fftshift(np.fft.hfft(time_FL)))*self._factFT
-            
-        #if the user provides a frequency axis, let's extrapolate the spectra over it
-        if freq is not None:
-            fluo_lineshape_a = np.empty([self.rel_tensor.dim,freq.size])
-            for a in range(self.rel_tensor.dim):
-                spl = UnivariateSpline(self.freq,self.fluo_lineshape_a[a],s=0)
-                fluo_lineshape_a[a] = spl(freq)                
-            return freq,fluo_lineshape_a
-        else:
-            return self.freq,self.fluo_lineshape_a
+            self.time_fluo_a[a] = eqpop[a]*d_a*np.exp((1j*(-e0_a+RWA))*t - g_a[a].conj()-zeta[a])
         
     def calc_fluo_lineshape_a_det_bal(self,dipoles,eqpop=None,freq=None):
         """Compute fluorescence spectrum.

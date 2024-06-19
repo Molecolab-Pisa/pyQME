@@ -392,9 +392,12 @@ class RelTensor():
         
     def _calc_Liouv(self,secularize=None):
         
+        #if the user doesn't give a secularize option, we calculate the tensor with the default option for the secularization
         if secularize is None:
             if not hasattr(self,'RTen'):
-                self._calc_tensor(secularize=secularize)
+                self._calc_tensor()
+                
+        #if the user provides a secularize option, we calculate the tensor, even if it's been calculated before, because we don't know what secularization was used before
         else:
             self._calc_tensor(secularize=secularize)
         eye   = np.eye(self.dim)
@@ -551,3 +554,50 @@ class RelTensor():
         W = self.weight_aaaa
         # lambda_a = sum_i |c_ika^4 lambda_i = sum_Z w_aaaa_Z lambda_Z 
         self.lambda_a = np.dot(W.T,self.specden.Reorg)
+
+    def get_effective_rates(self,dt=5*wn2ips,units='cm'):
+        """This function returns the effective rates.
+        For the details about the calculation of the effective rates, see https://doi.org/10.1063/5.0170295
+        
+        Arguments
+        ---------
+        dt: np.float
+            time step used for the calculation of the effective rates
+            default = 5 ps
+        units: string
+            units in which the dt in input is given: 'ps', 'cm'
+            
+        Returns
+        ---------
+        effective_rates: np.array(dtype=np.float),size=(self.dim,self.dim)
+            effective rates in cm-1
+        """
+        
+        if units == 'ps':
+            dt = dt*wn2ips #transform from ps to cm
+            
+        self._calc_effective_rates(dt)
+        return self.effective_rates
+    
+    def _calc_effective_rates(self,dt):
+        """This function calculates and stores the effective rates.
+        
+        Arguments
+        ---------
+        dt: np.float
+            time step (in cm) used for the calculation of the effective rates            
+        """
+        
+        coeff = self.U
+        Liouv = self.get_Liouv() #calculate Liouvillian
+        
+        A = Liouv.reshape(self.dim**2,self.dim**2) #transform superoperator to operator
+        #print(A)
+        At = A*dt #multiply by time step
+        
+        prop_exc = la.expm(At).reshape(self.dim,self.dim,self.dim,self.dim) #calculate propagator in the exciton basis
+        prop_site = contract('ia,jb,kc,ld,abcd->ijkl',coeff,coeff,coeff,coeff,prop_exc) #transform to site basis
+        prop_site_diag_pop = np.einsum('iijj->ij',prop_site).real #extract the diagonal part, corresponding to the pop <-> pop transfers in the site basis
+        
+        effective_rates = la.logm(prop_site_diag_pop).real/dt #calculate effective rates as logaritm matrix
+        self.effective_rates = effective_rates
