@@ -622,3 +622,66 @@ class LinearSpectraCalculator():
         LD_ij = M_ij[:,:,None]*I_ij
         LD = LD_ij.sum(axis=(0,1))
         return freq,LD
+    
+    def get_spectrum(self,dipoles,freq=None,eqpop=None,cent=None,spec_type='abs',units_type='lineshape',spec_components=None):
+        """This functions is an interface which simply the calculation of spectrum using different options."""
+        
+        #initialize spec type, spec components and units type from input
+        if spec_components is None:
+            if spec_type == 'abs' and units_type == 'lineshape':
+                freq,spec = self.calc_abs_lineshape(dipoles,freq=freq)
+            elif spec_type == 'abs' and units_type == 'OD':
+                freq,spec = self.calc_abs_OD(dipoles,freq=freq)
+            elif spec_type == 'fluo' and units_type == 'lineshape':
+                freq,spec = self.calc_fluo_lineshape(dipoles,eqpop=eqpop,freq=freq)
+            elif spec_type == 'fluo' and units_type == 'OD':
+                freq,spec = self.calc_fluo_OD(dipoles,eqpop=eqpop,freq=freq)
+            elif spec_type == 'LD' and units_type == 'lineshape':
+                raise NotImplementedError
+            elif spec_type == 'LD' and units_type == 'OD':
+                freq,spec = self.calc_LD(dipoles,freq=freq)
+            elif spec_type == 'CD' and units_type == 'lineshape':
+                raise NotImplementedError
+            elif spec_type == 'CD' and units_type == 'OD':
+                freq,spec = self.calc_CD(dipoles,cent,freq=freq)
+
+        elif spec_components=='exciton':
+            if spec_type == 'abs' and units_type == 'lineshape':
+                freq,spec = self.calc_abs_lineshape_a(dipoles,freq=freq)
+            elif spec_type == 'abs' and units_type == 'OD':
+                freq,spec = self.calc_abs_OD_a(dipoles,freq=freq)
+            elif spec_type == 'fluo' and units_type == 'lineshape':
+                freq,spec = self.calc_fluo_lineshape_a(dipoles,eqpop=eqpop,freq=freq)
+            elif spec_type == 'fluo' and units_type == 'OD':
+                freq,spec = self.calc_fluo_OD_a(dipoles,eqpop=eqpop,freq=freq)
+            elif spec_type == 'LD' and units_type == 'lineshape':
+                raise NotImplementedError
+            elif spec_type == 'LD' and units_type == 'OD':
+                raise NotImplementedError
+            elif spec_type == 'CD' and units_type == 'lineshape':
+                raise NotImplementedError
+            elif spec_type == 'CD' and units_type == 'OD':
+                raise NotImplementedError
+
+        elif spec_components=='site':
+            if spec_type == 'abs' and units_type == 'lineshape':
+                freq,spec = self.calc_abs_lineshape_i(dipoles,freq=freq)
+            elif spec_type == 'abs' and units_type == 'OD':
+                freq,spec = self.calc_abs_OD_i(dipoles,freq=freq)
+            elif spec_type == 'fluo' and units_type == 'lineshape':
+                freq,spec = self.calc_fluo_lineshape_i(dipoles,eqpop=eqpop,freq=freq)
+            elif spec_type == 'fluo' and units_type == 'OD':
+                freq,spec = self.calc_fluo_OD_i(dipoles,eqpop=eqpop,freq=freq)
+            elif spec_type == 'LD' and units_type == 'lineshape':
+                raise NotImplementedError
+            elif spec_type == 'LD' and units_type == 'OD':
+                raise NotImplementedError
+            elif spec_type == 'CD' and units_type == 'lineshape':
+                raise NotImplementedError
+            elif spec_type == 'CD' and units_type == 'OD':
+                raise NotImplementedError
+
+        else:
+            raise ValueError('spectrum options not recongnized!')
+
+        return freq,spec
