@@ -156,6 +156,13 @@ class ModifiedRedfieldTensor(RelTensor):
         #case 2: the full relaxation tensor is not available --> use rates
         else:
             return -0.5*np.diag(self._calc_redfield_rates())
+        
+    def get_zeta(self):
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return zeta_at
+
 
 def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis):
     "This function computes the Modified Redfield energy transfer rates in cm^-1"
