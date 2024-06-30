@@ -362,6 +362,8 @@ class LinearSpectraCalculator():
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
             array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        eqpop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
+            equilibrium population
         freq: np.array(dtype = np.float)
             array of frequencies at which the spectrum is evaluated.
             
@@ -624,7 +626,38 @@ class LinearSpectraCalculator():
         return freq,LD
     
     def get_spectrum(self,dipoles,freq=None,eqpop=None,cent=None,spec_type='abs',units_type='lineshape',spec_components=None):
-        """This functions is an interface which simply the calculation of spectrum using different options."""
+        """This functions is an interface which simply the calculation of spectrum using different options.
+        
+        Arguments
+        ----------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        eqpop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
+            equilibrium population
+        freq: np.array(dtype = np.float)
+            array of frequencies at which the spectrum is evaluated.
+        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array containing the geometrical centre of each chromophore (needed for CD)
+        spec_type: string
+            if 'abs':  the absorption   spectrum is calculated
+            if 'fluo': the fluorescence spectrum is calculated
+            if 'LD': the linear dichroism spectrum is calculated
+            if 'CD': the circular dichroism spectrum is calculated
+        units_type: string
+            if 'lineshape': the spectrum is not multiplied by any power of the frequency axis
+            if 'OD': the spectrum is multiplied by the frequency axis to some power, according to "spec_type"
+        spec_components: string
+            if 'exciton': the single-exciton contribution to the spectrum is returned
+            if 'site': the single-site contribution to the spectrum is returned
+            if 'None': the total spectrum is returned
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum.
+        spec: np.array(dtype = np.float), shape = (freq.size) or shape = (self.dim,freq.size), depending on spec_components
+            spectrum.        
+        """
         
         #initialize spec type, spec components and units type from input
         if spec_components is None:
