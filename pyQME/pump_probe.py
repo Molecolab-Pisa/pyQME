@@ -19,23 +19,23 @@ class PumpProbeSpectraCalculator():
         double-exciton manifold relaxation tensor class of the type RelTensorDouble. The number of double excitons (rel_tensor_double.dim) must be compatible with the number of single excitons (rel_tensor_single.dim).
     RWA:  np.float
         order of magnitude of frequencies at which the spectrum is evaluated.
-    include_deph_single_real: Boolean
-        if True, the real part of the single exciton manifold dephasing is included, if False the real part isn't included.
-    include_deph_double_real: Boolean
-        if True, the real part of the double exciton manifold dephasing is included, if False the real part isn't included.
-    include_deph_single_imag: Boolean
-        if True, the imaginary part of the single exciton manifold dephasing is included, if False the imaginary part isn't included.
-    include_deph_double_imag: Boolean
-        if True, the imaginary part of the double exciton manifold dephasing is included, if False the imaginary part isn't included.
+    include_zeta_single_real: Boolean
+        if True, the real part of the single exciton manifold zeta is included, if False the real part isn't included.
+    include_zeta_double_real: Boolean
+        if True, the real part of the double exciton manifold zeta is included, if False the real part isn't included.
+    include_zeta_single_imag: Boolean
+        if True, the imaginary part of the single exciton manifold zeta is included, if False the imaginary part isn't included.
+    include_zeta_double_imag: Boolean
+        if True, the imaginary part of the double exciton manifold zeta is included, if False the imaginary part isn't included.
     approximation: string
         approximation used for the lineshape theory.
-        The use of this variable overwrites the use of the "include_deph_single_real","include_deph_double_real",include_deph_single_imag and "include_deph_double_imag" variables.
-        if 'no dephasing', the dephasing isn't included (Redfield theory with diagonal approximation).
+        The use of this variable overwrites the use of the "include_zeta_single_real","include_zeta_double_real",include_zeta_single_imag and "include_zeta_double_imag" variables.
+        if 'no zeta', the zeta isn't included (Redfield theory with diagonal approximation).
         if 'iR', the imaginary Redfield theory is used.
         if 'rR', the real Redfield theory is used.
         if 'cR', the complex Redfield theory is used."""
 
-    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_deph_single_real=True,include_deph_single_imag=True,include_deph_double_real=True,include_deph_double_imag=True,approximation=None):
+    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_zeta_single_real=True,include_zeta_single_imag=True,include_zeta_double_real=True,include_zeta_double_imag=True,approximation=None):
         """This function initializes the class PumpProbeSpectraCalculator."""
         
         #store variables from input
@@ -60,38 +60,38 @@ class PumpProbeSpectraCalculator():
         
         #case 1: custom lineshape theory
         if approximation is None:
-            self.include_deph_single_real = include_deph_single_real
-            self.include_deph_single_imag = include_deph_single_imag
-            self.include_deph_double_real = include_deph_double_real
-            self.include_deph_double_imag = include_deph_double_imag
+            self.include_zeta_single_real = include_zeta_single_real
+            self.include_zeta_single_imag = include_zeta_single_imag
+            self.include_zeta_double_real = include_zeta_double_real
+            self.include_zeta_double_imag = include_zeta_double_imag
             
         #case 2: a default approximation is given
         else:
-            #set the include_deph_* variables according to the approximation used
+            #set the include_zeta_* variables according to the approximation used
             
             if approximation == 'cR':
-                self.include_deph_single_real = True
-                self.include_deph_single_imag = True
-                self.include_deph_double_real = True
-                self.include_deph_double_imag = True
+                self.include_zeta_single_real = True
+                self.include_zeta_single_imag = True
+                self.include_zeta_double_real = True
+                self.include_zeta_double_imag = True
                 
             elif approximation == 'rR':
-                self.include_deph_single_real = True
-                self.include_deph_single_imag = False
-                self.include_deph_double_real = True
-                self.include_deph_double_imag = False
+                self.include_zeta_single_real = True
+                self.include_zeta_single_imag = False
+                self.include_zeta_double_real = True
+                self.include_zeta_double_imag = False
             
             elif approximation == 'iR':
-                self.include_deph_single_real = False
-                self.include_deph_single_imag = True
-                self.include_deph_double_real = False
-                self.include_deph_double_imag = True
+                self.include_zeta_single_real = False
+                self.include_zeta_single_imag = True
+                self.include_zeta_double_real = False
+                self.include_zeta_double_imag = True
                 
-            elif approximation == 'no dephasing':
-                self.include_deph_single_real = False
-                self.include_deph_single_imag = False
-                self.include_deph_double_real = False
-                self.include_deph_double_imag = False
+            elif approximation == 'no zeta':
+                self.include_zeta_single_real = False
+                self.include_zeta_single_imag = False
+                self.include_zeta_double_real = False
+                self.include_zeta_double_imag = False
             else:
                 raise NotImplementedError
                 
@@ -121,35 +121,38 @@ class PumpProbeSpectraCalculator():
         self.freq = freq
         pass
         
-    def _get_dephasing(self):
-        "This function gets the dephasing lifetime rates in cm from tensor."
+    def _get_zeta(self):
+        "This function gets the zeta in cm from tensor."
         
-        #get the real and imaginary part of the complex dephasing
-        self.deph_a = self.rel_tensor_single.get_dephasing()
-        self.deph_q = self.rel_tensor_double.get_dephasing()
+        t = self.time
         
-        #if specified,neglect the real part of the dephasing in the single-exciton manifold
-        if not self.include_deph_single_real:
-            self.deph_a.real = 0.
+        #get the real and imaginary part of the complex zeta
+        self.zeta_a = self.rel_tensor_single.get_zeta()
+        deph_q = self.rel_tensor_double.get_dephasing()
+        self.zeta_q = np.einsum('q,t->qt',deph_q,t)
         
-        #if specified,neglect the imaginary part of the dephasing in the single-exciton manifold
-        if not self.include_deph_single_imag:
-            self.deph_a.imag = 0.
+        #if specified,neglect the real part of the zeta in the single-exciton manifold
+        if not self.include_zeta_single_real:
+            self.zeta_a.real = 0.
+        
+        #if specified,neglect the imaginary part of the zeta in the single-exciton manifold
+        if not self.include_zeta_single_imag:
+            self.zeta_a.imag = 0.
 
-        #if specified,neglect the real part of the dephasing in the double-exciton manifold
-        if not self.include_deph_double_real:
-            self.deph_q.real = 0.
+        #if specified,neglect the real part of the zeta in the double-exciton manifold
+        if not self.include_zeta_double_real:
+            self.zeta_q.real = 0.
 
-        #if specified,neglect the imaginary part of the dephasing in the double-exciton manifold
-        if not self.include_deph_double_imag:
-            self.deph_q.imag = 0.
+        #if specified,neglect the imaginary part of the zeta in the double-exciton manifold
+        if not self.include_zeta_double_imag:
+            self.zeta_q.imag = 0.
             
-        #compute the dephasing terms associated to transition from single to double excitons
-        deph_aq = np.zeros([self.dim_single,self.dim_double],dtype=np.complex128)
+        #compute the zeta terms associated to transition from single to double excitons
+        zeta_aq = np.zeros([self.dim_single,self.dim_double,t.size],dtype=np.complex128)
         for q in range(self.dim_double): #double exciton
             for a in range(self.dim_single):
-                deph_aq[a,q] = np.conj(self.deph_a[a]) + self.deph_q[q]
-        self.deph_aq = deph_aq
+                zeta_aq[a,q] = np.conj(self.zeta_a[a]) + self.zeta_q[q]
+        self.zeta_aq = zeta_aq
         
     def _calc_w_aq(self):
         "This function computes and stores the excitation energy from single to double exciton manifold."
@@ -210,8 +213,8 @@ class PumpProbeSpectraCalculator():
         self.g_q = self.rel_tensor_double.get_g_q()
         self._calc_g_aq()
         
-        #dephasing
-        self._get_dephasing()
+        #zeta
+        self._get_zeta()
 
         #get the frequency axis from the time axis using FFT, if hasn't been done yet
         if not hasattr(self,'freq'):
@@ -259,31 +262,31 @@ class PumpProbeSpectraCalculator():
 
         lambda_aq = self.lambda_aq
                 
-        deph_a = self.deph_a
-        deph_aq = self.deph_aq
+        zeta_a = self.zeta_a
+        zeta_aq = self.zeta_aq
         
         #GSB LINESHAPE
         W_GSB_a = np.empty([dim_single,self_freq.size])
         for a in range(dim_single):
-            exponent = (1j*(-w_a[a]+RWA)-deph_a[a])*t - g_a[a]
+            exponent = (1j*(-w_a[a]+RWA))*t - g_a[a] - zeta_a[a]
             D = np.exp(exponent)
             integrand = d2_a[a]*D
             
             #switch from time to frequency domain using hermitian FFT (-> real output)
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
-            W_GSB_a[a] = integral * self_freq* factOD
+            W_GSB_a[a] = integral
         
         #SE LINESHAPE
         W_SE_a = np.empty([dim_single,self_freq.size])
         for a in range(dim_single):
             e0_a = w_a[a] - 2*lambda_a[a]
-            exponent = (1j*(-e0_a+RWA)-deph_a[a])*t - g_a[a].conj()
+            exponent = (1j*(-e0_a+RWA))*t - g_a[a].conj()-zeta_a[a]
             W = np.exp(exponent)
             integrand = d2_a[a]*W
             
             #switch from time to frequency domain using hermitian FFT (-> real output)
             integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
-            W_SE_a[a] = integral * self_freq * factOD
+            W_SE_a[a] = integral 
         
         #ESA LINESHAPE
         W_ESA_a = np.zeros([dim_single,self_freq.size])
@@ -291,21 +294,21 @@ class PumpProbeSpectraCalculator():
         for a in range(dim_single):
             for q in range(dim_double):
                 e0_qa =  w_aq[a,q] + 2*(lambda_a[a]-lambda_aq[a,q])
-                exponent = (1j*(-e0_qa+RWA)-deph_aq[a,q])*t - g_a[a] - g_q[q] + 2*g_aq[a,q]
+                exponent = (1j*(-e0_qa+RWA))*t - g_a[a] - g_q[q] + 2*g_aq[a,q] - zeta_aq[a,q]
                 Wp = np.exp(exponent)
                 integrand = d2_qa[q,a]*Wp
                 
                 #switch from time to frequency domain using hermitian FFT (-> real output)
                 integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))
-                self.W_ESA_aq[a,q] = integral * self_freq* factOD*factFT
-                W_ESA_a[a] = W_ESA_a[a] + integral * self_freq* factOD*factFT
+                self.W_ESA_aq[a,q] = integral*factFT
+                W_ESA_a[a] = W_ESA_a[a] + integral*factFT
 
         
         self.W_GSB_a = W_GSB_a
         self.W_SE_a = W_SE_a
         self.W_ESA_a = W_ESA_a
              
-    def get_pump_probe(self,pop_t,freq=None):
+    def get_pump_probe_spec(self,pop_t,freq=None,dipoles=None):
         """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
         
         Arguments
@@ -325,6 +328,9 @@ class PumpProbeSpectraCalculator():
         
         pop_tot = np.sum(pop_t[0]) #fraction of excited population created by the pump pulse
         time_axis_prop_size = pop_t.shape[0]
+        
+        if not hasattr(self,'W_GSB_a') or not hasattr(self,'W_SE_a') or not hasattr(self,'W_ESA_a'):
+            self.calc_components_lineshape(dipoles=dipoles)
         
         #compute the component of the pump-probe spectra at different delay times according to the population dynamics provided
         self.GSB = -np.sum(self.W_GSB_a,axis=0)*pop_tot
@@ -374,7 +380,33 @@ class PumpProbeSpectraCalculator():
         else:
             return self.freq,self.GSB,self.SE,self.ESA,self.PP
         
-    def get_pump_probe_a(self,pop_t,freq=None):
+    def get_pump_probe(self,pop_t,freq=None,dipoles=None):
+        """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
+        
+        Arguments
+        ---------
+        pop_t: np.array(dtype = np.float), shape = (time.size,rel_tensor_single.dim)
+            exciton populations at different delay time.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        GSB,SE,ESA,PP: np.array(dtype = np.float), shape = (time.size,freq.size)
+            components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
+        
+        
+        freq,GSB,SE,ESA,PP = self.get_pump_probe_spec(pop_t,freq=freq,dipoles=dipoles)
+        GSB *= freq*factOD
+        SE *= freq*factOD
+        ESA *= freq*factOD
+        PP *= freq*factOD
+        return freq,GSB,SE,ESA,PP
+        
+    def get_pump_probe_a(self,pop_t,freq=None,dipoles=None):
         """This function computes the pump-probe spectrum separately for each exciton. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
         
         Arguments
@@ -395,6 +427,9 @@ class PumpProbeSpectraCalculator():
         pop_tot = np.sum(pop_t[0]) #fraction of excited population created by the pump pulse
         time_axis_prop_size = pop_t.shape[0]
         
+        if not hasattr(self,'W_GSB_a') or not hasattr(self,'W_SE_a') or not hasattr(self,'W_ESA_a'):
+            self.calc_components_lineshape(dipoles=dipoles)
+            
         #compute the component of the pump-probe spectra for each exciton separately at different delay times according to the population dynamics provided
         self.GSB_a = - self.W_GSB_a*pop_tot
         self.SE_a = - np.einsum('ta,aw->atw',pop_t,self.W_SE_a)

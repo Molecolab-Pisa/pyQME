@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.integrate import simps
 from scipy.special import comb
+from scipy.interpolate import UnivariateSpline
+from .linear_spectra import LinearSpectraCalculator
+from .spectral_density import SpectralDensity
 from scipy.linalg import expm,logm
 
 wn2ips = 0.188495559215 #conversion factor from ps to cm
@@ -535,6 +538,193 @@ def transform_back(arr,H,ndim=None):
     See "transform" function for input and output."""
 
     return transform(arr,H,ndim=ndim,inverse=True)
+
+def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_type,freq_axis_spec,eqpop=None,cent=None,approx=None,SD_id_list=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_spec_low_high=False):
+    """This function computes the absorption spectrum treating as localized one part of the spectral density.
+
+    Arguments
+    ---------
+    SDobj_delocalized: Class
+        class of the type SpectralDensity containing the part of spectral density which should be treated as delocalized
+    SDobj_localized: Class
+        class of the type SpectralDensity containing the part of spectral density which should be treated as localized
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    dipoles: np.array(dtype = np.float), shape = (n_site,3)
+        array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+    eqpop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
+        equilibrium population
+    cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+        array containing the geometrical centre of each chromophore (needed for CD)
+    rel_tensor: Class
+        class of the type RelTensor used to calculate the component of the spectrum.
+    freq_axis_spec: np.array(dtype = np.float)
+        array of frequencies at which the spectrum is evaluated in cm^-1.
+    approx: string
+        approximation used for the lineshape theory.
+        if 'no zeta', the zeta isn't included (Redfield theory with diagonal approximation).
+        if 'iR', the imaginary Redfield theory is used.
+        if 'rR', the real Redfield theory is used.
+        if 'cR', the complex Redfield theory is used.
+    dephasing_localized:
+        np.array(dtype = np.float), shape = (n_site) or
+        np.array(dtype = np.complex128), shape = (n_site) or
+        np.float or
+        np.complex128
+        dephasing used to broaden the spectrum component due to the localized part
+    spec_type: string
+        if 'abs':  the absorption   spectrum is calculated
+        if 'fluo': the fluorescence spectrum is calculated
+        if 'LD': the linear dichroism spectrum is calculated
+        if 'CD': the circular dichroism spectrum is calculated
+    units_type: string
+        if 'lineshape': the spectrum is not multiplied by any power of the frequency axis
+        if 'OD': the spectrum is multiplied by the frequency axis to some power, according to "spec_type"
+    spec_components: string
+        if 'exciton': the single-exciton contribution to the spectrum is returned
+        if 'site': the single-site contribution to the spectrum is returned
+        if 'None': the total spectrum is returned
+    threshold_fact: np.float
+        the localized part of the spectrum will be set to zero where the delocalized part of the spectrum is greater than the maximum of the delocalized part of the spectrum multiplied by threshold_fact
+        
+    Returns
+    -------
+    freq: np.array(dtype = np.float), shape = (freq.size)
+        frequency axis of the spectrum in cm^-1.
+    spec: np.array(dtype = np.float)
+        spectrum."""
+        
+    nchrom = H.shape[0]
+        
+    #initialize dephasing for the localized part from input 
+    if dephasing_localized is None:
+        dephasing_localized = np.zeros([nchrom],dtype=np.complex128)
+    else:
+        if dephasing_localized.size == 1:
+            dephasing_localized = np.zeros([nchrom],dtype=np.complex128) + dephasing_localized
+        elif not(dephasing_localized.size == nchrom):
+            raise ValueError('dephasing_localized must be a single value or a np.array of size n_site.')
+                
+    #initialize spectral densities from input
+    
+    #make sure that all SD objects have the same frequency axis
+    if np.all(SDobj_delocalized.w == SDobj_localized.w):
+        w = SDobj_delocalized.w.copy()
+        SD_data = SDobj_delocalized.SD.copy() + SDobj_localized.SD.copy()
+    else:
+        w_min = min(SDobj_delocalized.w.min(),SDobj_localized.w.min())
+        w_max = max(SDobj_delocalized.w.max(),SDobj_localized.w.max())
+        
+        dw_delocalized = SDobj_delocalized.w[1]-SDobj_delocalized.w[0]
+        dw_localized = SDobj_localized.w[1]-SDobj_localized.w[0]
+        dw    = min(dw_delocalized,dw_localized)
+        
+        w = np.arange(w_min,w_max,dw)
+        SD_data  = UnivariateSpline(SDobj_delocalized.w,SDobj_delocalized.SD,k=1,s=0.)(w)
+        SD_data += UnivariateSpline(SDobj_localized.w,SDobj_localized.SD,k=1,s=0.)(w)
+        
+    #make sure that all SD objects have the same time axis
+    if np.all(SDobj_delocalized.time == SDobj_localized.time):
+        time = SDobj_delocalized.time.copy()
+    else:
+        t_min = min(SDobj_delocalized.time.min(),SDobj_localized.time.min())
+        t_max = max(SDobj_delocalized.time.max(),SDobj_localized.time.max())
+        
+        dt_delocalized = SDobj_delocalized.time[1]-SDobj_delocalized.time[0]
+        dt_localized = SDobj_localized.time[1]-SDobj_localized.time[0]
+        dt    = min(dt_delocalized,dt_localized)
+        
+        time = np.arange(w_min,t_max,dt)
+
+    if SDobj_delocalized.temperature == SDobj_localized.temperature:        
+        SDobj = SpectralDensity(w,SD_data,temperature=SDobj_localized.temperature)
+        SDobj.time = time
+    else:
+        raise ValueError('The temperature of the delocalized and localized spectral densities must match!')        
+        
+    if freq_axis_spec is None:
+        w_min = np.diag(H).min() - SDobj.Reorg.max()
+        w_max = np.diag(H).max() - SDobj.Reorg.max()
+        freq_axis_spec = np.arange(w_min,w_max,1.)
+        
+    #initialize relaxation tensor
+    rel_tens = tensor_type(H,SDobj,SD_id_list=SD_id_list)    
+    
+    #partition dipoles
+    SD_id_list = rel_tens.SD_id_list
+    HR_high_list = np.asarray([SDobj_localized.Huang_Rhys[SD_idx] for SD_idx in SD_id_list])
+    reorg_high_list = np.asarray([SDobj_localized.Reorg[SD_idx] for SD_idx in SD_id_list])
+    exp = np.exp(-0.5*HR_high_list)
+    
+    dipoles_low = dipoles*exp[:,np.newaxis]
+    dipoles_high = dipoles*np.sqrt((1 - exp[:,np.newaxis]**2))    
+    
+    #partition Hamiltonian
+    H_diag = np.diag(np.diag(H))
+
+    H_no_localized_part = np.zeros_like(H)
+    for i in range(nchrom):
+        H_no_localized_part[i,i] = H[i,i] - reorg_high_list[i]
+        for j in range(nchrom):
+            if not i==j:
+                H_no_localized_part[i,j] = H[i,j]*exp[i]*exp[j]
+    
+    #for each spectrum contribution, create tensor object, spectrum object and calculate the spectrum
+    
+    #to set to zero the sideband spectrum, where the 0-0 localized band is greater than a threshold, we need the single exciton (or site) contribution to the spectrum
+    if spec_components is None:
+        spec_components_threshold = 'exciton'
+    else:
+        spec_components_threshold = spec_components
+        
+    #first contribution to the spectrum: delocalized 0-0 band without sideband
+    tensor_low = tensor_type(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
+    spec_obj_low = LinearSpectraCalculator(tensor_low,approximation=approx)
+    freq_axis_spec,spec_low  = spec_obj_low.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eqpop=eqpop,cent=cent)
+            
+    #second contribution to the spectrum: localized 0-0 band without sideband
+    _,gdot = SDobj_localized.get_gt(derivs=1)
+    reorg_high_list_imag = np.asarray([-gdot[SD_ID,-1].imag for SD_ID in SD_id_list])
+    reorg_high_list_real = np.asarray([gdot[SD_ID,-1].real for SD_ID in SD_id_list])
+    tensor_low_no_coup = tensor_type(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
+    tensor_low_no_coup.dephasing = dephasing_localized + reorg_high_list_real
+    spec_obj_low_no_coup = LinearSpectraCalculator(tensor_low_no_coup,approximation=approx)
+    freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eqpop=eqpop,cent=cent)
+    
+    #third contribution to the spectrum: localized 0-0 band + localized sideband
+    tensor_diag = tensor_type(H_diag,SDobj,SD_id_list=SD_id_list)
+    tensor_diag.dephasing = dephasing_localized
+    spec_obj_diag = LinearSpectraCalculator(tensor_diag,approximation=approx)
+    freq_axis_spec,spec_diag = spec_obj_diag.get_spectrum(dipoles,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eqpop=eqpop,cent=cent)
+    
+    #localized sideband
+    spec_high = spec_diag - spec_low_no_coup
+    
+    #sometimes, for numerical reasons, the localized 0-0 band doesn't cancel perfectly, so we make sure that this happens, exciton by exciton
+    #to do so, we set to zero the sideband spectrum, where the 0-0 localized band is greater than a threshold
+    for a in range(nchrom):
+        if np.any(spec_low_no_coup[a]<-1e-3):
+            mask = spec_low_no_coup[a] > threshold_fact*spec_low_no_coup[a].max()
+            sideband_and_00_overlap_is_zero = True #FIXME IMPLEMENT THIS CHECK: if w_vib is small, we cannot just set the spec_high[a,mask] = 0.
+            if sideband_and_00_overlap_is_zero:
+                spec_high[a,mask] = 0.
+            else:
+                raise NotImplementedError
+            
+    #sum over excitons
+    if spec_components is None:
+        spec_high = spec_high.sum(axis=0)
+        spec_low_no_coup = spec_low_no_coup.sum(axis=0)
+        spec_diag = spec_diag.sum(axis=0)
+        spec_low = spec_low.sum(axis=0)
+    
+    #calculate the resulting spectrum
+    spec = spec_low + spec_high
+    
+    if return_spec_low_high:
+        return freq_axis_spec,spec_low,spec_high,spec
+    else:
+        return freq_axis_spec,spec
 
 def clusterize_rates(rates,clusters,time_step):
     """

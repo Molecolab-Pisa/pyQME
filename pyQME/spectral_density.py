@@ -1,7 +1,7 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
 import scipy.fftpack as fftpack
-from .utils import Kb
+Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 
 def _do_ifft_complete(omega,spec,t):
     """This function performs inverse FT, spec(omega) -> x(t), where spec(omega) is defined over a *symmetric* range around 0, and time axis could be anything.
@@ -294,7 +294,7 @@ class SpectralDensity():
         self.Ct = np.asarray(Ct_list)
         pass
         
-    def get_Ct(self):
+    def get_Ct(self,time_axis=None):
         """This function computes and returns the correlation function of the spectral densities.
         
         Returns
@@ -302,9 +302,14 @@ class SpectralDensity():
         self.Ct: np.array(dtype=np.complex), shape = (self.time.size)
             correlation functions of the spectral densities."""
         
-        if not hasattr(self,'gt'):
+        if time_axis is None:
+            if not hasattr(self,'gt'):
+                self._calc_Ct()
+            return self.Ct
+        else:
+            self.time = time_axis
             self._calc_Ct()
-        return self.Ct
+            return self.Ct
                 
                     
     def _calc_gt(self):
