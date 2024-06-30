@@ -1,7 +1,6 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
 import scipy.fftpack as fftpack
-
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 
 def _do_ifft_complete(omega,spec,t):
