@@ -562,7 +562,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         array of frequencies at which the spectrum is evaluated in cm^-1.
     approx: string
         approximation used for the lineshape theory.
-        if 'no zeta', the zeta isn't included (Redfield theory with diagonal approximation).
+        if 'no xi', the xi isn't included (Redfield theory with diagonal approximation).
         if 'iR', the imaginary Redfield theory is used.
         if 'rR', the real Redfield theory is used.
         if 'cR', the complex Redfield theory is used.

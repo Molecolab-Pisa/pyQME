@@ -121,8 +121,8 @@ class ForsterTensor(RelTensor):
         self.dephasing = dephasing
         
 
-    def get_zeta(self):
+    def get_xi(self):
         if not hasattr(self,'dephasing'):
             self._calc_dephasing()
-        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
-        return zeta_at
+        xi_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return xi_at

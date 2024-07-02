@@ -19,23 +19,23 @@ class PumpProbeSpectraCalculator():
         double-exciton manifold relaxation tensor class of the type RelTensorDouble. The number of double excitons (rel_tensor_double.dim) must be compatible with the number of single excitons (rel_tensor_single.dim).
     RWA:  np.float
         order of magnitude of frequencies at which the spectrum is evaluated.
-    include_zeta_single_real: Boolean
-        if True, the real part of the single exciton manifold zeta is included, if False the real part isn't included.
-    include_zeta_double_real: Boolean
-        if True, the real part of the double exciton manifold zeta is included, if False the real part isn't included.
-    include_zeta_single_imag: Boolean
-        if True, the imaginary part of the single exciton manifold zeta is included, if False the imaginary part isn't included.
-    include_zeta_double_imag: Boolean
-        if True, the imaginary part of the double exciton manifold zeta is included, if False the imaginary part isn't included.
+    include_xi_single_real: Boolean
+        if True, the real part of the single exciton manifold xi is included, if False the real part isn't included.
+    include_xi_double_real: Boolean
+        if True, the real part of the double exciton manifold xi is included, if False the real part isn't included.
+    include_xi_single_imag: Boolean
+        if True, the imaginary part of the single exciton manifold xi is included, if False the imaginary part isn't included.
+    include_xi_double_imag: Boolean
+        if True, the imaginary part of the double exciton manifold xi is included, if False the imaginary part isn't included.
     approximation: string
         approximation used for the lineshape theory.
-        The use of this variable overwrites the use of the "include_zeta_single_real","include_zeta_double_real",include_zeta_single_imag and "include_zeta_double_imag" variables.
-        if 'no zeta', the zeta isn't included (Redfield theory with diagonal approximation).
+        The use of this variable overwrites the use of the "include_xi_single_real","include_xi_double_real",include_xi_single_imag and "include_xi_double_imag" variables.
+        if 'no xi', the xi isn't included (Redfield theory with diagonal approximation).
         if 'iR', the imaginary Redfield theory is used.
         if 'rR', the real Redfield theory is used.
         if 'cR', the complex Redfield theory is used."""
 
-    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_zeta_single_real=True,include_zeta_single_imag=True,include_zeta_double_real=True,include_zeta_double_imag=True,approximation=None):
+    def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_xi_single_real=True,include_xi_single_imag=True,include_xi_double_real=True,include_xi_double_imag=True,approximation=None):
         """This function initializes the class PumpProbeSpectraCalculator."""
         
         #store variables from input
@@ -60,38 +60,38 @@ class PumpProbeSpectraCalculator():
         
         #case 1: custom lineshape theory
         if approximation is None:
-            self.include_zeta_single_real = include_zeta_single_real
-            self.include_zeta_single_imag = include_zeta_single_imag
-            self.include_zeta_double_real = include_zeta_double_real
-            self.include_zeta_double_imag = include_zeta_double_imag
+            self.include_xi_single_real = include_xi_single_real
+            self.include_xi_single_imag = include_xi_single_imag
+            self.include_xi_double_real = include_xi_double_real
+            self.include_xi_double_imag = include_xi_double_imag
             
         #case 2: a default approximation is given
         else:
-            #set the include_zeta_* variables according to the approximation used
+            #set the include_xi_* variables according to the approximation used
             
             if approximation == 'cR':
-                self.include_zeta_single_real = True
-                self.include_zeta_single_imag = True
-                self.include_zeta_double_real = True
-                self.include_zeta_double_imag = True
+                self.include_xi_single_real = True
+                self.include_xi_single_imag = True
+                self.include_xi_double_real = True
+                self.include_xi_double_imag = True
                 
             elif approximation == 'rR':
-                self.include_zeta_single_real = True
-                self.include_zeta_single_imag = False
-                self.include_zeta_double_real = True
-                self.include_zeta_double_imag = False
+                self.include_xi_single_real = True
+                self.include_xi_single_imag = False
+                self.include_xi_double_real = True
+                self.include_xi_double_imag = False
             
             elif approximation == 'iR':
-                self.include_zeta_single_real = False
-                self.include_zeta_single_imag = True
-                self.include_zeta_double_real = False
-                self.include_zeta_double_imag = True
+                self.include_xi_single_real = False
+                self.include_xi_single_imag = True
+                self.include_xi_double_real = False
+                self.include_xi_double_imag = True
                 
-            elif approximation == 'no zeta':
-                self.include_zeta_single_real = False
-                self.include_zeta_single_imag = False
-                self.include_zeta_double_real = False
-                self.include_zeta_double_imag = False
+            elif approximation == 'no xi':
+                self.include_xi_single_real = False
+                self.include_xi_single_imag = False
+                self.include_xi_double_real = False
+                self.include_xi_double_imag = False
             else:
                 raise NotImplementedError
                 
@@ -121,38 +121,38 @@ class PumpProbeSpectraCalculator():
         self.freq = freq
         pass
         
-    def _get_zeta(self):
-        "This function gets the zeta in cm from tensor."
+    def _get_xi(self):
+        "This function gets the xi in cm from tensor."
         
         t = self.time
         
-        #get the real and imaginary part of the complex zeta
-        self.zeta_a = self.rel_tensor_single.get_zeta()
+        #get the real and imaginary part of the complex xi
+        self.xi_a = self.rel_tensor_single.get_xi()
         deph_q = self.rel_tensor_double.get_dephasing()
-        self.zeta_q = np.einsum('q,t->qt',deph_q,t)
+        self.xi_q = np.einsum('q,t->qt',deph_q,t)
         
-        #if specified,neglect the real part of the zeta in the single-exciton manifold
-        if not self.include_zeta_single_real:
-            self.zeta_a.real = 0.
+        #if specified,neglect the real part of the xi in the single-exciton manifold
+        if not self.include_xi_single_real:
+            self.xi_a.real = 0.
         
-        #if specified,neglect the imaginary part of the zeta in the single-exciton manifold
-        if not self.include_zeta_single_imag:
-            self.zeta_a.imag = 0.
+        #if specified,neglect the imaginary part of the xi in the single-exciton manifold
+        if not self.include_xi_single_imag:
+            self.xi_a.imag = 0.
 
-        #if specified,neglect the real part of the zeta in the double-exciton manifold
-        if not self.include_zeta_double_real:
-            self.zeta_q.real = 0.
+        #if specified,neglect the real part of the xi in the double-exciton manifold
+        if not self.include_xi_double_real:
+            self.xi_q.real = 0.
 
-        #if specified,neglect the imaginary part of the zeta in the double-exciton manifold
-        if not self.include_zeta_double_imag:
-            self.zeta_q.imag = 0.
+        #if specified,neglect the imaginary part of the xi in the double-exciton manifold
+        if not self.include_xi_double_imag:
+            self.xi_q.imag = 0.
             
-        #compute the zeta terms associated to transition from single to double excitons
-        zeta_aq = np.zeros([self.dim_single,self.dim_double,t.size],dtype=np.complex128)
+        #compute the xi terms associated to transition from single to double excitons
+        xi_aq = np.zeros([self.dim_single,self.dim_double,t.size],dtype=np.complex128)
         for q in range(self.dim_double): #double exciton
             for a in range(self.dim_single):
-                zeta_aq[a,q] = np.conj(self.zeta_a[a]) + self.zeta_q[q]
-        self.zeta_aq = zeta_aq
+                xi_aq[a,q] = np.conj(self.xi_a[a]) + self.xi_q[q]
+        self.xi_aq = xi_aq
         
     def _calc_w_aq(self):
         "This function computes and stores the excitation energy from single to double exciton manifold."
@@ -213,8 +213,8 @@ class PumpProbeSpectraCalculator():
         self.g_q = self.rel_tensor_double.get_g_q()
         self._calc_g_aq()
         
-        #zeta
-        self._get_zeta()
+        #xi
+        self._get_xi()
 
         #get the frequency axis from the time axis using FFT, if hasn't been done yet
         if not hasattr(self,'freq'):
@@ -262,13 +262,13 @@ class PumpProbeSpectraCalculator():
 
         lambda_aq = self.lambda_aq
                 
-        zeta_a = self.zeta_a
-        zeta_aq = self.zeta_aq
+        xi_a = self.xi_a
+        xi_aq = self.xi_aq
         
         #GSB LINESHAPE
         W_GSB_a = np.empty([dim_single,self_freq.size])
         for a in range(dim_single):
-            exponent = (1j*(-w_a[a]+RWA))*t - g_a[a] - zeta_a[a]
+            exponent = (1j*(-w_a[a]+RWA))*t - g_a[a] - xi_a[a]
             D = np.exp(exponent)
             integrand = d2_a[a]*D
             
@@ -280,7 +280,7 @@ class PumpProbeSpectraCalculator():
         W_SE_a = np.empty([dim_single,self_freq.size])
         for a in range(dim_single):
             e0_a = w_a[a] - 2*lambda_a[a]
-            exponent = (1j*(-e0_a+RWA))*t - g_a[a].conj()-zeta_a[a]
+            exponent = (1j*(-e0_a+RWA))*t - g_a[a].conj()-xi_a[a]
             W = np.exp(exponent)
             integrand = d2_a[a]*W
             
@@ -294,7 +294,7 @@ class PumpProbeSpectraCalculator():
         for a in range(dim_single):
             for q in range(dim_double):
                 e0_qa =  w_aq[a,q] + 2*(lambda_a[a]-lambda_aq[a,q])
-                exponent = (1j*(-e0_qa+RWA))*t - g_a[a] - g_q[q] + 2*g_aq[a,q] - zeta_aq[a,q]
+                exponent = (1j*(-e0_qa+RWA))*t - g_a[a] - g_q[q] + 2*g_aq[a,q] - xi_aq[a,q]
                 Wp = np.exp(exponent)
                 integrand = d2_qa[q,a]*Wp
                 

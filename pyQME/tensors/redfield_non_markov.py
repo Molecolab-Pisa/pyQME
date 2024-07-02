@@ -188,7 +188,7 @@ class RedfieldTensorNonMarkov(RelTensor):
         
         return RTen_secular
     
-    def get_zeta(self):
+    def get_xi(self):
         """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
         
         Arguments
@@ -196,11 +196,11 @@ class RedfieldTensorNonMarkov(RelTensor):
         secularize: Boolean
             if True, the relaxation tensor is secularized"""
         
-        if not hasattr(self,'zeta_at'):
-            self._calc_zeta()    
-        return self.zeta_at
+        if not hasattr(self,'xi_at'):
+            self._calc_xi()    
+        return self.xi_at
     
-    def _calc_zeta(self,time_axis=None):
+    def _calc_xi(self,time_axis=None):
         """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
         
         Arguments
@@ -208,10 +208,10 @@ class RedfieldTensorNonMarkov(RelTensor):
         secularize: Boolean
             if True, the relaxation tensor is secularized"""
         
-        zeta_at = self._calc_redfield_zeta(time_axis=time_axis)
-        self.zeta_at = zeta_at
+        xi_at = self._calc_redfield_xi(time_axis=time_axis)
+        self.xi_at = xi_at
         
-    def _calc_redfield_zeta(self,time_axis=None):
+    def _calc_redfield_xi(self,time_axis=None):
         
         nchrom = self.dim
         self._calc_weight_aabb()
@@ -236,10 +236,10 @@ class RedfieldTensorNonMarkov(RelTensor):
             for b in range(nchrom):
                 if not a==b:
                         rates_at[a] += rates_abt[a,b]
-        zeta_at = np.zeros([nchrom,time_axis.size],dtype=np.complex128)
-        zeta_at[:,1:] += cumtrapz(rates_at,x=time_axis)
+        xi_at = np.zeros([nchrom,time_axis.size],dtype=np.complex128)
+        xi_at[:,1:] += cumtrapz(rates_at,x=time_axis)
         
-        return zeta_at
+        return xi_at
         
         
     def _propagate_exp(self,rho,t,include_coh=True):

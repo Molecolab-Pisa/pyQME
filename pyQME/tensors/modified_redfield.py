@@ -157,11 +157,11 @@ class ModifiedRedfieldTensor(RelTensor):
         else:
             return -0.5*np.diag(self._calc_redfield_rates())
         
-    def get_zeta(self):
+    def get_xi(self):
         if not hasattr(self,'dephasing'):
             self._calc_dephasing()
-        zeta_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
-        return zeta_at
+        xi_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return xi_at
 
 
 def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis):
