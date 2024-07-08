@@ -84,6 +84,40 @@ class RelTensor():
         else:
             self.ene, self.U = np.linalg.eigh(self.H)
 
+    def _diagonalize_ham_block(self):
+        "This function diagonalizes the Hamiltonian and stores its eigenvalues (exciton energies) and eigenvectors."
+        
+        if not hasattr(self,'clusters'):
+            raise ValueError('Clusters must be provided as input if block diagonalization is required!')
+
+        
+        #if required, subtract the fraction of reorganization energies given by the self.specden_adiabatic from the site energies before the diagonalization of the excitonic Hamiltonian
+        if hasattr(self,'specden_adiabatic'):
+            raise NotImplementedError
+            
+        #standard Hamiltonian diagonalization
+        else:
+            self.ene = np.empty(0)
+            U = []
+            
+            #diagonalize each block and collect eigenvectors and eigenvalues
+            for cluster in self.clusters:
+                n_cluster = len(cluster)
+                H_cluster = np.zeros([n_cluster,n_cluster])
+                for count_i,i in enumerate(cluster):
+                    for count_j,j in enumerate(cluster):
+                        H_cluster[count_i,count_j] = self.H[i,j]
+                ene_cluster,U_cluster = np.linalg.eigh(H_cluster)
+                U.append(U_cluster)
+                self.ene = np.concatenate((self.ene,ene_cluster))
+            
+            #put togheter all the eigvenvectors blocks
+            self.U = np.zeros([self.dim,self.dim])
+            count = 0
+            for i,U_i in enumerate(U):
+                n_cluster = U_i.shape[0]
+                self.U[count:count+n_cluster,count:count+n_cluster] = U_i
+                count = count + n_cluster
             
     def _calc_X(self):
         "This function computes the matrix self-product of the Hamiltonian eigenvectors that is used when weights are built."
@@ -178,7 +212,7 @@ class RelTensor():
         -------
         arr_transformed: np.array(dtype=type(arr)), shape = np.shape(arr)
             Transformed state or operator"""
-            
+        
         if ndim is None:
             ndim = arr.ndim
         SS = self.U

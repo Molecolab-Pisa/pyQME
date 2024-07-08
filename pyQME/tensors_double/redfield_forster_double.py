@@ -31,7 +31,7 @@ class RedfieldForsterTensorDouble(RedfieldTensorDouble):
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False,clusters=None):
         "This function handles the variables which are initialized to the main RedfieldTensorRealDouble Class."
         
         self.V,pairs = _get_H_double(V)
@@ -39,6 +39,12 @@ class RedfieldForsterTensorDouble(RedfieldTensorDouble):
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_exponential_term = include_exponential_term
         
+        #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
+        if clusters is not None:
+            self.clusters = clusters
+        if hasattr(self,'clusters'):
+            self._diagonalize_ham = self._diagonalize_ham_block
+            
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic)

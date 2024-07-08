@@ -29,19 +29,31 @@ class RedfieldForsterTensor(RedfieldTensor):
         if True, the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
     include_exponential_term: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
-        if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates."""
+        if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates.
+    clusters: list
+        List of clusters. Each element must be a list of indices of chromophores in the same cluster.
+        Maximum length: n_chrom
+        If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
+        If not provided, the Hamiltonian will be fully diagonalized
+    """
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False,clusters=None):
         "This function handles the variables which are initialized to the main RedfieldTensor Class"
         
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_exponential_term = include_exponential_term
         
+        #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
+        if clusters is not None:
+            self.clusters = clusters
+        if hasattr(self,'clusters'):
+            self._diagonalize_ham = self._diagonalize_ham_block
+        
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic)
-    
+        
     @property
     def _redfield_dephasing(self):
         """This function returns the dephasing induced by Redfield EET processes
@@ -62,7 +74,6 @@ class RedfieldForsterTensor(RedfieldTensor):
         gt_exc = self.get_g_a()
         Reorg_exc = self.get_lambda_a()
         self.V_exc = self.transform(self.V)
-        
         if self.include_redfield_dephasing:
             redf_dephasing = self._redfield_dephasing
         else:
@@ -202,13 +213,25 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates.
     damping_tau: np.float
-        standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain."""
+        standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain.
+    clusters: list
+        List of clusters. Each element must be a list of indices of chromophores in the same cluster.
+        Maximum length: n_chrom
+        If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
+        If not provided, the Hamiltonian will be fully diagonalized"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,damping_tau=None):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,damping_tau=None,clusters=None):
         "This function handles the variables which are initialized to the main RedfieldTensor Class"        
         
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
+
+        #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
+        if clusters is not None:
+            self.clusters = clusters
+        if hasattr(self,'clusters'):
+            self._diagonalize_ham = self._diagonalize_ham_block
+            
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic,damping_tau=damping_tau)
@@ -400,14 +423,27 @@ class ModifiedRedfieldForsterTensorNoYang(ModifiedRedfieldTensor):
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates.
     damping_tau: np.float
-        standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain."""
+        standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain.
+    clusters: list
+        List of clusters. Each element must be a list of indices of chromophores in the same cluster.
+        Maximum length: n_chrom
+        If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
+        If not provided, the Hamiltonian will be fully diagonalized"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False,damping_tau=None):
+
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False,damping_tau=None,clusters=None):
         "This function handles the variables which are initialized to the main RedfieldTensor Class"        
         
         self.V = V.copy()
         self.include_redfield_dephasing = include_redfield_dephasing
         self.include_exponential_term = include_exponential_term
+
+        #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
+        if clusters is not None:
+            self.clusters = clusters
+        if hasattr(self,'clusters'):
+            self._diagonalize_ham = self._diagonalize_ham_block
+            
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic,damping_tau=damping_tau)
