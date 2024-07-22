@@ -3,3 +3,4 @@ from .modified_redfield import ModifiedRedfieldTensor
 from .redfield_forster import RedfieldForsterTensor,ModifiedRedfieldForsterTensor
 from .redfield import RedfieldTensor
 from .redfield_non_markov import RedfieldTensorNonMarkov
+from .relaxation_tensor import RelTensor

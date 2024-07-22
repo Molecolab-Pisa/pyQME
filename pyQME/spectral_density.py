@@ -1,6 +1,8 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
 import scipy.fftpack as fftpack
+import psutil
+from tqdm import tqdm
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 
 def _do_ifft_complete(omega,spec,t):
@@ -137,23 +139,26 @@ class SpectralDensity():
             self.Cw = np.asarray([np.concatenate((-SD[::-1],SD)) for SD in self.SD])
         pass
     
-    def _gen_spline_repr(self,imag=True):
+    def _gen_spline_repr(self,imag=True,derivs=0):
         """This function generates spline representations of the spectral densities.
         
         Arguments
         ---------
+        derivs: integer
+            number of calculated derivatives of the imaginary part of the spectral density 
+            
         imag: Bool
-            If true, the spline representations of both real and imaginary parts of SDs are generated.
-            If false, the spline representations of only the real part of SDs is generated.
-               """
+            If True, the spline representations of both real and imaginary parts of SDs are generated.
+            If False, the spline representations of only the real part of SDs is generated."""
         
         #real part
         self.SDfunction_real = [UnivariateSpline(self.omega,ThermalSD_real,s=0) for ThermalSD_real in self.ThermalSD_real]
 
         #imaginary part, if needed 
         if imag:
-            self.SDfunction_imag = [UnivariateSpline(self.omega,ThermalSD_imag,s=0) for ThermalSD_imag in self.ThermalSD_imag]            
-        
+            self.SDfunction_imag = [UnivariateSpline(self.omega,ThermalSD_imag,s=0) for ThermalSD_imag in self.ThermalSD_imag]           
+            if derivs:
+                self.SDfunction_imag_prime =  [SDfunction_imag.derivative() for SDfunction_imag in self.SDfunction_imag]
         pass
     
     def __call__(self,freq,SD_id=None,imag=True):
@@ -202,7 +207,12 @@ class SpectralDensity():
         elif SD_id is not None and not imag:
             SD = self.SDfunction_real[SD_id](freq)
         return SD
-                
+
+    @property
+    def nsds(self):
+        "Number of spectral densities"
+        return self.SD.shape[0]
+    
     @property
     def ThermalSD_real(self):
         """This function computes and returns the real part of the thermal spectral densities.
@@ -386,3 +396,133 @@ class SpectralDensity():
             return self.gt,self.g_dot
         else:
             return self.gt
+
+    def get_Ct_complex_plane(self):
+        if not hasattr(self,'Ct_complex_plane'):
+            self._calc_Ct_complex_plane()
+        return self.Ct_complex_plane
+    
+    def _calc_Ct_complex_plane(self):
+        
+        time_axis = self.time
+        self.time_axis_sym = np.concatenate((-time_axis[:0:-1],time_axis))
+        self.time_axis_0_to_beta = self.time[self.time<=self.beta]
+        Ct_complex_plane = np.zeros([self.nsds,self.time_axis_sym.size,self.time_axis_0_to_beta.size],dtype=np.complex128)
+        for SD_idx in range(self.nsds):
+            Ct_complex_plane[SD_idx] = self._calc_Ct_i_complex_plane(self.SD[SD_idx])
+        self.Ct_complex_plane = Ct_complex_plane
+        
+    def _calc_Ct_i_complex_plane(self,SD):
+        # Get the virtual memory details
+        free_mem_gb = psutil.virtual_memory().available/(1024**3)
+
+        safety_factor = 2.
+
+        #number of arrays stored for each function
+        narrays = 2
+
+        w=self.w
+        time_axis_sym = self.time_axis_sym
+        
+        time_axis_0_to_beta = self.time_axis_0_to_beta
+        mem_req = narrays*array_shape_to_mem_gb((w.size,time_axis_sym.size,time_axis_0_to_beta.size))
+        if free_mem_gb/safety_factor >= mem_req:
+            print('Using _calc_Ct_complex_plane_zero_loops')
+            Ct_complex = self.calc_Ct_complex_plane_zero_loops(SD)
+        else:
+            mem_req = narrays*array_shape_to_mem_gb((w.size,time_axis_sym.size))
+            if free_mem_gb/safety_factor >= mem_req:
+                print('Using _calc_Ct_complex_plane_one_loop_0_to_beta')
+                Ct_complex = self.calc_Ct_complex_plane_one_loop_0_to_beta(SD)
+            else:
+                mem_req = narrays*array_shape_to_mem_gb((w.size,time_axis_0_to_beta.size))
+                if free_mem_gb/safety_factor >= mem_req:
+                    print('Using _calc_Ct_complex_plane_one_loop_0_to_tmax')
+                    Ct_complex = self.calc_Ct_complex_plane_one_loop_0_to_tmax(SD)        
+                else:
+                    print('Using _calc_Ct_complex_plane_two_loops')
+                    Ct_complex = self.calc_Ct_complex_plane_two_loops(SD)
+        return Ct_complex
+
+    def _calc_Ct_complex_plane_zero_loops(self,SD):
+        w=self.w
+        beta=self.beta
+        time_axis_0_to_beta = self.time_axis_0_to_beta
+        time_axis_sym = self.time_axis_sym
+
+        integrand  = np.cosh(w[:,np.newaxis,np.newaxis]*(0.5*beta-1j*(time_axis_sym[np.newaxis,:,np.newaxis]-1j*time_axis_0_to_beta[np.newaxis,np.newaxis,:])))
+        integrand /= np.sinh(0.5*w[:,np.newaxis,np.newaxis]*beta)
+        integrand *= SD[:, np.newaxis, np.newaxis] / (np.pi)
+
+        # Perform the integration using np.trapz along the w axis
+        Ct_complex = np.trapz(integrand, w, axis=0)
+        return Ct_complex
+
+    def calc_Ct_complex_plane_two_loops(self,SD):
+        w=self.w
+        beta=self.beta
+        time_axis_sym = self.time_axis_sym
+        time_axis_0_to_beta = self.time_axis_0_to_beta
+        coth = 1/np.tanh(beta*w/2)
+
+        Ct_complex = np.zeros([time_axis_sym.size,time_axis_0_to_beta.size],dtype=np.complex128)
+        for s_idx,s_i in tqdm(enumerate(time_axis_sym)):
+            for tau_idx,tau_i in enumerate(time_axis_0_to_beta):            
+                integrand  = np.cosh(w*(0.5*beta-1j*(s_i-1j*tau_i)))
+                integrand /= np.sinh(0.5*w*beta)
+                integrand *= SD/np.pi
+                Ct_complex[s_idx,tau_idx] = np.trapz(integrand,w)
+        return Ct_complex
+
+    def calc_Ct_complex_plane_one_loop_0_to_beta(self,SD):
+        w=self.w
+        beta=self.beta
+        time_axis_sym = self.time_axis_sym
+        time_axis_0_to_beta = self.time_axis_0_to_beta
+        coth = 1/np.tanh(beta*w/2)
+
+        Ct_complex = np.zeros([time_axis_sym.size,time_axis_0_to_beta.size],dtype=np.complex128)
+        integrand = np.zeros([w.size,time_axis_sym.size],dtype=np.complex128)
+        for tau_idx,tau_i in enumerate(tqdm(time_axis_0_to_beta)):
+            integrand  = np.cosh(w[:,np.newaxis]*(0.5*beta-1j*(time_axis_sym[np.newaxis,:]-1j*tau_i)))
+            integrand /= np.sinh(0.5*w[:,np.newaxis]*beta)
+            integrand *= SD[:,np.newaxis]/np.pi
+            Ct_complex[:,tau_idx] = np.trapz(integrand,w,axis=0)
+        return Ct_complex
+
+    def calc_Ct_complex_plane_one_loop_0_to_tmax(self,SD):
+        w=self.w
+        beta=self.beta
+        time_axis_sym = self.time_axis_sym
+        time_axis_0_to_beta = self.time_axis_0_to_beta
+        coth = 1/np.tanh(beta*w/2)
+
+        Ct_complex = np.zeros([time_axis_sym.size,time_axis_0_to_beta.size],dtype=np.complex128)
+        integrand = np.zeros([w.size,time_axis_0_to_beta.size],dtype=np.complex128)
+        for s_idx,s_i in enumerate(tqdm(time_axis_sym)):
+            integrand  = np.cosh(w[:,np.newaxis]*(0.5*beta-1j*(s_i-1j*tau_i[np.newaxis,:])))
+            integrand /= np.sinh(0.5*w[:,np.newaxis]*beta)
+            integrand *= SD[:,np.newaxis]/np.pi
+            Ct_complex[s_idx] = np.trapz(integrand,w,axis=0)
+        return Ct_complex
+    
+def is_ascending(arr):
+    return np.all(arr[:-1] <= arr[1:])
+
+
+def array_shape_to_mem_gb(shape):
+    #example of shape: (2,3,4)
+
+    #number of elements (size)
+    num_elements = np.prod(shape)
+
+    # Each complex128 element is 16 bytes
+    element_size = 16  # bytes
+
+    # Calculate the total size in bytes
+    total_size_bytes = num_elements * element_size
+
+    # Convert the size to gigabytes
+    total_size_gb = total_size_bytes / (1024 ** 3)
+
+    return total_size_gb

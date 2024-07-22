@@ -83,7 +83,7 @@ class RedfieldTensor(RelTensor):
         Returns
         -------
         RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim)
-            Modified Redfield relaxation tensor"""
+            Redfield relaxation tensor"""
 
         SD_id_list = self.SD_id_list
 
@@ -190,7 +190,61 @@ class RedfieldTensor(RelTensor):
         return dephasing
     
     def get_xi(self):
+        """This function computes and returns the xi function.
+        
+        Returns
+        -------
+        xi_at: np.array(dype=np.complex128), shape = (self.rel_tensor.dim,self.specden.time.size)
+            xi function
+        """
+        
         if not hasattr(self,'dephasing'):
             self._calc_dephasing()
         xi_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
         return xi_at
+      
+    def calc_eq_populations(self,include_lamb_shift=True,normalize=True):
+        """This function computes the Boltzmann equilibrium population for fluorescence intensity.
+        
+        Arguments
+        -------
+        include_lamb_shift: Bool
+            if True, the energies used for the calculation of the eq. pop. will be shifted by the imaginary part of the dephasing
+            if False, the energies are not shifted
+        normalize: Bool
+            if True, the sum of the equilibrium populations are normalized to 1
+            if False, the sum of the equilibrium populations is not normalized
+        
+        Returns
+        -------
+        pop: np.array(dype=np.float), shape = (self.rel_tensor.dim)
+            equilibrium population in the exciton basis."""
+        
+        self._calc_lambda_a()
+
+        #for fluorescence spectra we need adiabatic equilibrium population, so we subtract the reorganization energy
+        e00 = self.ene  - self.lambda_a
+        if include_lamb_shift:
+            e00 = e00 - self.get_dephasing().imag
+        
+        #we scale the energies to avoid numerical difficulties
+        e00 = e00 - np.min(e00)
+        
+        boltz = np.exp(-e00*self.specden.beta)
+        if normalize:
+            partition = np.sum(boltz)
+            boltz = boltz/partition
+        return boltz
+    
+    def get_xi_fluo(self):
+        """This function computes and returns the fluorescence xi function.
+        
+        Returns
+        -------
+        xi_at_fluo: np.array(dype=np.complex128), shape = (self.rel_tensor.dim,self.specden.time.size)
+            xi function"""
+        
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        xi_at_fluo = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return xi_at_fluo

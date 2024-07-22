@@ -126,7 +126,6 @@ class RedfieldForsterTensor(RedfieldTensor):
 
         self.forster_rates = rates
         
-        
     def _calc_rates(self):
         "This function computes the Redfield-Forster energy transfer rates in cm^-1"
         
@@ -188,7 +187,7 @@ class RedfieldForsterTensor(RedfieldTensor):
             self._calc_dephasing()
         xi_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
         return xi_at
-    
+
 class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     """Redfield-Forster Tensor class where Redfield-Forster Theory is used to model energy transfer processes.
     This class is a subclass of the ModifiedRedfieldTensor Class. In this specific implementation, the full expression for the Redfield-Forster rates is implemented, proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0). 
@@ -396,6 +395,30 @@ def _gf_rates_loop(dim,Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_
             rates[D,A] = np.trapz(integrand,time_axis)                
     return rates
 
+    def calc_eq_populations(self,include_lamb_shift=True,normalize=True):
+        """This function computes the Boltzmann equilibrium population for fluorescence intensity.
+        
+        Returns
+        -------
+        pop: np.array(dype=np.float), shape = (self.rel_tensor.dim)
+            array of equilibrium population in the exciton basis."""
+        
+        self._calc_lambda_a()
+
+        #for fluorescence spectra we need adiabatic equilibrium population, so we subtract the reorganization energy
+        e00 = self.ene  - self.lambda_a
+        if include_lamb_shift:
+            e00 = e00 - self.get_dephasing().imag
+        
+        #we scale the energies to avoid numerical difficulties
+        e00 = e00 - np.min(e00)
+        
+        boltz = np.exp(-e00*self.specden.beta)
+        if normalize:
+            partition = np.sum(boltz)
+            boltz = boltz/partition
+        return boltz
+        
 class ModifiedRedfieldForsterTensorNoYang(ModifiedRedfieldTensor):
     """Modified Redfield-Forster Tensor class where Redfield-Forster Theory (https://doi.org/10.1016/S0006-3495(03)74461-0) is used to model energy transfer processes.
     This class is a subclass of the ModifiedRedfieldTensor Class.
@@ -582,3 +605,9 @@ class ModifiedRedfieldForsterTensorNoYang(ModifiedRedfieldTensor):
             self._calc_dephasing()
         xi_at = np.einsum('a,t->at',self.dephasing,self.specden.time)
         return xi_at
+    
+    def get_xi_fluo(self):
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        xi_at_fluo = np.einsum('a,t->at',self.dephasing,self.specden.time)
+        return xi_at_fluo

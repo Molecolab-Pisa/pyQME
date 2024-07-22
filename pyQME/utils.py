@@ -2,7 +2,7 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.special import comb
 from scipy.interpolate import UnivariateSpline
-from .linear_spectra import LinearSpectraCalculator
+from .linear_spectra import SecularLinearSpectraCalculator
 from .spectral_density import SpectralDensity
 from scipy.linalg import expm,logm
 
@@ -539,7 +539,7 @@ def transform_back(arr,H,ndim=None):
 
     return transform(arr,H,ndim=ndim,inverse=True)
 
-def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_type,freq_axis_spec,eqpop=None,cent=None,approx=None,SD_id_list=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_spec_low_high=False):
+def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_type,freq_axis_spec,eq_pop=None,cent=None,approx=None,SD_id_list=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_spec_low_high=False):
     """This function computes the absorption spectrum treating as localized one part of the spectral density.
 
     Arguments
@@ -552,7 +552,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         excitonic Hamiltonian in cm^-1.
     dipoles: np.array(dtype = np.float), shape = (n_site,3)
         array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
-    eqpop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
+    eq_pop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
         equilibrium population
     cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
         array containing the geometrical centre of each chromophore (needed for CD)
@@ -679,8 +679,8 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         
     #first contribution to the spectrum: delocalized 0-0 band without sideband
     tensor_low = tensor_type(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
-    spec_obj_low = LinearSpectraCalculator(tensor_low,approximation=approx)
-    freq_axis_spec,spec_low  = spec_obj_low.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eqpop=eqpop,cent=cent)
+    spec_obj_low = SecularLinearSpectraCalculator(tensor_low,approximation=approx)
+    freq_axis_spec,spec_low  = spec_obj_low.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eq_pop=eq_pop,cent=cent)
             
     #second contribution to the spectrum: localized 0-0 band without sideband
     _,gdot = SDobj_localized.get_gt(derivs=1)
@@ -688,14 +688,14 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
     reorg_high_list_real = np.asarray([gdot[SD_ID,-1].real for SD_ID in SD_id_list])
     tensor_low_no_coup = tensor_type(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
     tensor_low_no_coup.dephasing = dephasing_localized + reorg_high_list_real
-    spec_obj_low_no_coup = LinearSpectraCalculator(tensor_low_no_coup,approximation=approx)
-    freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eqpop=eqpop,cent=cent)
+    spec_obj_low_no_coup = SecularLinearSpectraCalculator(tensor_low_no_coup,approximation=approx)
+    freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eq_pop=eq_pop,cent=cent)
     
     #third contribution to the spectrum: localized 0-0 band + localized sideband
     tensor_diag = tensor_type(H_diag,SDobj,SD_id_list=SD_id_list)
     tensor_diag.dephasing = dephasing_localized
-    spec_obj_diag = LinearSpectraCalculator(tensor_diag,approximation=approx)
-    freq_axis_spec,spec_diag = spec_obj_diag.get_spectrum(dipoles,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eqpop=eqpop,cent=cent)
+    spec_obj_diag = SecularLinearSpectraCalculator(tensor_diag,approximation=approx)
+    freq_axis_spec,spec_diag = spec_obj_diag.get_spectrum(dipoles,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eq_pop=eq_pop,cent=cent)
     
     #localized sideband
     spec_high = spec_diag - spec_low_no_coup

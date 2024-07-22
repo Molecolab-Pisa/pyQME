@@ -33,11 +33,11 @@ class RedfieldTensorNonMarkov(RelTensor):
                          specden_adiabatic=specden_adiabatic)
     
     def get_rates(self,time_axis=None):
-        """This function returns the energy transfer rates.
+        """This function returns the time-dependent energy transfer rates.
         
         Returns
         -------
-        self.rates: np.array(dtype=np.float), shape = (self.dim,self.dim)
+        self.rates: np.array(dtype=np.float), shape = (self.dim,self.dim,self.specden.time)
             matrix of energy transfer rates."""
         
         if time_axis is None:
@@ -48,17 +48,17 @@ class RedfieldTensorNonMarkov(RelTensor):
         return self.rates
     
     def _calc_rates(self,time_axis=None):
-        "This function computes and stores the Redfield energy transfer rates in cm^-1"
+        "This function computes and stores the time-dependent Redfield energy transfer rates in cm^-1"
         
         rates = self._calc_redfield_rates(time_axis=time_axis)
         self.rates = rates
     
     def _calc_redfield_rates(self,time_axis=None):
-        """This function computes and stores the Redfield energy transfer rates in cm^-1
+        """This function computes and stores the timde-dependent Redfield energy transfer rates in cm^-1
         
         Returns
         -------
-        rates: np.array(dtype=np.float), shape = (self.dim,self.dim)
+        rates: np.array(dtype=np.float), shape = (self.dim,self.dim,self.specden.time)
             Redfield EET rates"""
 
         nchrom = self.dim
@@ -89,7 +89,7 @@ class RedfieldTensorNonMarkov(RelTensor):
         return rates_abt
     
     def _calc_tensor(self,secularize=True,time_axis=None):
-        """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
+        """This function computes and stores the time-dependent Redfield energy transfer tensor in cm^-1.
         
         Arguments
         ---------
@@ -109,8 +109,8 @@ class RedfieldTensorNonMarkov(RelTensor):
             
         Returns
         -------
-        RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim)
-            Modified Redfield relaxation tensor"""
+        RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim,self.specden.time)
+            Redfield relaxation tensor"""
 
         nchrom = self.dim
         self._calc_weight_abcd()
@@ -149,7 +149,7 @@ class RedfieldTensorNonMarkov(RelTensor):
         
         Returns
         -------
-        RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim)
+        RTen: np.array(dtype=np.complex), shape = (self.dim,self.dim,self.dim,self.dim,self.specden.time)
             Redfield relaxation tensor"""
         
         RTen = np.zeros(gamma_abcdt.shape,dtype=np.complex128)
@@ -168,12 +168,12 @@ class RedfieldTensorNonMarkov(RelTensor):
         
         Arguments
         ---------
-        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim,self.specden.time)
             non-secular relaxation tensor.
         
         Returns
         -------
-        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim,self.specden.time)
             secularized relaxation tensor."""
         
         eye = np.eye(self.dim)
@@ -188,31 +188,22 @@ class RedfieldTensorNonMarkov(RelTensor):
         
         return RTen_secular
     
+    
     def get_xi(self):
-        """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
-        
-        Arguments
-        ---------
-        secularize: Boolean
-            if True, the relaxation tensor is secularized"""
+        "This function computes and stores the off-diagonal lineshape term xi(t)."
         
         if not hasattr(self,'xi_at'):
             self._calc_xi()    
         return self.xi_at
     
     def _calc_xi(self,time_axis=None):
-        """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
-        
-        Arguments
-        ---------
-        secularize: Boolean
-            if True, the relaxation tensor is secularized"""
+        """This function computes and stores the off-diagonal lineshape term xi(t)."""
         
         xi_at = self._calc_redfield_xi(time_axis=time_axis)
         self.xi_at = xi_at
         
     def _calc_redfield_xi(self,time_axis=None):
-        
+        """This function computes and returns the off-diagonal lineshape term xi(t)."""
         nchrom = self.dim
         self._calc_weight_aabb()
         weight_aabb = self.weight_aabb
@@ -240,8 +231,7 @@ class RedfieldTensorNonMarkov(RelTensor):
         xi_at[:,1:] += cumtrapz(rates_at,x=time_axis)
         
         return xi_at
-        
-        
+      
     def _propagate_exp(self,rho,t,include_coh=True):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
         
@@ -283,6 +273,13 @@ class RedfieldTensorNonMarkov(RelTensor):
             return rhot
 
     def _calc_Liouv(self,secularize=True,time_axis=None):
+        """This function calaculates and stores the Liouvillian
+        
+        Arguments
+        ---------
+        secularize: Bool
+            if True, the relaxation tensor is secularized."""
+        
         if not hasattr(self,'RTen'):
             self._calc_tensor(secularize=secularize,time_axis=time_axis)
         eye   = np.eye(self.dim)
@@ -291,15 +288,158 @@ class RedfieldTensorNonMarkov(RelTensor):
         self.Liouv = self.RTen + Liouv_system
         
     def get_Liouv(self,secularize=True,time_axis=None):
-        """This function returns the representaiton tensor of the Liouvillian super-operator.
+        """This function returns the representation tensor of the Liouvillian super-operator.
         
+        Arguments
+        ---------
+        secularize: Bool
+            if True, the relaxation tensor is secularized.
+            
+        time_axis: np.array(dtype=np.float)
+            time axis in cm
+            if not provided, self.specden.time is used
+            
         Returns
         -------
-        Liouv: np.array(dtype=complex), shape = (dim,dim,mdim,dim)
+        Liouv: np.array(dtype=complex), shape = (dim,dim,mdim,dim,self.specden.time)
             Liouvillian"""
+        
         if time_axis is None:
             if not hasattr(self,'Liouv'):
                 self._calc_Liouv(secularize=secularize)
         else:
                 self._calc_Liouv(secularize=secularize,time_axis=time_axis)            
         return self.Liouv
+    
+    def _calc_xi_ti(self):
+        """This function calculates and stores the time-independent part of the fluorescence xi function, used for the calculation of equilibrium population."""
+        if not hasattr(self.specden,'SDfunction_imag_prime'):
+            self.specden._gen_spline_repr(derivs=1)
+        S = self.specden.SDfunction_imag
+        S_prime = self.specden.SDfunction_imag_prime
+        
+        Om = self.Om
+        beta = self.specden.beta
+        
+        if not hasattr(self,'weight_aabb'):
+            self._calc_weight_aabb()
+        weight_aabb = self.weight_aabb
+        
+        xi_ti_ab = np.zeros([self.dim,self.dim])                            
+        for SD_idx,SD_id in enumerate([*set(self.SD_id_list)]):
+            S_i = S[SD_id]
+            S_prime_i = S_prime[SD_id]
+            xi_ti_ab += weight_aabb[SD_idx]*(beta*0.5*S_i(Om) - 0.5*S_prime_i(Om) - np.exp(beta*Om)*0.5*S_prime_i(-Om))
+
+        #sum over all values of b not equal to a
+        np.einsum('aa->a',xi_ti_ab)[...] = 0.
+        xi_ti_a = np.einsum('ab->a',xi_ti_ab)
+        self.xi_ti_a = xi_ti_a
+        
+    def _calc_xi_tilde_cc(self,time_axis=None):
+        """This function computes and stores the off-diagonal lineshape term xi(t)."""
+        xi_tilde_cc_abt = self._calc_redfield_xi_tilde_cc(time_axis=time_axis)
+        self.xi_tilde_cc_abt = xi_tilde_cc_abt
+        
+    def _calc_redfield_xi_tilde_cc(self,time_axis=None):
+        """This function computes and returns the off-diagonal lineshape term xi(t), calculated using the complex conjugate of the correlation function."""        
+        nchrom = self.dim
+        self._calc_weight_aabb()
+        weight_aabb = self.weight_aabb
+        SD_id_list = self.SD_id_list
+        Ct_list = self.specden.get_Ct(time_axis=time_axis)
+        time_axis = self.specden.time
+        rates_abt = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
+        coeff = self.U
+        deltaE_ab = self.Om
+        
+        for a in range(nchrom):
+            for b in range(nchrom):
+                if not a==b:
+                    exp = np.exp(1j*deltaE_ab[a,b]*time_axis)
+                    for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
+                        integrand = exp*Ct_list[SD_id].conj()
+                        rates_abt[a,b,1:] += cumtrapz(integrand,x=time_axis)*weight_aabb[SD_id,a,b]
+                   
+        xi_tilde_cc_abt = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
+        xi_tilde_cc_abt[:,:,1:] += cumtrapz(rates_abt,x=time_axis)        
+        return xi_tilde_cc_abt
+    
+    def _calc_xi_td(self):
+        """This function calculates and stores the time-dependent part of the fluorescence xi function."""
+        
+        S = self.specden.SDfunction_imag
+        
+        Om = self.Om
+        beta = self.specden.beta
+        
+        if not hasattr(self,'weight_aabb'):
+            self._calc_weight_aabb()
+        weight_aabb = self.weight_aabb
+        
+        if not hasattr(self,'xi_tilde_cc_abt'):
+            self._calc_xi_tilde_cc()
+        xi_tilde_cc_abt = self.xi_tilde_cc_abt
+        
+        time_axis = self.specden.time
+        
+        xi_td_abt = np.zeros([self.dim,self.dim,time_axis.size],dtype=np.complex128)                            
+        for SD_idx,SD_id in enumerate([*set(self.SD_id_list)]):
+            S_i = S[SD_id]
+            tmp  = 1j*time_axis[np.newaxis,np.newaxis,:]*(0.5*S_i(Om)[:,:,np.newaxis] + (np.exp(beta*Om)*0.5*S_i(-Om))[:,:,np.newaxis])
+            xi_td_abt += tmp*weight_aabb[SD_idx][:,:,np.newaxis]
+        xi_td_abt += np.exp(beta*Om)[:,:,np.newaxis]*xi_tilde_cc_abt
+
+        #sum over all values of b not equal to a
+        np.einsum('aat->at',xi_td_abt)[...] = 0.
+        xi_td_at = np.einsum('abt->at',xi_td_abt)
+        self.xi_td_at = xi_td_at
+    
+    def calc_eq_populations(self,include_lamb_shift=True,normalize=True):
+        """This function computes the Boltzmann equilibrium population for fluorescence intensity.
+        
+        Arguments
+        -------
+        include_lamb_shift: Bool
+            if True, the energies used for the calculation of the eq. pop. will be shifted by the imaginary part of the dephasing
+            if False, the energies are not shifted
+        normalize: Bool
+            if True, the sum of the equilibrium populations are normalized to 1
+            if False, the sum of the equilibrium populations is not normalized
+        
+        Returns
+        -------
+        pop: np.array(dype=np.float), shape = (self.rel_tensor.dim)
+            equilibrium population in the exciton basis."""
+        
+        self._calc_lambda_a()
+
+        #for fluorescence spectra we need adiabatic equilibrium population, so we subtract the reorganization energy
+        e00 = self.ene - self.lambda_a
+
+        #we scale the energies to avoid numerical difficulties
+        e00 = e00 - e00.min()
+        
+        exponent = -e00*self.specden.beta
+        if include_lamb_shift:
+            if not hasattr(self,'xi_ti_a'):
+                self._calc_xi_ti()
+            exponent = exponent + self.xi_ti_a            
+        
+        boltz = np.exp(exponent)
+        partition = np.sum(boltz)
+        if normalize:
+            boltz = boltz/partition
+        return boltz
+    
+    def get_xi_fluo(self):
+        """This function computes and returns the fluorescence xi function.
+        
+        Returns
+        -------
+        xi_at_fluo: np.array(dype=np.complex128), shape = (self.rel_tensor.dim,self.specden.time.size)
+            xi function"""
+        
+        if not hasattr(self,'xi_td_at'):
+            self._calc_xi_td()
+        return self.xi_td_at
