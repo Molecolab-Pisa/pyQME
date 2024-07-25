@@ -500,7 +500,7 @@ class SpectralDensity():
         Ct_complex = np.zeros([time_axis_sym.size,time_axis_0_to_beta.size],dtype=np.complex128)
         integrand = np.zeros([w.size,time_axis_0_to_beta.size],dtype=np.complex128)
         for s_idx,s_i in enumerate(tqdm(time_axis_sym)):
-            integrand  = np.cosh(w[:,np.newaxis]*(0.5*beta-1j*(s_i-1j*tau_i[np.newaxis,:])))
+            integrand  = np.cosh(w[:,np.newaxis]*(0.5*beta-1j*(s_i-1j*time_axis_0_to_beta[np.newaxis,:])))
             integrand /= np.sinh(0.5*w[:,np.newaxis]*beta)
             integrand *= SD[:,np.newaxis]/np.pi
             Ct_complex[s_idx] = np.trapz(integrand,w,axis=0)

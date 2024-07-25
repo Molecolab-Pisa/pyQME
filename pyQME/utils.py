@@ -284,9 +284,16 @@ def underdamped_brownian(freq_axis,gamma,lambd,omega):
     den = (omega**2-freq_axis**2)**2 + (freq_axis*gamma)**2
     return num/den
 
+def drude_lorentz_shifted(freq_axis,lam,gamma,omega):
+    eta = lam/gamma
+    num = eta*freq_axis**2*omega
+    den = ((freq_axis+omega)**2+gamma**2) + eta*gamma**2*omega/((freq_axis-omega)**2+gamma**2)
+    spectrum = num/den
+    return spectrum
+
 def drude_lorentz(freq_axis,gamma,lamda):
     """This function returns a spectral density modelled using the Drude-Lorentz model (S. Mukamel, Principles of Nonlinear Optical Spectroscopy).
-    
+
     Arguments
     ---------
     freq_axis: np.array(np.float), shape = (freq_axis.size)
@@ -295,13 +302,13 @@ def drude_lorentz(freq_axis,gamma,lamda):
         damping factor in cm^-1
     lambd: np.float
         reorganization energy in cm^-1         
-    
+
     Returns
     -------
     SD: np.array(np.float), shape = (freq_axis.size)
-        spectral density modelled using the Drude-Lorentz model in cm^-1
-        the convention adopted is such that, if you want to check the reorganization energy, you have to divide by the frequency axis and 2*pi"""
-    
+    spectral density modelled using the Drude-Lorentz model in cm^-1
+    the convention adopted is such that, if you want to check the reorganization energy, you have to divide by the frequency axis and 2*pi"""
+
     num = 2*lamda*gamma*freq_axis
     den = (freq_axis)**2 + gamma**2
     return num/den
