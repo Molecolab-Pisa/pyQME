@@ -78,7 +78,7 @@ class FCE():
         time_axis = self.rel_tensor.specden.time
         nchrom = self.rel_tensor.dim
         SD_id_list = self.rel_tensor.SD_id_list
-        nsds = len(SD_id_list)
+        nsds = self.rel_tensor.specden.nsds
         Om = self.rel_tensor.Om
         Ct_list = self.rel_tensor.specden.get_Ct()
 
@@ -96,7 +96,7 @@ class FCE():
         time_axis = self.rel_tensor.specden.time
         nchrom = self.rel_tensor.dim
         SD_id_list = self.rel_tensor.SD_id_list
-        nsds = len(SD_id_list)
+        nsds = self.rel_tensor.specden.nsds
         Om = self.rel_tensor.Om
         Ct_list = self.rel_tensor.specden.get_Ct()
 
@@ -114,7 +114,7 @@ class FCE():
         time_axis = self.rel_tensor.specden.time
         nchrom = self.rel_tensor.dim
         SD_id_list = self.rel_tensor.SD_id_list
-        nsds = len(SD_id_list)
+        nsds = self.rel_tensor.specden.nsds
         Om = self.rel_tensor.Om
         
         if not hasattr(self,'H_abZt'):
@@ -264,7 +264,7 @@ class FCE():
             spec_w_user = self._fit_spline_spec(freq_axis_user,spec_w,freq_axis)
             return freq_axis_user,spec_w_user
     
-    def calc_spec_fluo_ijw(self,dipoles,freq_axis_user=None):
+    def calc_spec_abs_ijw(self,dipoles,freq_axis_user=None):
         
         time_axis = self.rel_tensor.specden.time
         freq_axis = self._get_freq_axis(time_axis)
