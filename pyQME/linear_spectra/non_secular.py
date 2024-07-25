@@ -19,26 +19,7 @@ class FCE():
         
         self.RWA = RWA
         if self.RWA is None:
-            self.RWA = self.rel_tensor.H.diagonal().min()
-    
-    def _do_FFT(self,signal_a_time):
-        """This function performs the Hermitian Fast Fourier Transform (HFFT) of the spectrum.
-
-        Arguments
-        ---------
-        signal_a_time: np.array(dtype = np.complex128), shape = (self.rel_tensor.dim,self.time.size)
-            single-exciton contribution to the absorption spectrum in the time domain.
-            
-        Returns
-        ---------
-        signal_a_freq: np.array(dtype = np.float), shape (self.freq.size)
-            single-exciton contribution to the absorption spectrum in the frequency domain, defined over the freq axis self.freq"""
-        
-        signal_a_freq = np.empty([self.rel_tensor.dim,self.freq.size])
-        for a in range(self.rel_tensor.dim):        
-            #switch from time to frequency domain using hermitian FFT (-> real output)
-            signal_a_freq[a] = np.flipud(np.fft.fftshift(np.fft.hfft(signal_a_time[a])))*self._factFT
-        return signal_a_freq
+            self.RWA = self.rel_tensor.H.diagonal().min() + 100.
 
     def _fit_spline_spec(self,freq_output,signal_a,freq_input=None):
         """This function calculates the single-chromophore contribution on a new frequency axis, using a Spline representation.
@@ -69,8 +50,8 @@ class FCE():
     @property
     def _factFT(self):
         """Fourier Transform factor used to compute spectra."""
-        
-        deltat = self.time[1]-self.time[0]
+        time_axis = self.rel_tensor.specden.time
+        deltat = time_axis[1]-time_axis[0]
         factFT = deltat/(2*np.pi)
         return factFT
 
@@ -177,7 +158,7 @@ class FCE():
         return exp_K_abs_abt
         
     def _calc_I_abt(self):
-        ene = self.rel_tensor.ene
+        ene = self.rel_tensor.ene - self.RWA
         time_axis = self.rel_tensor.specden.time
         exp_H_bt = np.exp(-1j*ene[:,np.newaxis]*time_axis[np.newaxis,:])
         
@@ -193,30 +174,30 @@ class FCE():
         I_abt = contract('bt,abt->abt',exp_H_bt,exp_K_abs_abt)
         self.I_abt = I_abt
         
-    def _get_freq_axis(self,time_axis):
-        dt  = time_axis[1]-time_axis[0]
-        dt /= wn2ips  
-        len_time = len(time_axis)
-        dw = 2*np.pi/( dt*2*len_time )/wn;
-        freq_axis = dw*np.arange(1-len_time,len_time-1)
-        return freq_axis
-    
-    def _specFFT(self,time_axis,spec_t):
+    def _get_freq_axis(self,t):
+        "This function gets the frequency axis for FFT as conjugate axis of self.time and stores it into self.freq."
         
-        dt = time_axis[1]-time_axis[0]
-        dt /= wn2ips  
-        freq_axis = self._get_freq_axis(time_axis)
+       
+        freq = np.fft.fftshift(np.fft.fftfreq(2*t.size-2, t[1]-t[0])) #output of hfft is 2*time.size-2 long.
+        freq = freq*2*np.pi + self.RWA #the 2*np.pi stretching is necessary to counteract the 2pi factor in the np.fft calculation (see comment above)
+        
+        return freq
+    
+    def _specFFT(self,time_axis,signal_time):
+        """This function performs the Hermitian Fast Fourier Transform (HFFT) of the spectrum.
 
-        spinv  = spec_t[1:-1][::-1]
-
-        sptot = np.concatenate((spec_t,np.conj(spinv)))
-
-        spfft = np.fft.fft(sptot)
-
-        # Correct factor for normalized spectrum
-        specw = np.fft.fftshift(spfft)*dt*wn/(2*np.pi)
-        specw = specw[::-1]
-        return specw.real
+        Arguments
+        ---------
+        signal_a_time: np.array(dtype = np.complex128), shape = (self.rel_tensor.dim,self.time.size)
+            single-exciton contribution to the absorption spectrum in the time domain.
+            
+        Returns
+        ---------
+        signal_a_freq: np.array(dtype = np.float), shape (self.freq.size)
+            single-exciton contribution to the absorption spectrum in the frequency domain, defined over the freq axis self.freq"""
+        
+        signal_freq = np.flipud(np.fft.fftshift(np.fft.hfft(signal_time)))*self._factFT
+        return signal_freq
     
     def _calc_I_abw(self):
         nchrom = self.rel_tensor.dim
@@ -445,7 +426,7 @@ class FCE():
         self.K_fluo_abt = K_fluo_abt
 
     def _calc_F_abt(self):
-        ene = self.rel_tensor.ene
+        ene = self.rel_tensor.ene - self.RWA
         time_axis = self.rel_tensor.specden.time
         beta = self.rel_tensor.specden.beta
         exp_H_bt = np.exp(-(beta+1j*time_axis[np.newaxis,:])*ene[:,np.newaxis])
