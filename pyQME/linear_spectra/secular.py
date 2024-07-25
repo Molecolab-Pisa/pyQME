@@ -528,7 +528,7 @@ class SecularLinearSpectraCalculator():
         factFT = deltat/(2*np.pi)
         return factFT
     
-    def calc_CD(self,dipoles,cent,freq=None):
+    def calc_CD_lineshape_ij(self,dipoles,cent,freq=None):
         """This function computes the circular dicroism spectrum (Cupellini, L., Lipparini, F., & Cao, J. (2020). Absorption and Circular Dichroism Spectra of Molecular Aggregates with the Full Cumulant Expansion. Journal of Physical Chemistry B, 124(39), 8610–8617. https://doi.org/10.1021/acs.jpcb.0c05180).
 
         Arguments
@@ -555,7 +555,7 @@ class SecularLinearSpectraCalculator():
         dipoles_dummy_exc[:,0] = 1.        
         dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
         
-        freq,I_a =  self.calc_abs_OD_a(dipoles=dipoles_dummy_site,freq=freq) #single-exciton contribution to the absorption spectrum
+        freq,I_a =  self.calc_abs_lineshape_a(dipoles=dipoles_dummy_site,freq=freq) #single-exciton contribution to the absorption spectrum
         I_ij = np.einsum('ia,ap,ja->ijp',self.rel_tensor.U,I_a,self.rel_tensor.U) #chomophore-pair contribution to the absorption spectrum
         
         #we compute the dipole strenght matrix
@@ -563,15 +563,72 @@ class SecularLinearSpectraCalculator():
         for i in range(n):
             for j in range(n):
                 R_ij = cent[i] - cent[j]
-                tprod =         R_ij[0]*(dipoles[i,1]*dipoles[j,2]-dipoles[i,2]*dipoles[j,1])
-                tprod = tprod - R_ij[1]*(dipoles[i,0]*dipoles[j,2]-dipoles[i,2]*dipoles[j,0])
-                tprod = tprod + R_ij[2]*(dipoles[i,0]*dipoles[j,1]-dipoles[i,1]*dipoles[j,0])
+                tprod = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
                 M_ij[i,j] = tprod*np.sqrt(H[i,i]*H[j,j])
                 
         CD_ij = M_ij[:,:,None]*I_ij #chomophore-pair contribution to the circular dicroism spectrum
-        CD = CD_ij.sum(axis=(0,1)) #circular dicroism spectrum
-        return freq,CD
+        return freq,CD_ij
+    
+    def calc_CD_lineshape_ab(self,dipoles,cent,freq=None):
+        """This function computes the circular dicroism spectrum (Cupellini, L., Lipparini, F., & Cao, J. (2020). Absorption and Circular Dichroism Spectra of Molecular Aggregates with the Full Cumulant Expansion. Journal of Physical Chemistry B, 124(39), 8610–8617. https://doi.org/10.1021/acs.jpcb.0c05180).
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array containing the geometrical centre of each chromophore
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        CD: np.array(dtype = np.float)
+            circular dicroism spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+            
+        n = self.rel_tensor.dim #number of chromophores
+        H = self.rel_tensor.H #hamiltonian
         
+        dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
+        dipoles_dummy_exc[:,0] = 1.        
+        dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
+        
+        freq,I_a =  self.calc_abs_lineshape_a(dipoles=dipoles_dummy_site,freq=freq) #single-exciton contribution to the absorption spectrum
+        I_ab = np.zeros([self.rel_tensor.dim,self.rel_tensor.dim,freq.size])
+        np.einsum('aaw->aw',I_ab)[...] = I_a
+        
+        #we compute the dipole strenght matrix
+        M_ij = np.zeros([n,n])
+        for i in range(n):
+            for j in range(n):
+                R_ij = cent[i] - cent[j]
+                tprod = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
+                M_ij[i,j] = tprod*np.sqrt(H[i,i]*H[j,j])
+                
+        M_ab = np.einsum('ia,ij,jb->ab',self.rel_tensor.U,M_ij,self.rel_tensor.U)                
+        CD_ab = M_ab[:,:,None]*I_ab
+        return freq,CD_ab
+    
+    def calc_CD_lineshape(self,dipoles,cent,freq=None):
+        freq,CD_ij = self.calc_CD_lineshape_ij(dipoles,cent,freq=freq)
+        CD = CD_ij.sum(axis=(0,1))
+        return freq,CD
+    
+    def calc_CD_OD_ij(self,dipoles,cent,freq=None):
+        freq,CD_ij = self.calc_CD_lineshape_ij(dipoles,cent,freq=freq)
+        return freq,CD_ij*factOD*freq[np.newaxis,np.newaxis,:]
+    
+    def calc_CD_OD_ab(self,dipoles,cent,freq=None):
+        freq,CD_ab = self.calc_CD_lineshape_ab(dipoles,cent,freq=freq)
+        return freq,CD_ab*factOD*freq[np.newaxis,np.newaxis,:]
+    
+    def calc_CD_OD(self,dipoles,cent,freq=None):
+        freq,CD = self.calc_CD_lineshape(dipoles,cent,freq=freq)
+        return freq,CD*freq*factOD
+    
     def calc_LD(self,dipoles,freq=None):
         """This function computes the linear dicroism spectrum (J. A. Nöthling, Tomáš Mančal, T. P. J. Krüger; Accuracy of approximate methods for the calculation of absorption-type linear spectra with a complex system–bath coupling. J. Chem. Phys. 7 September 2022; 157 (9): 095103. https://doi.org/10.1063/5.0100977).
         Here we assume disk-shaped pigments. For LHCs, we disk is ideally aligned to the thylacoidal membrane (i.e. to the z-axis).

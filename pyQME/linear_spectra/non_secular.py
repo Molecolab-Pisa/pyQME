@@ -215,7 +215,7 @@ class FCE():
                 I_abw[a,b] = self._specFFT(time_axis,I_abt[a,b])
         self.I_abw = I_abw
         
-    def calc_spec_abs_abw(self,dipoles,freq_axis_user=None):
+    def calc_abs_lineshape_abw(self,dipoles,freq_axis_user=None):
         
         time_axis = self.rel_tensor.specden.time
         freq_axis = self._get_freq_axis(time_axis)
@@ -233,10 +233,10 @@ class FCE():
         else:
             spec_abw_user = self._fit_spline_spec_mn(freq_axis_user,spec_abw,freq_axis)
             return freq_axis_user,spec_abw_user
-    
-    def calc_spec_abs_w(self,dipoles,freq_axis_user=None):
         
-        freq_axis,spec_abw = self.calc_spec_abs_abw(dipoles)
+    def calc_abs_lineshape(self,dipoles,freq_axis_user=None):
+        
+        freq_axis,spec_abw = self.calc_abs_lineshape_abw(dipoles)
         spec_w = spec_abw.sum(axis=(0,1))
                 
         if freq_axis_user is None:
@@ -245,7 +245,7 @@ class FCE():
             spec_w_user = self._fit_spline_spec(freq_axis_user,spec_w,freq_axis)
             return freq_axis_user,spec_w_user
     
-    def calc_spec_abs_ijw(self,dipoles,freq_axis_user=None):
+    def calc_abs_lineshape_ijw(self,dipoles,freq_axis_user=None):
         
         time_axis = self.rel_tensor.specden.time
         freq_axis = self._get_freq_axis(time_axis)
@@ -266,6 +266,18 @@ class FCE():
             spec_ijw_user = self._fit_spline_spec_mn(freq_axis_user,spec_ijw,freq_axis)
             return freq_axis_user,spec_ijw_user
     
+    def calc_abs_OD(self,dipoles,freq_axis_user=None):
+        freq_axis,spec=self.calc_abs_lineshape(dipoles,freq_axis_user=freq_axis_user)
+        return freq_axis,spec*freq_axis*factOD
+    
+    def calc_abs_OD_abw(self,dipoles,freq_axis_user=None):
+        freq_axis,spec_abw=self.calc_abs_lineshape_abw(dipoles,freq_axis_user=freq_axis_user)
+        return freq_axis,spec_abw*freq_axis[np.newaxis,np.newaxis,:]*factOD
+    
+    def calc_abs_OD_ijw(self,dipoles,freq_axis_user=None):
+        freq_axis,spec_ijw=self.calc_abs_lineshape_ijw(dipoles,freq_axis_user=freq_axis_user)
+        return freq_axis,spec_ijw*freq_axis[np.newaxis,np.newaxis,:]*factOD
+   
     def _fit_spline_spec_mn(self,freq_output,signal_mn,freq_input):
         """This function calculates each contribution to the spectrum on a new frequency axis, using a Spline representation.
         
@@ -459,7 +471,7 @@ class FCE():
                 F_abw[a,b] = self._specFFT(time_axis,F_abt[a,b])
         self.F_abw = F_abw
         
-    def calc_spec_fluo_abw(self,dipoles,freq_axis_user=None):
+    def calc_fluo_lineshape_abw(self,dipoles,freq_axis_user=None):
         
         time_axis = self.rel_tensor.specden.time
         freq_axis = self._get_freq_axis(time_axis)
@@ -482,9 +494,9 @@ class FCE():
             spec_abw_user = self._fit_spline_spec_mn(freq_axis_user,spec_abw,freq_axis)
             return freq_axis_user,spec_abw_user
         
-    def calc_spec_fluo_w(self,dipoles,freq_axis_user=None):
+    def calc_fluo_lineshape_w(self,dipoles,freq_axis_user=None):
         
-        freq_axis,spec_abw = self.calc_spec_fluo_abw(dipoles)
+        freq_axis,spec_abw = self.calc_fluo_lineshape_abw(dipoles)
         spec_w = spec_abw.sum(axis=(0,1))
                 
         if freq_axis_user is None:
@@ -493,7 +505,7 @@ class FCE():
             spec_w_user = self._fit_spline_spec(freq_axis_user,spec_w,freq_axis)
             return freq_axis_user,spec_w_user
     
-    def calc_spec_fluo_ijw(self,dipoles,freq_axis_user=None):
+    def calc_fluo_lineshape_ijw(self,dipoles,freq_axis_user=None):
         
         time_axis = self.rel_tensor.specden.time
         freq_axis = self._get_freq_axis(time_axis)
@@ -519,3 +531,99 @@ class FCE():
         else:
             spec_ijw_user = self._fit_spline_spec_mn(freq_axis_user,spec_ijw,freq_axis)
             return freq_axis_user,spec_ijw_user
+
+    def calc_CD_lineshape_abw(self,dipoles,cent,freq_axis_user=None):
+        """This function computes the circular dicroism spectrum (Cupellini, L., Lipparini, F., & Cao, J. (2020). Absorption and Circular Dichroism Spectra of Molecular Aggregates with the Full Cumulant Expansion. Journal of Physical Chemistry B, 124(39), 8610–8617. https://doi.org/10.1021/acs.jpcb.0c05180).
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array containing the geometrical centre of each chromophore
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        CD: np.array(dtype = np.float)
+            circular dicroism spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+            
+        n = self.rel_tensor.dim #number of chromophores
+        H = self.rel_tensor.H #hamiltonian
+        
+        dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
+        dipoles_dummy_exc[:,0] = 1.        
+        dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
+        
+        freq,I_ij =  self.calc_abs_lineshape_ijw(dipoles=dipoles_dummy_site,freq_axis_user=freq_axis_user) #single-exciton contribution to the absorption         
+        #we compute the dipole strenght matrix
+        I_ab = np.einsum('ia,ijt,jb->abt',self.rel_tensor.U,I_ij,self.rel_tensor.U)
+        M_ij = np.zeros([n,n])
+        for i in range(n):
+            for j in range(n):
+                R_ij = cent[i] - cent[j]
+                tprod = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
+                M_ij[i,j] = tprod*np.sqrt(H[i,i]*H[j,j])
+        M_ab = np.einsum('ia,ij,jb->ab',self.rel_tensor.U,M_ij,self.rel_tensor.U)    
+        CD_ab = M_ab[:,:,None]*I_ab #chomophore-pair contribution to the circular dicroism spectrum
+        return freq,CD_ab
+    
+    def calc_CD_OD_ab(self,dipoles,cent,freq_axis_user=None):
+        freq,CD_ab = self.calc_CD_lineshape_abw(dipoles,cent,freq_axis_user=freq_axis_user)
+        return freq,CD_ab*factOD*freq[np.newaxis,np.newaxis,:]
+    
+    def calc_CD_lineshape_ijw(self,dipoles,cent,freq_axis_user=None):
+        """This function computes the circular dicroism spectrum (Cupellini, L., Lipparini, F., & Cao, J. (2020). Absorption and Circular Dichroism Spectra of Molecular Aggregates with the Full Cumulant Expansion. Journal of Physical Chemistry B, 124(39), 8610–8617. https://doi.org/10.1021/acs.jpcb.0c05180).
+
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
+        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array containing the geometrical centre of each chromophore
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        CD: np.array(dtype = np.float)
+            circular dicroism spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+            
+        n = self.rel_tensor.dim #number of chromophores
+        H = self.rel_tensor.H #hamiltonian
+        
+        dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
+        dipoles_dummy_exc[:,0] = 1.        
+        dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
+        
+        freq,I_ij =  self.calc_abs_lineshape_ijw(dipoles=dipoles_dummy_site,freq_axis_user=freq_axis_user) #single-exciton contribution to the absorption         
+        #we compute the dipole strenght matrix
+        M_ij = np.zeros([n,n])
+        for i in range(n):
+            for j in range(n):
+                R_ij = cent[i] - cent[j]
+                tprod = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
+                M_ij[i,j] = tprod*np.sqrt(H[i,i]*H[j,j])
+                
+        CD_ij = M_ij[:,:,None]*I_ij #chomophore-pair contribution to the circular dicroism spectrum
+        return freq,CD_ij
+    
+    def calc_CD_lineshape(self,dipoles,cent,freq_axis_user=None):
+        freq,CD_ij = self.calc_CD_lineshape_ijw(dipoles,cent,freq_axis_user=freq_axis_user)
+        CD = CD_ij.sum(axis=(0,1))
+        return freq,CD
+    
+    def calc_CD_OD_ij(self,dipoles,cent,freq_axis_user=None):
+        freq,CD_ij = self.calc_CD_lineshape_ijw(dipoles,cent,freq_axis_user=freq_axis_user)
+        return freq,CD_ij*factOD*freq[np.newaxis,np.newaxis,:]
+        
+    def calc_CD_OD(self,dipoles,cent,freq_axis_user=None):
+        freq,CD = self.calc_CD_lineshape(dipoles,cent,freq_axis_user=freq_axis_user)
+        return freq,CD*freq*factOD
