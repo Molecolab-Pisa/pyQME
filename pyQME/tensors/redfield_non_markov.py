@@ -4,6 +4,7 @@ from opt_einsum import contract
 from tqdm import tqdm
 from scipy.sparse.linalg import expm_multiply
 from scipy.integrate import cumtrapz
+from scipy import linalg as la
 
 class RedfieldTensorNonMarkov(RelTensor):
     """Redfield Tensor class where non-Markovian Redfield Theory (https://doi.org/10.1063/1.4918343) is used to model energy transfer processes.
@@ -95,7 +96,6 @@ class RedfieldTensorNonMarkov(RelTensor):
         ---------
         secularize: Boolean
             if True, the relaxation tensor is secularized"""
-        
         RTen = self._calc_redfield_tensor(secularize=secularize,time_axis=time_axis)
         self.RTen = RTen
 
@@ -232,7 +232,7 @@ class RedfieldTensorNonMarkov(RelTensor):
         
         return xi_at
       
-    def _propagate_exp(self,rho,t,include_coh=True):
+    def _propagate_exp(self,rho,t):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
         
         Arguments
@@ -247,30 +247,28 @@ class RedfieldTensorNonMarkov(RelTensor):
         -------
         rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
             propagated density matrix"""
-        
+                
         dt = t[1] - t[0]
+        
+        #check that t is increasing
         assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
         
-        if include_coh:
-            Liouv = self.get_Liouv(time_axis=t)
-            A = Liouv.reshape(self.dim**2,self.dim**2,t.size)
-            rho_ = rho.reshape(self.dim**2)
-            rhot = np.zeros([t.size,self.dim**2],dtype=np.complex128)
-            rhot[0] = rho_
+        mapper_t_to_specden_time_list = self.compare_and_map_time_axes(t)
             
-            for t_idx,t_i in enumerate(t):
-                if t_idx>0:
-                    rhot[t_idx] = expm_multiply(A[:,:,t_idx-1]*dt,rhot[t_idx-1])
-            return rhot.reshape(-1,self.dim,self.dim)
-        else:
-            rates_abt = self.get_rates(time_axis=t)
-            rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
-            rhot[0] = rho
-            for t_idx,t_i in enumerate(t):
-                if t_idx>0:
-                    rhot[t_idx] = rho
-                    np.fill_diagonal(rhot[t_idx],expm_multiply(rates_abt[:,:,t_idx-1]*dt,np.diag(rhot[t_idx-1])))
-            return rhot
+        t -= t.min()
+        
+        Liouv = self.get_Liouv()            
+
+        A = Liouv.reshape(self.dim**2,self.dim**2,self.specden.time.size)
+        rho_ = rho.reshape(self.dim**2)
+        rhot = np.zeros([t.size,self.dim**2],dtype=np.complex128)
+        rhot[0] = rho_.copy()
+
+        for i,mapper in enumerate(mapper_t_to_specden_time_list):
+            if i>0:
+                rhot[i] = expm_multiply(A[:,:,mapper-1]*dt,rhot[i-1])
+        return rhot.reshape(-1,self.dim,self.dim)
+
 
     def _calc_Liouv(self,secularize=True,time_axis=None):
         """This function calaculates and stores the Liouvillian
@@ -279,15 +277,66 @@ class RedfieldTensorNonMarkov(RelTensor):
         ---------
         secularize: Bool
             if True, the relaxation tensor is secularized."""
-        
-        if not hasattr(self,'RTen'):
-            self._calc_tensor(secularize=secularize,time_axis=time_axis)
+        RTen = self.get_tensor(secularize=secularize,time_axis=time_axis)
         eye   = np.eye(self.dim)
         Liouv_system = 1.j*contract('cd,ac,bd->abcd',self.Om.T,eye,eye)        
-        Liouv_system = np.stack([Liouv_system] * self.RTen.shape[-1], axis=-1)
-        self.Liouv = self.RTen + Liouv_system
+        Liouv_system = np.stack([Liouv_system] * RTen.shape[-1], axis=-1)
+        self.Liouv = RTen + Liouv_system
+            
+    def compare_and_map_time_axes(self,time_axis_user):
+        """This function checks that all the values of time_axis_user are contained into self.specden.time. If not, the Liouvillian is recalculated along time_axis_user. A mapper time_axis_user --> self.specden.time is then created and returned"""
         
-    def get_Liouv(self,secularize=True,time_axis=None):
+        #check that all values of t are contained into self.specden.time.. if not, we recalculate the Liouvillian on the new time axis
+        t_contained_in_specden_time = np.all(np.any(np.abs(time_axis_user[:, np.newaxis] - self.specden.time) < 1e-10, axis=1))
+        if not t_contained_in_specden_time:
+            self.specden.time = time_axis_user
+            self._calc_Liouv(time_axis=time_axis_user)
+        mapper_t_to_specden_time_list = [np.argmin(np.abs(t_i-self.specden.time)) for t_i in time_axis_user]
+        return mapper_t_to_specden_time_list
+        
+    def _propagate_eig(self,rho,t):
+        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
+        
+        Arguments
+        ---------
+        rho: np.array(dtype=complex), shape = (dim,dim)
+            dim must be equal to self.dim.
+            density matrix at t=0
+        dt: np.array(dtype=np.float)
+            time step used for the propagation.
+            
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
+        
+        dt = t[1] - t[0]
+
+        #check that t is increasing
+        assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
+        
+        mapper_t_to_specden_time_list = self.compare_and_map_time_axes(t)
+                
+        t -= t.min()
+        
+        Liouv = self.get_Liouv()            
+
+        A = Liouv.reshape(self.dim**2,self.dim**2,self.specden.time.size)
+        
+        rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
+        rhot[0] = rho.copy()
+        for i in range(1,t.size):
+            mapper = mapper_t_to_specden_time_list[i]
+            kk,vl,vr = la.eig(A[:,:,mapper-1],left=True,right=True)
+            vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
+            rho_ = rhot[i-1].reshape(self.dim**2)
+            y0 = np.dot(vl.conj().T,rho_)
+            exps = np.exp(kk*dt)
+            rhot[i] = np.dot( vr,exps*y0 ).T.reshape(self.dim,self.dim)
+
+        return rhot
+        
+    def get_Liouv(self,secularize=None,time_axis=None):
         """This function returns the representation tensor of the Liouvillian super-operator.
         
         Arguments
@@ -304,12 +353,34 @@ class RedfieldTensorNonMarkov(RelTensor):
         Liouv: np.array(dtype=complex), shape = (dim,dim,mdim,dim,self.specden.time)
             Liouvillian"""
         
-        if time_axis is None:
-            if not hasattr(self,'Liouv'):
-                self._calc_Liouv(secularize=secularize)
-        else:
-                self._calc_Liouv(secularize=secularize,time_axis=time_axis)            
+        if time_axis is None and secularize is None and not hasattr(self,'Liouv'):
+            self._calc_Liouv(secularize=secularize,time_axis=time_axis)
+        elif time_axis is not None or secularize is not None:
+            self._calc_Liouv(secularize=secularize,time_axis=time_axis)
         return self.Liouv
+    
+    def get_tensor(self,secularize=None,time_axis=None):
+        """This function returns the representation tensor of the Relaxation super-operator.
+        
+        Arguments
+        ---------
+        secularize: Bool
+            if True, the relaxation tensor is secularized.
+            
+        time_axis: np.array(dtype=np.float)
+            time axis in cm
+            if not provided, self.specden.time is used
+            
+        Returns
+        -------
+        RTen: np.array(dtype=complex), shape = (dim,dim,mdim,dim,self.specden.time)
+            RTen"""
+        
+        if time_axis is None and secularize is None and not hasattr(self,'RTen'):
+            self._calc_tensor(secularize=secularize,time_axis=time_axis)
+        elif time_axis is not None or secularize is not None:
+            self._calc_tensor(secularize=secularize,time_axis=time_axis)
+        return self.RTen
     
     def _calc_xi_ti(self):
         """This function calculates and stores the time-independent part of the fluorescence xi function, used for the calculation of equilibrium population."""

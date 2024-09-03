@@ -444,7 +444,7 @@ class SpectralDensity():
                     Ct_complex = self.calc_Ct_complex_plane_two_loops(SD)
         return Ct_complex
 
-    def _calc_Ct_complex_plane_zero_loops(self,SD):
+    def calc_Ct_complex_plane_zero_loops(self,SD):
         w=self.w
         beta=self.beta
         time_axis_0_to_beta = self.time_axis_0_to_beta

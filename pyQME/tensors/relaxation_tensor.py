@@ -384,7 +384,7 @@ class RelTensor():
         
         return R_rho.reshape(shape_)
     
-    def propagate(self,rho,t,include_coh=True,propagation_mode='exp',units='1/cm',basis='exciton'):
+    def propagate(self,rho,t,propagation_mode='eig',units='cm',basis='exciton',cond_num_threshold=1.1):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor.
         
         Arguments
@@ -394,18 +394,18 @@ class RelTensor():
             density matrix at t=0
         t: np.array(dtype=np.float)
             time axis used for the propagation.
-        include_coh: Boolean
-            if False, the coherences aren't propagated (i.e. rho coherences are copied into rhot).
-            if True, the coherences are propagated.
         propagation_mode: string
-            if 'eig', the density matrix is propagated using the eigendecomposition of the (reshaped) relaxation tensor.
-            if 'exp', the density matrix is propagated using the exponential matrix of the (reshaped) relaxation tensor.
+            if 'eig', the density matrix is propagated using the eigendecomposition of the (reshaped) Liouvillian.
+            if 'exp', the density matrix is propagated using the exponential matrix of the (reshaped) Liouvillian.
+            if 'exp+eig', the density matrix is propagated using 'exp' if the condition number of the (reshaped) Liouvillian is greater than cond_num_treshold, otherwise 'eig' is used.
         units: string
-            can be 'ps' or '1/cm' or 'fs'
+            can be 'ps' or 'cm' or 'fs'
             unit of measurement of the time axis.
         basis: string
             if 'exciton', the initial density matrix "rho" and the propagated density matrix "rhot" are in the eigenbasis (exciton basis)
             if 'site', the initial density matrix "rho" and the propagated density matrix "rhot" are in the site basis
+        cond_num_treshold: float
+            if propagation_mode == 'exp+eig', the density matrix is propagated using 'exp' if the condition number of the (reshaped) Liouvillian is greater than cond_num_treshold, otherwise 'eig' is used.
             
         Returns
         -------
@@ -417,12 +417,8 @@ class RelTensor():
         elif units == 'fs':
             t = t*wn2ips/1000            
             
-        if include_coh:
-            if not hasattr(self,'RTen'):
-                self._calc_tensor()
-        else:
-            if not hasattr(self,'rates'):
-                self._calc_rates()
+        if not hasattr(self,'RTen'):
+            self._calc_tensor()
         
         rho0 = rho.copy()
         if basis == 'site':
@@ -435,9 +431,13 @@ class RelTensor():
         self.rho0 = rho0
         
         if propagation_mode == 'eig':
-            rhot = self._propagate_eig(rho0,t,include_coh=include_coh)
+            rhot = self._propagate_eig(rho0,t)
         elif propagation_mode == 'exp':
-            rhot = self._propagate_exp(rho0,t,include_coh=include_coh)
+            rhot = self._propagate_exp(rho0,t)
+        elif propagation_mode == 'exp+eig':
+            rhot = self._propagate_exp_eig(rho0,t,cond_num_threshold=cond_num_threshold)
+        else:
+            raise ValueError('propagation_mode not recognized!')
         
         if basis == 'site':
             rhot_site = self.transform_back(rhot)
@@ -454,13 +454,16 @@ class RelTensor():
             if True, the relaxation tensor is secularized."""
         
         #if the user doesn't give a secularize option, we calculate the tensor with the default option for the secularization
-        if secularize is None:
-            if not hasattr(self,'RTen'):
-                self._calc_tensor()
-                
+        if secularize is None and hasattr(self,'RTen'):
+            pass
+        
         #if the user provides a secularize option, we calculate the tensor, even if it's been calculated before, because we don't know what secularization was used before
-        else:
+        elif secularize is not None and hasattr(self,'RTen'):
             self._calc_tensor(secularize=secularize)
+            
+        elif not hasattr(self,'RTen'):
+            self._calc_tensor(secularize=secularize)            
+        
         eye   = np.eye(self.dim)
         self.Liouv = self.RTen + 1.j*contract('cd,ac,bd->abcd',self.Om.T,eye,eye)
         
@@ -477,11 +480,16 @@ class RelTensor():
         Liouv: np.array(dtype=complex), shape = (dim,dim,mdim,dim,self.specden.time)
             Liouvillian"""
         
-        if not hasattr(self,'Liouv'):
+        if secularize is None and hasattr(self,'Liouv'):
+            pass
+        if secularize is not None and hasattr(self,'Liouv'):
             self._calc_Liouv(secularize=secularize)
+        elif not hasattr(self,'Liouv'):
+            self._calc_Liouv()
         return self.Liouv
+            
     
-    def _propagate_eig(self,rho,t,include_coh=True):
+    def _propagate_eig(self,rho,t):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
         
         Arguments
@@ -491,60 +499,32 @@ class RelTensor():
             density matrix at t=0
         t: np.array(dtype=np.float)
             time axis used for the propagation.
-        include_coh: Boolean
-            if False, the coherences aren't propagated (i.e. rho coherences are copied into rhot).
-            if True, the coherences are propagated.
             
         Returns
         -------
         rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
             propagated density matrix"""
+        
+        t -= t.min()
+        
+        Liouv = self.get_Liouv()
+        A = Liouv.reshape(self.dim**2,self.dim**2)
+        rho_ = rho.reshape(self.dim**2)
 
-        #case 1: coherences are propagated
-        if include_coh:
-            Liouv = self.get_Liouv() 
-            A = Liouv.reshape(self.dim**2,self.dim**2)
-            rho_ = rho.reshape(self.dim**2)
+        # Compute left-right eigendecomposition
+        kk,vl,vr = la.eig(A,left=True,right=True)
 
-            # Compute left-right eigendecomposition
-            kk,vl,vr = la.eig(A,left=True,right=True)
+        vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
 
-            vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
+        # Compute exponentials
+        y0 = np.dot(vl.conj().T,rho_)
+        exps = np.exp( np.einsum('l,t->lt',kk,t) )
 
-            # Compute exponentials
-            y0 = np.dot(vl.conj().T,rho_)
-            exps = np.exp( np.einsum('k,l->kl',kk,t) )
+        rhot = np.dot( vr, np.einsum('lt,l->lt', exps, y0) ).T
 
-            rhot = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
-
-            return rhot.reshape(-1,self.dim,self.dim)
-
-        #case 2: only populations are propagated
-        else:
-            A = self.rates
-            dim = A.shape[0]
-            pop = np.diag(rho)
-
-            # Compute left-right eigendecomposition
-            kk,vl,vr = la.eig(A,left=True,right=True)
-
-            vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
-
-            # Compute exponentials
-            y0 = np.dot(vl.conj().T,pop)
-            exps = np.exp( np.einsum('k,l->kl',kk,t) )
-
-            popt = np.dot( vr, np.einsum('kl,k->kl', exps, y0) ).T
-
-            popt = np.real(popt)
-                
-            rhot = np.zeros([t.size,dim,dim],dtype=type(rho[0,0]))
-            rhot = np.asarray([rho]*t.size)
-            np.einsum('tkk->tk',rhot)[...] = popt
-
-            return rhot
+        return rhot.reshape(-1,self.dim,self.dim)
     
-    def _propagate_exp(self,rho,t,include_coh=True):
+    def _propagate_exp(self,rho,t):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
         
         Arguments
@@ -554,40 +534,25 @@ class RelTensor():
             density matrix at t=0
         t: np.array(dtype=np.float)
             time axis used for the propagation.
-        include_coh: Boolean
-            if False, the coherences aren't propagated (i.e. rho coherences are copied into rhot).
-            if True, the coherences are propagated.
             
         Returns
         -------
         rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
             propagated density matrix"""
-        
-        #case 1: coherences are propagated
-        if include_coh:
                 
-            assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
-
-            Liouv = self.get_Liouv() 
-
-            A = Liouv.reshape(self.dim**2,self.dim**2)
-            rho_ = rho.reshape(self.dim**2)
-            
-            rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
-            
-            return rhot.reshape(-1,self.dim,self.dim)
+        t -= t.min()
         
-        #case 2: only popultions are propagated 
-        else:
-            
-            rhot_diagonal = expm_multiply(self.rates,np.diag(rho),start=t[0],stop=t[-1],num=len(t) )
-            rhot_diagonal = np.real(rhot_diagonal)
-            
-            rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
-            rhot = np.asarray([rho]*t.size)
-            np.einsum('tkk->tk',rhot)[...] = rhot_diagonal
+        assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
 
-            return rhot
+        Liouv = self.get_Liouv() 
+
+        A = Liouv.reshape(self.dim**2,self.dim**2)
+        rho_ = rho.reshape(self.dim**2)
+
+        rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
+
+        return rhot.reshape(-1,self.dim,self.dim)
+
         
     def get_g_a(self):
         """This function returns the diagonal element g_aaaa of the lineshape function tensor in the exciton basis.
@@ -658,7 +623,6 @@ class RelTensor():
         Liouv = self.get_Liouv() #calculate Liouvillian
         
         A = Liouv.reshape(self.dim**2,self.dim**2) #transform superoperator to operator
-        #print(A)
         At = A*dt #multiply by time step
         
         prop_exc = la.expm(At).reshape(self.dim,self.dim,self.dim,self.dim) #calculate propagator in the exciton basis
