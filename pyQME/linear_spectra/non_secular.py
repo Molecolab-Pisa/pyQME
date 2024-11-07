@@ -1,15 +1,79 @@
 import numpy as np
 from scipy.integrate import cumtrapz
+from scipy.linalg import norm as scipy_norm
 from opt_einsum import contract
-from scipy.linalg import expm
 import psutil
 from .spectracalculator import SpectraCalculator,add_attributes
-from warnings import warn
 
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 factOD = 108.86039 #conversion factor for optical spectra
 wn = 2*np.pi*3.e-2 #factor used for the Fast Fourier Transform
 wn2ips = 0.188495559215 #conversion factor from ps to cm
+
+def expmat(kappa):
+    """ Computes the exponential of a complex matrix exp(-K(t)).
+    
+    Parameters:
+    kappa : ndarray
+        A complex matrix (n_site x n_site).
+    
+    Returns:
+    rho : ndarray
+        The computed inverse exponential matrix (n_site x n_site).
+    """
+    
+    kappa = -kappa.copy()
+    n_site = kappa.shape[0]
+    
+    # Initialize rho as the identity matrix
+    rho = np.zeros((n_site, n_site), dtype=np.complex128)
+    np.fill_diagonal(rho, 1.0)
+    
+    # Scaling step K --> K / 2^Kscale
+    # Compute 1-norm
+    norm = scipy_norm(kappa, ord=1)
+    if norm == 0:
+        return rho
+    
+    # Set scale factor 2^Kscale
+    Kscale = max(0, int(np.log2(norm)) + 2)
+    
+    # Allocate scaled matrix
+    scaled = kappa / (2 ** Kscale)
+    
+    # Taylor step
+    xodd = np.zeros((n_site, n_site), dtype=np.complex128)
+    xeven = np.zeros((n_site, n_site), dtype=np.complex128)
+    delta = 1.0
+    thresh = 1.0e-8
+    J = 0
+
+    while delta > thresh:
+        J += 1
+        
+        # Do odd term
+        if J == 1:
+            xodd = scaled
+        else:
+            fact = 1.0 / (2 * J - 1)
+            xodd = fact * np.dot(xeven, scaled)
+        
+        rho -= xodd
+        
+        # Do even term
+        fact = 1.0 / (2 * J)
+        xeven = fact * np.dot(xodd, scaled)
+        rho += xeven
+        
+        delta = np.max(np.abs(xodd)) + np.max(np.abs(xeven))
+
+    # Squaring step exp(-K) -> (exp(-K))^(2^Kscale)
+    scaled = rho.copy()
+    for _ in range(Kscale):
+        rho = np.dot(scaled, scaled)
+        scaled = rho.copy()
+
+    return rho
 
 class FCE(SpectraCalculator):
     """Class for calculations of absorption and fluorescence spectra using the Full Cumulant Expansion.
@@ -103,18 +167,43 @@ class FCE(SpectraCalculator):
                         F_abcZt[a,:,c,Z_idx] = (exp_act*G_abZt[a,:,Z_idx]-G_abZt[c,:,Z_idx])*iwmn
         self.F_abcZt = F_abcZt
         
-    def _calc_K_abs(self):
-        "This function calculates and stores the absorption lineshape matrix."
+    def _calc_K_abs(self,w_cutoff=1e-3):
+        "This function calculates and stores the absorption lineshape matrix, without storing F_abcZt."
         
-        if not hasattr(self,'F_abcZt'):
-            self._calc_F()
-        F_abcZt = self.F_abcZt
-        
+        time_axis = self.time
+        nchrom = self.rel_tensor.dim
+        SD_id_list = self.rel_tensor.SD_id_list
+        nsds = self.rel_tensor.specden.nsds
+        Om = self.rel_tensor.Om
+
+        if not hasattr(self,'H_abZt'):
+            self._calc_H()
+        H_abZt = self.H_abZt
+
+        if not hasattr(self,'G_abZt'):
+            self._calc_G()
+        G_abZt = self.G_abZt
+
         if not hasattr(self,'weight_Zabbc'):
             self.rel_tensor._calc_weight_abbc()
         weight_Zabbc = self.rel_tensor.weight_abbc
+
+        #F_abct = np.zeros([nchrom,nchrom,nchrom,time_axis.size],dtype=np.complex128)
+        K_abs_abt = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
+        for a in range(nchrom):
+            for c in range(nchrom):
+                #resonant case
+                if np.abs(Om[a,c]) < w_cutoff or a==c:
+                    tmp_Zbt = weight_Zabbc[:,a,:,c,None].transpose((1,0,2))*(time_axis*G_abZt[a,:,:] - H_abZt[a,:,:])
+                    K_abs_abt[a,c,:] += tmp_Zbt.sum(axis=(0,1))
+                #non resonant case
+                else:
+                    exp_act = np.exp(1j*time_axis*Om[c,a])
+                    iwmn = -1j/Om[c,a]
+                    tmp_Zbt = weight_Zabbc[:,a,:,c,None].transpose((1,0,2))*(exp_act*G_abZt[a,:,:]-G_abZt[c,:,:])*iwmn
+                    K_abs_abt[a,c,:] += tmp_Zbt.sum(axis=(0,1))
         
-        K_abs_abt = contract('Zabc,abcZt->act',weight_Zabbc,F_abcZt)
+        #K_abs_abt = contract('Zabc,abcZt->act',weight_Zabbc,F_abcZt)
         self.K_abs_abt = K_abs_abt
         
     def _calc_exp_K(self,spec_type,threshold_cond_num=1.02):
@@ -147,7 +236,7 @@ class FCE(SpectraCalculator):
             
         time_axis = self.time
         nchrom = self.rel_tensor.dim
-        exp_K_abs_abt = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
+        exp_K_abt = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
                 
         for t_idx in range(time_axis.size):
 
@@ -160,11 +249,14 @@ class FCE(SpectraCalculator):
 
             #if the condition number is smaller than a treshold, calculate the exponential matrix using the eigen-decomposition (faster)
             if condition_number<threshold_cond_num:
-                exp_K_abs_abt[:, :, t_idx] = eigvecs_K @ np.diag(np.exp(eigvals_K)) @ eigvecs_K.conj().T        
+                exp_K_abt[:, :, t_idx] = eigvecs_K @ np.diag(np.exp(eigvals_K)) @ eigvecs_K.conj().T        
             #if the condition number is greater than the treshold, calculate the exponential matrix numerically (slower)
             else:
-                exp_K_abs_abt[:, :, t_idx] = expm(K_abt[:, :, t_idx])
-        return exp_K_abs_abt
+                exp_K_abt[:, :, t_idx] = expmat(K_abt[:, :, t_idx])
+        if spec_type=='abs':
+            self.exp_K_abs_abt = exp_K_abt
+        elif spec_type=='fluo':
+            self.exp_K_fluo_abt = exp_K_abt
         
     def _calc_I_abt(self):
         "This function calculates and stores the absorption lineshape in the time domain"
@@ -176,9 +268,8 @@ class FCE(SpectraCalculator):
         if not hasattr(self,'exp_K_abs_abt'):
             if not hasattr(self,'K_abs_abt'):
                 self._calc_K_abs()
-            K_abs_abt = self.K_abs_abt
-            exp_K_abs_abt = self._calc_exp_K(spec_type='abs')
-            self.exp_K_abs_abt = exp_K_abs_abt
+            self._calc_exp_K(spec_type='abs')
+            exp_K_abs_abt = self.exp_K_abs_abt
         else:
             exp_K_abs_abt = self.exp_K_abs_abt
             
@@ -462,8 +553,8 @@ class FCE(SpectraCalculator):
         if not hasattr(self,'exp_K_fluo_abt'):
             if not hasattr(self,'K_fluo_abt'):
                 self._calc_K_fluo()
-            exp_K_fluo_abt = self._calc_exp_K(spec_type='fluo')
-            self.exp_K_fluo_abt = exp_K_fluo_abt
+            self._calc_exp_K(spec_type='fluo')
+            exp_K_fluo_abt = self.exp_K_fluo_abt
         else:
             exp_K_fluo_abt = self.exp_K_fluo_abt
             
