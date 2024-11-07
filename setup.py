@@ -8,5 +8,5 @@ setup(
     author_email="piermarco.saraceno@phd.unipi.it",
     description=open("README.md").read(),
     packages=find_packages(),
-    install_requires=["numpy", "scipy", "opt_einsum","tqdm","psutil"],
+    install_requires=["numpy", "scipy", "opt_einsum","tqdm","psutil","warnings"],
 )

@@ -8,8 +8,8 @@ from scipy.sparse.linalg import expm_multiply
 
 
 from pyQME.spectral_density import SpectralDensity
-from pyQME.linear_spectra import SecularLinearSpectraCalculator
-from pyQME.tensors import RedfieldTensor
+from pyQME.linear_spectra import SecularSpectraCalculator
+from pyQME.tensors.markov import RedfieldTensor
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis
 
 
@@ -69,10 +69,10 @@ rel_tens_obj = RedfieldTensor(H,SD_obj)
 
 # # Spectrum calculation
 
-spectrum_obj = SecularLinearSpectraCalculator(rel_tens_obj,approximation='cR')
+spectrum_obj = SecularSpectraCalculator(rel_tens_obj,approximation='cR')
 
 
-freq_axis_FL,FL = spectrum_obj.calc_FL(dipoles=dipoles)   #to be saved
+freq_axis_FL,FL = spectrum_obj.calc_fluo_OD(dipoles=dipoles)   #to be saved
 
 
 

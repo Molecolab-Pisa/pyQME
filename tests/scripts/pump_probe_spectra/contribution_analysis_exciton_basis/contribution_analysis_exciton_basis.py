@@ -7,8 +7,8 @@ import numpy as np
 
 
 from pyQME.spectral_density import SpectralDensity
-from pyQME.pump_probe import PumpProbeSpectraCalculator
-from pyQME.tensors import RedfieldTensor
+from pyQME.pump_probe import PumpProbeCalculator
+from pyQME.tensors.markov import RedfieldTensor
 from pyQME.tensors_double import RedfieldTensorDouble
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
 
@@ -21,7 +21,7 @@ nchrom = 2 #number of chromophores
 
 coupling = 100
 E0 = 10000
-energy_gap = 478
+energy_gap = 500
 H = np.zeros((nchrom,nchrom)) #hamiltonian
 
 H[0] = np.asarray([E0      ,coupling     ])
@@ -90,7 +90,7 @@ pop_t_exc = np.einsum('tkk->tk',rho_t_exc)
 
 # # Spectra calculation
 
-spectrum_obj = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double)
+spectrum_obj = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double)
 
 
 spectrum_obj.calc_components_lineshape(dipoles=dipoles)

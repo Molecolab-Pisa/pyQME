@@ -7,8 +7,8 @@ import numpy as np
 
 
 from pyQME.spectral_density import SpectralDensity
-from pyQME.pump_probe import PumpProbeSpectraCalculator
-from pyQME.tensors import RedfieldTensor,RedfieldTensor
+from pyQME.pump_probe import PumpProbeCalculator
+from pyQME.tensors.markov import RedfieldTensor,RedfieldTensor
 from pyQME.tensors_double import RedfieldTensorDouble,RedfieldTensorDouble
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
 
@@ -21,7 +21,7 @@ nchrom = 2 #number of chromophores
 
 coupling = 100
 E0 = 10000
-energy_gap = 478
+energy_gap = 500
 H = np.zeros((nchrom,nchrom)) #hamiltonian
 
 H[0] = np.asarray([E0      ,coupling     ])
@@ -90,10 +90,10 @@ pop_t_exc = np.einsum('tkk->tk',rho_t_exc)
 
 # # Spectra calculation
 
-spectrum_obj_diag_approx = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'no dephasing')
-spectrum_obj_real = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'rR')
-spectrum_obj_complex = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'cR')
-spectrum_obj_imag = PumpProbeSpectraCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'iR')
+spectrum_obj_diag_approx = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'no xi')
+spectrum_obj_real = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'rR')
+spectrum_obj_complex = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'cR')
+spectrum_obj_imag = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'iR')
 
 
 spectrum_obj_diag_approx.calc_components_lineshape(dipoles=dipoles)

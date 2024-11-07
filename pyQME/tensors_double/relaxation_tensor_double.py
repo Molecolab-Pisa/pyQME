@@ -23,8 +23,10 @@ class RelTensorDouble():
         SpectralDensity class.
         if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham)."""
     
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,secularize=True):
         "This function initializes the RelTensorDouble class, used to model the energy transfer processes in the double exciton manifold."
+        
+        self.secularize=secularize
         
         if H is not None:
             if not hasattr(self,'pairs'):

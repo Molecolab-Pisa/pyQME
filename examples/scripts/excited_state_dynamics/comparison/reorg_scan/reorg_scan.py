@@ -6,7 +6,7 @@
 import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
-from pyQME.tensors import RedfieldTensor,ForsterTensor,ModifiedRedfieldTensor
+from pyQME.tensors.markov import RedfieldTensor,ForsterTensor,ModifiedRedfieldTensor
 
 from pyQME.utils import wn2ips
 
@@ -24,7 +24,7 @@ from pyQME.utils import wn2ips
 # 
 # In the following definition, the reorganization energy is ~78 cm$^{-1}$ when the scale factor is one.
 
-def get_B777(scale=1.0,S1=0.8,S2=0.5,W1=0.5565,W2=1.936,wmax=3000):
+def get_B777(scale=1.0,S1=0.8,S2=0.5,W1=0.5565,W2=1.936,wmax=1000):
     "Computes B777 type spectral density"
 
     w = np.arange(0.02,wmax+0.02,0.02)
@@ -46,7 +46,6 @@ freq_axis,specden = get_B777()
 SD = SpectralDensity(freq_axis,specden,temperature=300)
 SD.time = np.linspace(0.,0.6,25000)
 SD.get_gt();
-print('Reorg: {:7.1f} cm^-1'.format(SD.Reorg[0]))
 
 
 # Plot the temperature-dependent spectral density satisfying detailed balance
@@ -66,14 +65,12 @@ forst = ForsterTensor(H,SD)
 
 rate = forst.get_rates()[0,1]*wn2ips
 time = 1/rate
-print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 
 
 mR = ModifiedRedfieldTensor(H,SD)
 
 rate = mR.get_rates()[0,1]*wn2ips
 time = 1/rate
-print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 
 
 Redf = RedfieldTensor(H,SD)
@@ -82,7 +79,6 @@ Redf = RedfieldTensor(H,SD)
 ##  rate = Redf.rates[0,1]*wn2ips
 rate = Redf.get_rates()[0,1]*wn2ips
 time = 1/rate
-print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 
 
 # ## Compare rates as a function of the reorganization energy
@@ -92,7 +88,7 @@ print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 # 
 # 
 
-reorg_scan = np.logspace(1,3,100) # from 10 to 1000     #to be saved
+reorg_scan = np.logspace(1,3,10) # from 10 to 1000     #to be saved
 
 delta_E = 100.0
 coup = 40.0
@@ -113,7 +109,6 @@ for reorg in reorg_scan:
     SD_i = SpectralDensity(freq_axis,specden,temperature=300)
     SD_i.time = np.linspace(0.,0.6,25000)
     SD_i.get_gt();
-    #print('Reorg: {:7.1f} cm^-1'.format(SD_i.Reorg[0]))
     
     # Do Forster calculation
     forst = ForsterTensor(Ham,SD_i)
@@ -135,6 +130,15 @@ for reorg in reorg_scan:
 k_Forster = np.asarray(k_Forster)     #to be saved
 k_modRedfield = np.asarray(k_modRedfield)     #to be saved
 k_Redfield = np.asarray(k_Redfield)     #to be saved
+
+
+
+
+
+
+
+
+
 
 
 

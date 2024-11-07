@@ -4,7 +4,7 @@ from .utils import factOD
 from copy import deepcopy
 
 
-class PumpProbeSpectraCalculator():
+class PumpProbeCalculator():
     """Class for calculations of pump-probe spectra in the doorway-windows approximation.
     The lineshape theory adopted employs the Markovian and secular approximation.
     References: 

@@ -19,12 +19,14 @@ class RelTensor():
         SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
         example: [0,0,0,0,1,1,1,0,0,0,0,0]
     initialize: Boolean
-        the relaxation tensor is computed when the class is initialized.
+        the relaxation tensor is calculated when the class is initialized.
     specden_adiabatic: class
         SpectralDensity class.
-        if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham)."""
+        if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham).
+    secularize: Bool
+        if True, the relaxation tensor is secularized"""
     
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,secularize=True):
         "This function initializes the RelTensor class, used to model the energy transfer processes in the single exciton manifold."
         
         #store variables given as input
@@ -34,6 +36,7 @@ class RelTensor():
             raise NotImplementedError('You should not initialize this class without Hamiltonian')
             
         self.specden = deepcopy(specden)
+        self.secularize=secularize
         
         if specden_adiabatic is not None:
             self.specden_adiabatic = deepcopy(specden_adiabatic)
@@ -101,7 +104,7 @@ class RelTensor():
             
         #standard Hamiltonian diagonalization
         else:
-            self.ene = np.empty(0)
+            self.ene = np.zeros(0)
             U = []
             
             #diagonalize each block and collect eigenvectors and eigenvalues
@@ -268,44 +271,13 @@ class RelTensor():
         See "transform" function for input and output."""
         
         return self.transform(*args,**kwargs,inverse=True)
-    
-    def _secularize_and_store(self):
-        "This function stores the secularized relaxation tensor"
-        
-        self.RTen = self.secularize(self.RTen)
-        
-    def _secularize(self,RTen):
-        """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
-        This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
-        
-        Arguments
-        ---------
-        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
-            non-secular relaxation tensor.
-        
-        Returns
-        -------
-        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
-            secularized relaxation tensor."""
-        
-        eye = np.eye(self.dim)
-        
-        tmp1 = contract('abcd,ab,cd->abcd',RTen,eye,eye)
-        tmp2 = contract('abcd,ac,bd->abcd',RTen,eye,eye)
-        
-        RTen_secular = tmp1 + tmp2
-        
-        #halve the diagonal elements RTen_secular_aaaa
-        RTen_secular[np.diag_indices_from(RTen_secular)] /= 2.0
-        
-        return RTen_secular
 
     def get_rates(self):
         """This function returns the energy transfer rates.
         
         Returns
         -------
-        self.rates: np.array(dtype=np.float), shape = (self.dim,self.dim)
+        self.rates: np.array(dtype=np.float), shape = (self.dim,self.dim) or (self.dim,self.dim,self.specden.time)
             matrix of energy transfer rates."""
 
         if not hasattr(self, 'rates'):
@@ -320,71 +292,14 @@ class RelTensor():
         
         Returns
         -------
-        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
-            secularized relaxation tensor."""
+        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim) or (dim,dim,dim,dim,self.specden.time)
+            relaxation tensor."""
         
         if not hasattr(self, 'RTen'):
             self._calc_tensor()
         return self.RTen
-    
-    def get_dephasing(self):
-        """This function returns the dephasing
         
-        Returns
-        -------
-        dephasing: np.array(), shape = (dim,dim,dim,dim)
-            dephasing."""
-        
-        if not hasattr(self,'dephasing'):
-            self._calc_dephasing()
-        return self.dephasing
-    
-    def _apply_diss(self,rho):
-        """This function lets the relaxation tensor to act on the rho matrix.
-        
-        Arguments
-        ---------
-        rho: np.array(dtype=np.complex), shape = (dim,dim)
-            matrix on which the relaxation tensor is applied.
-            
-        Returns
-        -------
-        R_rho: np.array(dtype=np.complex), shape = (dim,dim)
-            the result of the application of the relaxation tensor on rho."""
-        
-        shape_ = rho.shape
-        
-        # Reshape if necessary
-        rho_ = rho.reshape((self.dim,self.dim))
-        
-        R_rho = np.tensordot(self.RTen,rho_)
-        
-        return R_rho.reshape(shape_)
-
-    def apply(self,rho):
-        """This function lets the Liouvillian operator to act on the rho matrix
-        
-        Arguments
-        ---------
-        rho: np.array(dtype=np.complex), shape = (dim,dim)
-            matrix on which the Liouvillian is applied.
-            
-        Returns
-        -------
-        R_rho: np.array(dtype=np.complex), shape = (dim,dim)
-            the result of the application of the Liouvillian on rho."""
-        
-        shape_ = rho.shape
-        
-        #apply the Relaxation tensor
-        R_rho = self._apply_diss(rho).reshape((self.dim,self.dim))
-        
-        #apply the commutator [H_S,rho_S]
-        R_rho  += -1.j*self.Om*rho.reshape((self.dim,self.dim))
-        
-        return R_rho.reshape(shape_)
-    
-    def propagate(self,rho,t,propagation_mode='eig',units='cm',basis='exciton',cond_num_threshold=1.1):
+    def propagate(self,rho,t,propagation_mode=None,units='cm',basis='exciton',cond_num_threshold=1.1,t_switch_exp_to_eig=None):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor.
         
         Arguments
@@ -397,29 +312,40 @@ class RelTensor():
         propagation_mode: string
             if 'eig', the density matrix is propagated using the eigendecomposition of the (reshaped) Liouvillian.
             if 'exp', the density matrix is propagated using the exponential matrix of the (reshaped) Liouvillian.
-            if 'exp+eig', the density matrix is propagated using 'exp' if the condition number of the (reshaped) Liouvillian is greater than cond_num_treshold, otherwise 'eig' is used.
+            if 'exp_then_eig', the density matrix is propagated using 'exp', before t_switch_exp_to_eig, and 'eig' after it
+            if 'exp+eig_cond_num', the density matrix is propagated using 'exp' if the condition number of the (reshaped) Liouvillian is greater than cond_num_treshold, otherwise 'eig' is used.
         units: string
             can be 'ps' or 'cm' or 'fs'
-            unit of measurement of the time axis.
+            units of the time axis given as input.
         basis: string
             if 'exciton', the initial density matrix "rho" and the propagated density matrix "rhot" are in the eigenbasis (exciton basis)
             if 'site', the initial density matrix "rho" and the propagated density matrix "rhot" are in the site basis
         cond_num_treshold: float
             if propagation_mode == 'exp+eig', the density matrix is propagated using 'exp' if the condition number of the (reshaped) Liouvillian is greater than cond_num_treshold, otherwise 'eig' is used.
+        t_switch_exp_to_eig: float
+            time (in same units as t), at which occurs the switch from propagation_mode='exp' to propagation_mode='eig'
+            this is used if propagation_mod='exp_then_eig'
             
         Returns
         -------
         rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
             propagated density matrix"""
         
+        if propagation_mode is None:
+            propagation_mode=self.propagation_mode_default
+            
+        if propagation_mode == 'exp_then_eig' and t_switch_exp_to_eig is None:
+            raise ValueError('You must input t_switch_exp_to_eig')
+        
         if units == 'ps':
             t = t*wn2ips
+            if t_switch_exp_to_eig is not None:
+                t_switch_exp_to_eig = t_switch_exp_to_eig*wn2ips
         elif units == 'fs':
             t = t*wn2ips/1000            
+            if t_switch_exp_to_eig is not None:
+                t_switch_exp_to_eig = t_switch_exp_to_eig*wn2ips/1000
             
-        if not hasattr(self,'RTen'):
-            self._calc_tensor()
-        
         rho0 = rho.copy()
         if basis == 'site':
             rho_site = rho0
@@ -434,8 +360,15 @@ class RelTensor():
             rhot = self._propagate_eig(rho0,t)
         elif propagation_mode == 'exp':
             rhot = self._propagate_exp(rho0,t)
-        elif propagation_mode == 'exp+eig':
-            rhot = self._propagate_exp_eig(rho0,t,cond_num_threshold=cond_num_threshold)
+        elif propagation_mode == 'exp_then_eig':
+            mask = t<t_switch_exp_to_eig
+            rho_t_exc_1 = self._propagate_exp(rho0,t[mask])    
+            rho_t_exc_2 = self._propagate_eig(rho_t_exc_1[-1],t[~mask])  
+            rhot = np.concatenate((rho_t_exc_1,rho_t_exc_2),axis=0)
+
+        elif propagation_mode == 'exp+eig_cond_num':
+            raise NotImplementedError('propagation_mode not implemented!')                
+            #rhot = self._propagate_exp_eig_cond_num(rho0,t,cond_num_threshold=cond_num_threshold)
         else:
             raise ValueError('propagation_mode not recognized!')
         
@@ -445,50 +378,183 @@ class RelTensor():
         else:
             return rhot
         
-    def _calc_Liouv(self,secularize=None):
-        """This function calaculates and stores the Liouvillian
+    def get_Liouv(self):
+        """This function returns the representation tens
+            
+        Returns
+        -------
+        Liouv: np.array(dtype=complex), shape = (dim,dim,dim,dim) or (dim,dim,mdim,dim,self.specden.time)
+            Liouvillian"""        
+
+        if not hasattr(self,'Liouv'):
+            self._calc_Liouv()
+        return self.Liouv
+        
+    def get_g_a(self):
+        """This function returns the diagonal element g_aaaa of the lineshape function tensor in the exciton basis, defined on self.specden.time.
+        
+        Returns
+        -------
+        self.g_a: np.array(dtype=np.complex128),shape = (self.dim,self.specden.time.size)
+            lineshape function g_aaaa in exciton basis, defined on the time axis self.specden.time
+        """
+        
+        if not hasattr(self,'g_a'):
+            self._calc_g_a()
+        return self.g_a
+    
+    def _calc_g_a(self):
+        """This function computes the diagonal element g_aaaa of the lineshape function tensor in the exciton basis.
+        The related time axis is self.specden.time."""
+        
+        gt_site = self.specden.get_gt()
+        W = self.weight_aaaa
+
+        # g_a = sum_i |c_ia|^4 g_i = sum_Z w_aaaa_Z g_Z 
+        self.g_a = np.dot(W.T,gt_site)
+
+    def get_lambda_a(self):
+        """This function returns the diagonal element lambda_aaaa of the reorganization energy tensor in the exciton basis.
+        
+        Returns
+        -------
+        self.lambda_a: np.array(dtype=np.float), shape=(self.dim)
+            reorganization energy lambda_aaaa in the exciton basis"""
+        
+        if not hasattr(self,'lambda_a'):
+            self._calc_lambda_a()
+        return self.lambda_a
+    
+    def _calc_lambda_a(self):
+        "This function computes the diagonal element lambda_aaaa of the reorganization energy tensor in the exciton basis."
+        
+        W = self.weight_aaaa
+        # lambda_a = sum_i |c_ika^4 lambda_i = sum_Z w_aaaa_Z lambda_Z 
+        self.lambda_a = np.dot(W.T,self.specden.Reorg)
+
+    def get_effective_rates(self,dt=5*wn2ips,units='cm'):
+        """This function returns the effective rates.
+        For the details about the calculation of the effective rates, see https://doi.org/10.1063/5.0170295
         
         Arguments
         ---------
-        secularize: Bool
-            if True, the relaxation tensor is secularized."""
-        
-        #if the user doesn't give a secularize option, we calculate the tensor with the default option for the secularization
-        if secularize is None and hasattr(self,'RTen'):
-            pass
-        
-        #if the user provides a secularize option, we calculate the tensor, even if it's been calculated before, because we don't know what secularization was used before
-        elif secularize is not None and hasattr(self,'RTen'):
-            self._calc_tensor(secularize=secularize)
+        dt: np.float
+            time step used for the calculation of the effective rates
+            default = 5 ps
+        units: string
+            units in which the dt in input is given: 'ps', 'cm'
             
-        elif not hasattr(self,'RTen'):
-            self._calc_tensor(secularize=secularize)            
+        Returns
+        ---------
+        effective_rates: np.array(dtype=np.float),size=(self.dim,self.dim)
+            effective rates in cm-1"""
+        
+        if units == 'ps':
+            dt = dt*wn2ips #transform from ps to cm
+            
+        self._calc_effective_rates(dt)
+        return self.effective_rates
+        
+    def get_xi_fluo(self):
+        """This function computes and returns xi_td_fluo(t), contributing to off-diagonal terms in fluorescence lineshape using Full Cumulant Expansion under secular approximation.
+        
+        Returns
+        -------
+        self.xi_td_at: np.array(dtype=np.complex128), shape = (self.dim,self.specden.time.size)
+            xi_fluo_td(t), used for the calculation of fluorescence spectra under secular approximation"""
+        
+        if not hasattr(self,'xi_td_at'):
+            self._calc_xi_fluo()
+        return self.xi_td_at
+    
+    def get_xi(self):
+        """This function computes and returns xi(t), contributing to off-diagonal terms in absorption lineshape using Full Cumulant Expansion under secular approximation.
+        
+        Returns
+        -------
+        self.xi_at: np.array(dtype=np.complex128), shape = (self.dim,self.specden.time.size)
+            xi(t), used for the calculation of absorption spectra under secular approximation"""
+        
+        if not hasattr(self,'xi_at'):
+            self._calc_xi()    
+        return self.xi_at
+        
+    def get_eq_pop_fluo(self):
+        """This function computes and returns the equilibrium population, used for the calculation of fluorescence lineshape using Full Cumulant Expansion under secular approximation.
+        
+        Returns
+        -------
+        self.eq_pop_fluo: np.array(dtype=np.float), shape = (self.dim)
+            equilibrium populations in the exciton basis."""
+            
+        if not hasattr(self,'eq_pop_fluo'):
+            self._calc_eq_pop_fluo()
+        return self.eq_pop_fluo
+
+class RelTensorMarkov(RelTensor):
+    """Markovian Relaxation tensor class in the single-exciton manifold.
+    
+    Arguments
+    ---------
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham).
+    secularize: Bool
+        if True, the relaxation tensor is secularized"""
+    
+    def __init__(self,*args,**kwargs):
+        "This function handles the variables which are initialized to the main RelTensor Class."
+        self.propagation_mode_default = 'exp'        
+        super().__init__(*args,**kwargs)
+        
+    
+    def _propagate_exp(self,rho,t):
+        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
+        
+        Arguments
+        ---------
+        rho: np.array(dtype=complex), shape = (dim,dim)
+            dim must be equal to self.dim.
+            density matrix at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+            
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
+                
+        t -= t.min()
+        
+        assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
+
+        Liouv = self.get_Liouv() 
+
+        A = Liouv.reshape(self.dim**2,self.dim**2)
+        rho_ = rho.reshape(self.dim**2)
+
+        rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
+
+        return rhot.reshape(-1,self.dim,self.dim)
+
+    def _calc_Liouv(self):
+        """This function calaculates and stores the Liouvillian"""
+           
+        if not hasattr(self,'RTen'):
+            self._calc_tensor()            
         
         eye   = np.eye(self.dim)
         self.Liouv = self.RTen + 1.j*contract('cd,ac,bd->abcd',self.Om.T,eye,eye)
         
-    def get_Liouv(self,secularize=None):
-        """This function returns the representation tensor of the Liouvillian super-operator.
-        
-        Arguments
-        ---------
-        secularize: Bool
-            if True, the relaxation tensor is secularized.
-            
-        Returns
-        -------
-        Liouv: np.array(dtype=complex), shape = (dim,dim,mdim,dim,self.specden.time)
-            Liouvillian"""
-        
-        if secularize is None and hasattr(self,'Liouv'):
-            pass
-        if secularize is not None and hasattr(self,'Liouv'):
-            self._calc_Liouv(secularize=secularize)
-        elif not hasattr(self,'Liouv'):
-            self._calc_Liouv()
-        return self.Liouv
-            
-    
     def _propagate_eig(self,rho,t):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
         
@@ -523,7 +589,185 @@ class RelTensor():
         rhot = np.dot( vr, np.einsum('lt,l->lt', exps, y0) ).T
 
         return rhot.reshape(-1,self.dim,self.dim)
+
+    def _secularize(self,RTen):
+        """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
+        This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
+        
+        Arguments
+        ---------
+        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+            non-secular relaxation tensor.
+        
+        Returns
+        -------
+        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+            secularized relaxation tensor."""
+        
+        eye = np.eye(self.dim)
+        
+        tmp1 = contract('abcd,ab,cd->abcd',RTen,eye,eye)
+        tmp2 = contract('abcd,ac,bd->abcd',RTen,eye,eye)
+        
+        RTen_secular = tmp1 + tmp2
+        
+        #halve the diagonal elements RTen_secular_aaaa
+        RTen_secular[np.diag_indices_from(RTen_secular)] /= 2.0
+        
+        return RTen_secular
     
+    def _calc_eq_pop_fluo(self,include_deph=True,include_lamb=True):
+        """This function computes and stores the Boltzmann equilibrium population for fluorescence intensity.
+        
+        Arguments
+        -------
+        include_deph: Bool
+            if True, the energies used for the calculation of the eq. pop. will be shifted by the imaginary part of the dephasing
+            if False, the energies are not shifted
+            
+        include_lamb: Bool
+            if True, the energies used for the calculation of the eq. pop. will be shifted by the reorganization energies
+            if False, the energies are not shifted"""
+        
+        #for fluorescence spectra we need adiabatic equilibrium population, so we subtract the reorganization energy
+        ene = self.ene.copy()
+        if include_lamb:
+            ene -= self.get_lambda_a()
+        if include_deph:
+            ene += self.get_dephasing().imag
+        
+        #we scale the energies to avoid numerical difficulties
+        ene -= ene.min()
+        
+        boltz = np.exp(-ene*self.specden.beta)
+        
+        #the populations are not normalized because the normalization must be done taking into account also of dipoles, which is managed by the SpectraCalculator 
+        
+        self.eq_pop_fluo = boltz
+        
+    def _calc_effective_rates(self,dt):
+        """This function calculates and stores the effective rates.
+        
+        Arguments
+        ---------
+        dt: np.float
+            time step (in cm) used for the calculation of the effective rates"""
+        
+        coeff = self.U
+        Liouv = self.get_Liouv() #calculate Liouvillian
+        
+        A = Liouv.reshape(self.dim**2,self.dim**2) #transform superoperator to operator
+        At = A*dt #multiply by time step
+        
+        prop_exc = la.expm(At).reshape(self.dim,self.dim,self.dim,self.dim) #calculate propagator in the exciton basis
+        prop_site = contract('ia,jb,kc,ld,abcd->ijkl',coeff,coeff,coeff,coeff,prop_exc) #transform to site basis
+        prop_site_diag_pop = np.einsum('iijj->ij',prop_site).real #extract the diagonal part, corresponding to the pop <-> pop transfers in the site basis
+        
+        effective_rates = la.logm(prop_site_diag_pop).real/dt #calculate effective rates as logaritm matrix
+        self.effective_rates = effective_rates
+        
+    def _calc_xi_fluo(self):
+        """This function computes and stores xi_td_fluo(t), contributing to off-diagonal terms in fluorescence lineshape using Full Cumulant Expansion under secular approximation."""
+        
+        if not hasattr(self,'xi_at'):
+            self._calc_xi()
+        self.xi_td_at = self.xi_at
+        
+    def _calc_xi(self):
+        """This function computes and stores xi(t), contributing to off-diagonal terms in absorption lineshape using Full Cumulant Expansion under secular approximation.
+        
+        Returns
+        -------
+        xi_at: np.array(dype=np.complex128), shape = (self.rel_tensor.dim,self.specden.time.size)
+            xi function"""
+        
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        xi_at = contract('a,t->at',self.dephasing,self.specden.time)
+        self.xi_at = xi_at
+        
+    def get_dephasing(self):
+        """This function returns the dephasing
+        
+        Returns
+        -------
+        dephasing: np.array(dtype=np.complex128), shape = (dim)
+            dephasing."""
+        
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        return self.dephasing
+    
+    def _apply_rel_tensor(self,rho):
+        """This function lets the relaxation tensor to act on the rho matrix.
+        
+        Arguments
+        ---------
+        rho: np.array(dtype=np.complex), shape = (dim,dim)
+            matrix on which the relaxation tensor is applied.
+            
+        Returns
+        -------
+        R_rho: np.array(dtype=np.complex), shape = (dim,dim)
+            the result of the application of the relaxation tensor on rho."""
+        
+        shape_ = rho.shape
+        
+        # Reshape if necessary
+        rho_ = rho.reshape((self.dim,self.dim))
+        
+        R_rho = np.tensordot(self.RTen,rho_)
+        
+        return R_rho.reshape(shape_)
+
+    def apply_liouv(self,rho):
+        """This function lets the Liouvillian operator to act on the rho matrix
+        
+        Arguments
+        ---------
+        rho: np.array(dtype=np.complex), shape = (dim,dim)
+            matrix on which the Liouvillian is applied.
+            
+        Returns
+        -------
+        R_rho: np.array(dtype=np.complex), shape = (dim,dim)
+            the result of the application of the Liouvillian on rho."""
+        
+        shape_ = rho.shape
+        
+        #apply the Relaxation tensor
+        R_rho = self._apply_rel_tensor(rho).reshape((self.dim,self.dim))
+        
+        #apply the commutator [H_S,rho_S]
+        R_rho  += -1.j*self.Om*rho.reshape((self.dim,self.dim))
+        
+        return R_rho.reshape(shape_)
+        
+class RelTensorNonMarkov(RelTensor):
+    """Non Markovian Relaxation tensor class in the single-exciton manifold.
+    
+    Arguments
+    ---------
+    H: np.array(dtype=np.float), shape = (n_site,n_site)
+        excitonic Hamiltonian in cm^-1.
+    specden: Class
+        class of the type SpectralDensity
+    SD_id_list: list of integers, len = n_site
+        SD_id_list[i] = j means that specden.SD[j] is assigned to the i_th chromophore.
+        example: [0,0,0,0,1,1,1,0,0,0,0,0]
+    initialize: Boolean
+        the relaxation tensor is computed when the class is initialized.
+    specden_adiabatic: class
+        SpectralDensity class.
+        if not None, it is used to compute the fraction of reorganization energy that is subtracted from the diagonal of the excitonic Hamiltonian before its diagonalization (see _diagonalize_ham).
+    secularize: Bool
+        if True, the relaxation tensor is secularized"""
+    
+    def __init__(self,*args,**kwargs):
+        "This function handles the variables which are initialized to the main RelTensor Class."        
+        self.propagation_mode_default = 'exp'
+        super().__init__(*args,**kwargs)
+        
     def _propagate_exp(self,rho,t):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
         
@@ -539,95 +783,155 @@ class RelTensor():
         -------
         rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
             propagated density matrix"""
+                        
+        dt = t[1] - t[0]
+        
+        #check that t is increasing
+        assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
+        
+        mapper_t_to_specden_time_list = self.compare_and_map_time_axes(t)
+        
+        t -= t.min()
+        
+        Liouv = self.get_Liouv()            
+
+        A = Liouv.reshape(self.dim**2,self.dim**2,self.specden.time.size)
+        rho_ = rho.reshape(self.dim**2)
+        rhot = np.zeros([t.size,self.dim**2],dtype=np.complex128)
+        rhot[0] = rho_.copy()
+
+        for i,mapper in enumerate(mapper_t_to_specden_time_list):
+            if i>0:
+                rhot[i] = expm_multiply(A[:,:,mapper-1]*dt,rhot[i-1])
+        return rhot.reshape(-1,self.dim,self.dim)
+
+
+    def _calc_Liouv(self):
+        """This function calaculates and stores the Liouvillian"""
+        
+        RTen = self.get_tensor()
+        eye   = np.eye(self.dim)
+        Liouv_system = 1.j*contract('cd,ac,bd->abcd',self.Om.T,eye,eye)        
+        Liouv_system = np.stack([Liouv_system] * RTen.shape[-1], axis=-1)
+        self.Liouv = RTen + Liouv_system
+            
+    def compare_and_map_time_axes(self,time_axis_user):
+        """This function checks that all the values of time_axis_user are contained into self.specden.time. If not, the Liouvillian is recalculated along time_axis_user. A mapper time_axis_user --> self.specden.time is then created and returned"""
+        
+        #check that all values of t are contained into self.specden.time.. if not, we recalculate the Liouvillian on the new time axis
+        t_contained_in_specden_time = np.all(np.any(np.abs(time_axis_user[:, np.newaxis] - self.specden.time) < 1e-10, axis=1))
+        if not t_contained_in_specden_time:
+            raise ValueError('The time axis must be equal or contained in SpectralDensity.time!')
+        mapper_t_to_specden_time_list = [np.argmin(np.abs(t_i-self.specden.time)) for t_i in time_axis_user]
+        return mapper_t_to_specden_time_list
+        
+    def _propagate_eig(self,rho,t):
+        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
+        
+        Arguments
+        ---------
+        rho: np.array(dtype=complex), shape = (dim,dim)
+            dim must be equal to self.dim.
+            density matrix at t=0
+        dt: np.array(dtype=np.float)
+            time step used for the propagation.
+            
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
+        
+        dt = t[1] - t[0]
+        
+        #check that t is increasing
+        assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
+        
+        mapper_t_to_specden_time_list = self.compare_and_map_time_axes(t)
                 
         t -= t.min()
         
-        assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
+        Liouv = self.get_Liouv()            
 
-        Liouv = self.get_Liouv() 
-
-        A = Liouv.reshape(self.dim**2,self.dim**2)
-        rho_ = rho.reshape(self.dim**2)
-
-        rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
-
-        return rhot.reshape(-1,self.dim,self.dim)
-
+        A = Liouv.reshape(self.dim**2,self.dim**2,self.specden.time.size)
         
-    def get_g_a(self):
-        """This function returns the diagonal element g_aaaa of the lineshape function tensor in the exciton basis.
-        The related time axis is self.specden.time."""
-        
-        if not hasattr(self,'g_a'):
-            self._calc_g_a()
-        return self.g_a
+        rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
+        rhot[0] = rho.copy()
+        for i in range(1,t.size):
+            mapper = mapper_t_to_specden_time_list[i]
+            kk,vl,vr = la.eig(A[:,:,mapper-1],left=True,right=True)
+            vl /= contract('ki,ki->i',vl.conj(),vr).real
+            rho_ = rhot[i-1].reshape(self.dim**2)
+            y0 = np.dot(vl.conj().T,rho_)
+            exps = np.exp(kk*dt)
+            rhot[i] = np.dot( vr,exps*y0 ).T.reshape(self.dim,self.dim)
+
+        return rhot
     
-    def _calc_g_a(self):
-        """This function computes the diagonal element g_aaaa of the lineshape function tensor in the exciton basis.
-        The related time axis is self.specden.time."""
-        
-        gt_site = self.specden.get_gt()
-        W = self.weight_aaaa
-
-        # g_a = sum_i |c_ia|^4 g_i = sum_Z w_aaaa_Z g_Z 
-        self.g_a = np.dot(W.T,gt_site)
-
-    def get_lambda_a(self):
-        "This function returns the diagonal element lambda_aaaa of the reorganization energy tensor in the exciton basis."
-        
-        if not hasattr(self,'lambda_a'):
-            self._calc_lambda_a()
-        return self.lambda_a
-    
-    def _calc_lambda_a(self):
-        "This function computes the diagonal element lambda_aaaa of the reorganization energy tensor in the exciton basis."
-        
-        W = self.weight_aaaa
-        # lambda_a = sum_i |c_ika^4 lambda_i = sum_Z w_aaaa_Z lambda_Z 
-        self.lambda_a = np.dot(W.T,self.specden.Reorg)
-
-    def get_effective_rates(self,dt=5*wn2ips,units='cm'):
-        """This function returns the effective rates.
-        For the details about the calculation of the effective rates, see https://doi.org/10.1063/5.0170295
+    def _secularize(self,RTen):
+        """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
+        This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
         
         Arguments
         ---------
-        dt: np.float
-            time step used for the calculation of the effective rates
-            default = 5 ps
-        units: string
-            units in which the dt in input is given: 'ps', 'cm'
-            
+        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim,self.specden.time)
+            non-secular relaxation tensor.
+        
         Returns
-        ---------
-        effective_rates: np.array(dtype=np.float),size=(self.dim,self.dim)
-            effective rates in cm-1
-        """
+        -------
+        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim,self.specden.time)
+            secularized relaxation tensor."""
         
-        if units == 'ps':
-            dt = dt*wn2ips #transform from ps to cm
-            
-        self._calc_effective_rates(dt)
-        return self.effective_rates
+        eye = np.eye(self.dim)
+        
+        tmp1 = contract('abcdt,ab,cd->abcdt',RTen,eye,eye)
+        tmp2 = contract('abcdt,ac,bd->abcdt',RTen,eye,eye)
+        
+        RTen_secular = tmp1 + tmp2
+        
+        #halve the diagonal elements RTen_secular_aaaa
+        for a in range(self.dim): RTen_secular[a,a,a,a] *= 0.5
+        
+        return RTen_secular
     
-    def _calc_effective_rates(self,dt):
-        """This function calculates and stores the effective rates.
+    def _calc_xi_ti(self):
+        raise NotImplementedError('This class does not implement xi calculation')
+
+    def _calc_xi_td(self):
+        raise NotImplementedError('This class does not implement xi calculation')
+        
+    def _calc_eq_pop_fluo(self,include_xi_ti=True,include_lambda=True,normalize=True):
+        """This function computes and stores the Boltzmann equilibrium population for fluorescence intensity.
         
         Arguments
-        ---------
-        dt: np.float
-            time step (in cm) used for the calculation of the effective rates            
-        """
+        -------
+        include_xi_ti: Bool
+            if True, the energies used for the calculation of the eq. pop. will be shifted by the time-independent xi funtion
+            if False, the energies are not shifted
+        include_lambda: Bool
+            if True, the energies used for the calculation of the eq. pop. will be shifted by the reorganizatio energies
+            if False, the energies are not shifted
+        normalize: Bool
+            if True, the sum of the equilibrium populations are normalized to 1
+            if False, the sum of the equilibrium populations is not normalized."""
         
-        coeff = self.U
-        Liouv = self.get_Liouv() #calculate Liouvillian
         
-        A = Liouv.reshape(self.dim**2,self.dim**2) #transform superoperator to operator
-        At = A*dt #multiply by time step
+        ene = self.ene.copy()
         
-        prop_exc = la.expm(At).reshape(self.dim,self.dim,self.dim,self.dim) #calculate propagator in the exciton basis
-        prop_site = contract('ia,jb,kc,ld,abcd->ijkl',coeff,coeff,coeff,coeff,prop_exc) #transform to site basis
-        prop_site_diag_pop = np.einsum('iijj->ij',prop_site).real #extract the diagonal part, corresponding to the pop <-> pop transfers in the site basis
+        if include_lambda:
+            ene -= self.get_lambda_a()
+            
+        #we scale the energies to avoid numerical difficulties
+        ene -= ene.min()
         
-        effective_rates = la.logm(prop_site_diag_pop).real/dt #calculate effective rates as logaritm matrix
-        self.effective_rates = effective_rates
+        exponent = -ene*self.specden.beta
+        
+        if include_xi_ti:
+            if not hasattr(self,'xi_ti_a'):
+                self._calc_xi_ti()
+            exponent -= self.xi_ti_a
+        
+        boltz = np.exp(exponent)
+        
+        #the populations are not normalized because the normalization must be done taking into account also of dipoles, which is managed by the SpectraCalculator 
+            
+        self.eq_pop_fluo = boltz

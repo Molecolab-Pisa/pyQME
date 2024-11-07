@@ -82,11 +82,11 @@ For example, to create a Real Redfield tensor,
 # H is a NxN numpy array
 # SD_obj is a SpectralDensity object
 
-redf = RedfieldTensorReal(H,SD_obj,initialize=True)
+redf = RedfieldTensor(H,SD_obj,initialize=True)
 relaxation_tensor = redf.get_tensor()
 ```
 
-The same procedure is valid for the Relaxation tensors in the double exciton manifold, needed for pump-probe calculations.
+The same procedure is valid for the Relaxation tensors in the double exciton manifold, used for pump-probe calculations.
 
 For example,
 
@@ -94,7 +94,7 @@ For example,
 # H is a NxN numpy array
 # SD_obj is a SpectralDensity object
 
-redf_double = RedfieldTensorRealDouble(H,SD_obj)
+redf_double = RedfieldTensorDouble(H,SD_obj)
 ```
 
 ### Density matrix propagation
@@ -121,7 +121,7 @@ For example, to simulate an absorption spectrum:
 ```
 # dipoles is a Nx3 numpy array
 
-lin_spec_obj = LinearSpectraCalculator(redf)
+lin_spec_obj = SecularLinearSpectraCalculator(redf)
 freq_axis,OD = lin_spec_obj.calc_OD(dipoles)
 
 # freq_axis and OD are 1D numpy arrays of size W
@@ -155,7 +155,7 @@ The electric transition dipoles must be in Debye (x,y,z components).
 
 The temperature must be in Kelvin.
 
-The absorption and pump-probe spectra are returned in  in ${L}$ · ${cm}^{-1}$ · ${mol}^{-1}$ (molar extinction coefficient).
+The absorption and pump-probe spectra are returned in optical density units (${L}$ · ${cm}^{-1}$ · ${mol}^{-1}) (i.e. molar extinction coefficient), or lineshape (i.e, units_of_dypole^2, for example Debye^2).
 
 Some useful conversion factors and physical constants in $cm^{-1}$ can be found in `pyQME/utils.py`.
 
@@ -163,10 +163,10 @@ Some useful conversion factors and physical constants in $cm^{-1}$ can be found 
 
 - The frequency and time axes must be sorted in ascending order.
 - The spectral density used as input must not be divided by the frequency axis.
-- The spectral density used as input must contain the $\pi$ factor. To be sure about it, you can check that SDobj.Reorg corresponds to the expected reorganization energy. 
-- The time axis used for the lineshape functions and for the spectra calculation must be defined in the spectral density class. If you're not sure about how to set it, use the `get_timeaxis` function in `pyQME/utils.py`.
-- If you are propagating the density matrix using the "eig" mode of relaxation_tensor.propagate, be sure that the Liouvillian of your system (relaxation_tensor.get_Liouv()) is diagonalizable. For this, you can also compare the density matrix propagated using the "exp" mode with that propagated using the "eig", which is in general faster.
-- The spectra returned have already been multiplied by the frequency axis (raised to the appropriate power).
+- The spectral density used as input must contain the $\pi$ factor. To be sure about it, you can check that SDobj.Reorg corresponds to the expected reorganization energy.
+- The time axis used for the lineshape functions and for the spectra calculation must be defined in the spectral density class. If you're not sure about how to set it, use the `get_timeaxis` function in `pyQME/utils.py`, and check that it is long enough to ensure the decay of the bath correlation function SD_obj.get_Ct(). The time step must also be small enough to ensure sufficient sampling of the bath correlation function.
+- If you are propagating the density matrix using the "eig" mode of relaxation_tensor.propagate, be sure that the Liouvillian of your system (relaxation_tensor.get_Liouv()) is diagonalizable. For this, you can also compare the density matrix propagated using the "exp" mode with that propagated using the "eig", which is in general faster. Sometimes the 
+- If the spectra are calculated in optical density units, the spectra returned have already been multiplied by the frequency axis (raised to the appropriate power). Otherwise, if the lineshape is calculated, you can check that, for absorption spectra, the integral of the spectra returns sum_ix (mu_ix)^2.
 - When you use the same Spectral Density object for multiple calculations (for example for repeated spectra calculations along a Molecular Dynamics trajectory), you need to calculate the lineshape function only once, using SDobj._calc_gt(), before passing SDobj to the Relaxation Tensor objects. 
 
 ### Indices convention
@@ -241,6 +241,8 @@ https://doi.org/10.1021/acs.jpcb.0c05180
 Nothling, J. A.; Mancal, T.; Kruger, T. P. J. The Journal of Chemical Physics2022, 157, 095103.
 https://doi.org/10.1063/5.0100977
 
+Ma, J., & Cao, J. (2015). Journal of Chemical Physics, 142(9). 
+https://doi.org/10.1063/1.4908599
 
 Pump-probe:
 
@@ -252,5 +254,5 @@ https://doi.org/10.1063/1.1470200
 
 Double-exciton manifold:
 
-Saraceno, P.; Sl ama, V.; Cupellini, L. The Journal of Chemical Physics 2023,159, 184112.
+Saraceno, P.; Slama, V.; Cupellini, L. The Journal of Chemical Physics 2023,159, 184112.
 https://doi.org/10.1063/5.0170295

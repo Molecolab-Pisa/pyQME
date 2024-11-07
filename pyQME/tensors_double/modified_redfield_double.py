@@ -1,8 +1,9 @@
 import numpy as np
 from .relaxation_tensor_double import RelTensorDouble
+from .redfield_double import RedfieldTensorDouble
 from ..utils import _get_H_double
 
-class ModifiedRedfieldTensorDouble(RelTensorDouble):
+class ModifiedRedfieldTensorDouble(RedfieldTensorDouble):
     """Modified Redfield Tensor class where Modified Redfield Theory (https://doi.org/10.1063/1.476212) is used to model energy transfer processes in the double exciton manifold.
     This class is a subclass of the RelTensorDouble Class.
     
@@ -26,19 +27,11 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
     def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,damping_tau=None):
         "This function handles the variables which are initialized to the main RelTensorDouble Class."
         
-        self.dim_single = np.shape(H)[0]
-        self.H,self.pairs = _get_H_double(H)
         self.damping_tau = damping_tau
         
-        super().__init__(H=self.H.copy(),specden=specden,
+        super().__init__(H=H,specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic)    
-        
-    def _calc_rates(self):
-        "This function computes and stores the Modified Redfield energy transfer rates in cm^-1"
-        
-        rates = self._calc_redfield_rates()
-        self.rates = rates
     
     def _calc_redfield_rates(self):
         """This function computes the Modified Redfield energy transfer rates in cm^-1.
@@ -104,39 +97,8 @@ class ModifiedRedfieldTensorDouble(RelTensorDouble):
         rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
         return rates
-
-    def _calc_tensor(self,secularize=True):
-        """Compute and store Redfield energy transfer tensor
-        """
         
-        RTen = self._calc_redfield_tensor(secularize=secularize)
-        self.RTen = RTen
-        
-    def _calc_redfield_tensor(self,secularize=True):
-        """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
-        
-        Arguments
-        ---------
-        secularize: Boolean
-            if True, the relaxation tensor is secularized"""
+    def _calc_redfield_tensor(self):
+        """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses."""
         
         raise NotImplementedError
-
-    def _calc_dephasing(self):
-        """This function stores the Modified Redfield dephasing in cm^-1. This function makes easier the management of the Redfield-Forster subclasses."""
-        
-        dephasing = self._calc_redfield_dephasing()
-        self.dephasing = dephasing       
-    
-    def _calc_redfield_dephasing(self):
-        """This function computes the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
-        
-        Returns
-        -------
-        dephasing: np.array(np.complex), shape = (self.dim)
-            dephasing rates in cm^-1."""
-        
-        if not hasattr(self,'rates'):
-            self._calc_rates()
-        dephasing = -0.5*np.diag(self.rates)
-        return dephasing

@@ -6,7 +6,7 @@
 import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
-from pyQME.tensors import RedfieldTensor,ForsterTensor,ModifiedRedfieldTensor
+from pyQME.tensors.markov import RedfieldTensor,ForsterTensor,ModifiedRedfieldTensor
 
 from pyQME.utils import wn2ips
 
@@ -46,7 +46,6 @@ freq_axis,specden = get_B777()
 SD = SpectralDensity(freq_axis,specden,temperature=300)
 SD.time = np.linspace(0.,0.6,25000)
 SD.get_gt();
-print('Reorg: {:7.1f} cm^-1'.format(SD.Reorg[0]))
 
 
 # Plot the temperature-dependent spectral density satisfying detailed balance
@@ -66,14 +65,12 @@ forst = ForsterTensor(H,SD)
 
 rate = forst.get_rates()[0,1]*wn2ips
 time = 1/rate
-print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 
 
 mR = ModifiedRedfieldTensor(H,SD)
 
 rate = mR.get_rates()[0,1]*wn2ips
 time = 1/rate
-print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 
 
 Redf = RedfieldTensor(H,SD)
@@ -82,7 +79,6 @@ Redf = RedfieldTensor(H,SD)
 ##  rate = Redf.rates[0,1]*wn2ips
 rate = Redf.get_rates()[0,1]*wn2ips
 time = 1/rate
-print('Rate: {:6.2f} ps^-1   tau = {:6.2f} ps '.format(rate,time))
 
 
 # ## Compare rates as a function of the energy gap
@@ -131,6 +127,12 @@ k_Redfield = np.asarray(k_Redfield)     #to be saved
 
 
 # Now we plot all results
+
+
+
+
+
+
 
 
 

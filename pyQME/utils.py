@@ -2,7 +2,7 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.special import comb
 from scipy.interpolate import UnivariateSpline
-from .linear_spectra import SecularLinearSpectraCalculator
+from .linear_spectra import SecularSpectraCalculator
 from .spectral_density import SpectralDensity
 from scipy.linalg import expm,logm
 
@@ -546,7 +546,7 @@ def transform_back(arr,H,ndim=None):
 
     return transform(arr,H,ndim=ndim,inverse=True)
 
-def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_type,freq_axis_spec,eq_pop=None,cent=None,approx=None,SD_id_list=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_spec_low_high=False):
+def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tensor,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_spec_low_high=False,approx=None,SD_id_list=None,**kwargs):
     """This function computes the absorption spectrum treating as localized one part of the spectral density.
 
     Arguments
@@ -559,20 +559,13 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         excitonic Hamiltonian in cm^-1.
     dipoles: np.array(dtype = np.float), shape = (n_site,3)
         array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
-    eq_pop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
-        equilibrium population
-    cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-        array containing the geometrical centre of each chromophore (needed for CD)
+        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array containing the geometrical centre of each chromophore (used for CD spectra)
     rel_tensor: Class
         class of the type RelTensor used to calculate the component of the spectrum.
-    freq_axis_spec: np.array(dtype = np.float)
+    freq: np.array(dtype = np.float)
         array of frequencies at which the spectrum is evaluated in cm^-1.
-    approx: string
-        approximation used for the lineshape theory.
-        if 'no xi', the xi isn't included (Redfield theory with diagonal approximation).
-        if 'iR', the imaginary Redfield theory is used.
-        if 'rR', the real Redfield theory is used.
-        if 'cR', the complex Redfield theory is used.
+        array containing the geometrical centre of each chromophore (needed for CD)
     dephasing_localized:
         np.array(dtype = np.float), shape = (n_site) or
         np.array(dtype = np.complex128), shape = (n_site) or
@@ -593,6 +586,15 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         if 'None': the total spectrum is returned
     threshold_fact: np.float
         the localized part of the spectrum will be set to zero where the delocalized part of the spectrum is greater than the maximum of the delocalized part of the spectrum multiplied by threshold_fact
+    eq_pop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
+        equilibrium population
+    cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+    approx: string
+        approximation used for the lineshape theory.
+        if 'no xi', the xi isn't included (Redfield theory with diagonal approximation).
+        if 'iR', the imaginary Redfield theory is used.
+        if 'rR', the real Redfield theory is used.
+        if 'cR', the complex Redfield theory is used.
         
     Returns
     -------
@@ -647,15 +649,10 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         SDobj = SpectralDensity(w,SD_data,temperature=SDobj_localized.temperature)
         SDobj.time = time
     else:
-        raise ValueError('The temperature of the delocalized and localized spectral densities must match!')        
-        
-    if freq_axis_spec is None:
-        w_min = np.diag(H).min() - SDobj.Reorg.max()
-        w_max = np.diag(H).max() - SDobj.Reorg.max()
-        freq_axis_spec = np.arange(w_min,w_max,1.)
+        raise ValueError('The temperature of the delocalized and localized spectral densities must match!')
         
     #initialize relaxation tensor
-    rel_tens = tensor_type(H,SDobj,SD_id_list=SD_id_list)    
+    rel_tens = rel_tensor(H,SDobj,SD_id_list=SD_id_list)    
     
     #partition dipoles
     SD_id_list = rel_tens.SD_id_list
@@ -685,24 +682,24 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,tensor_t
         spec_components_threshold = spec_components
         
     #first contribution to the spectrum: delocalized 0-0 band without sideband
-    tensor_low = tensor_type(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
-    spec_obj_low = SecularLinearSpectraCalculator(tensor_low,approximation=approx)
-    freq_axis_spec,spec_low  = spec_obj_low.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eq_pop=eq_pop,cent=cent)
+    tensor_low = rel_tensor(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
+    spec_obj_low = SecularSpectraCalculator(tensor_low,approximation=approx)
+    freq_axis_spec,spec_low  = spec_obj_low.get_spectrum(dipoles_low,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,**kwargs)
             
     #second contribution to the spectrum: localized 0-0 band without sideband
     _,gdot = SDobj_localized.get_gt(derivs=1)
     reorg_high_list_imag = np.asarray([-gdot[SD_ID,-1].imag for SD_ID in SD_id_list])
     reorg_high_list_real = np.asarray([gdot[SD_ID,-1].real for SD_ID in SD_id_list])
-    tensor_low_no_coup = tensor_type(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
+    tensor_low_no_coup = rel_tensor(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
     tensor_low_no_coup.dephasing = dephasing_localized + reorg_high_list_real
-    spec_obj_low_no_coup = SecularLinearSpectraCalculator(tensor_low_no_coup,approximation=approx)
-    freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.get_spectrum(dipoles_low,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eq_pop=eq_pop,cent=cent)
+    spec_obj_low_no_coup = SecularSpectraCalculator(tensor_low_no_coup,approximation=approx)
+    freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.get_spectrum(dipoles_low,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,**kwargs)
     
     #third contribution to the spectrum: localized 0-0 band + localized sideband
-    tensor_diag = tensor_type(H_diag,SDobj,SD_id_list=SD_id_list)
+    tensor_diag = rel_tensor(H_diag,SDobj,SD_id_list=SD_id_list)
     tensor_diag.dephasing = dephasing_localized
-    spec_obj_diag = SecularLinearSpectraCalculator(tensor_diag,approximation=approx)
-    freq_axis_spec,spec_diag = spec_obj_diag.get_spectrum(dipoles,freq=freq_axis_spec,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,eq_pop=eq_pop,cent=cent)
+    spec_obj_diag = SecularSpectraCalculator(tensor_diag,approximation=approx)
+    freq_axis_spec,spec_diag = spec_obj_diag.get_spectrum(dipoles,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,**kwargs)
     
     #localized sideband
     spec_high = spec_diag - spec_low_no_coup
@@ -740,7 +737,7 @@ def clusterize_rates(rates,clusters,time_step):
     
     Arguments
     -----------
-    rates:  np.array(dtype = np.float)
+    rates:  np.array(dtype = np.float,shape=(dim,dim))
             rates matrix describing transfer efficiency between populations
             must be a square matrix with diagonal elements corresponding to sum over columns (sign reversed)
     
@@ -752,8 +749,8 @@ def clusterize_rates(rates,clusters,time_step):
             must have the same units of rates
     Returns
     --------
-    rates_clusterized:
-            
+    rates_clusterized:  np.array(dtype = np.float,shape=(len(clusters),len(clusters)))
+            rates matrix describing transfer efficiency between clusters            
     """
     
     n_clusters = len(clusters)

@@ -22,14 +22,14 @@ class RedfieldTensorDouble(RelTensorDouble):
         SpectralDensity class.
         if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization."""
 
-    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None):
+    def __init__(self,H,specden,SD_id_list=None,initialize=False,specden_adiabatic=None,secularize=True):
         "This function handles the variables which are initialized to the main RelTensor Class."
         
         self.dim_single = np.shape(H)[0]
         self.H,self.pairs = _get_H_double(H)
         super().__init__(H=self.H.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
-                         specden_adiabatic=specden_adiabatic)    
+                         specden_adiabatic=specden_adiabatic,secularize=secularize)    
 
     def _calc_rates(self):
         "This function computes and stores the Redfield energy transfer rates in cm^-1"
@@ -67,20 +67,15 @@ class RedfieldTensorDouble(RelTensorDouble):
 
         return rates.real
     
-    def _calc_tensor(self,secularize=True):
+    def _calc_tensor(self):
         """Compute and store Redfield energy transfer tensor
         """
         
-        RTen = self._calc_redfield_tensor(secularize=secularize)
+        RTen = self._calc_redfield_tensor()
         self.RTen = RTen
         
-    def _calc_redfield_tensor(self,secularize=True):
-        """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses.
-        
-        Arguments
-        ---------
-        secularize: Boolean
-            if True, the relaxation tensor is secularized"""
+    def _calc_redfield_tensor(self,):
+        """This function computes and stores the Redfield energy transfer tensor in cm^-1. This function makes easier the management of the Redfield-Forster subclasses."""
         
         #FIXME DOESN'T WORK YET"
 
@@ -102,23 +97,10 @@ class RedfieldTensorDouble(RelTensorDouble):
 
         RTen = self._from_GammaF_to_RTen(GammF)
 
-        if secularize:
+        if self.secularize:
             RTen = self._secularize(RTen)
 
         return RTen
-
-    def _evaluate_SD_in_freq(self,SD_id):
-        """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies.
-        
-        Arguments
-        ---------
-        SD_id: integer
-            index of the spectral density (i.e. self.specden.SD[SD_id]).
-        
-        Returns
-        -------
-        SD_w_qr: np.array(dtype=np.complex), shape = (self.dim,self.dim)
-            SD[q,r] = SD(w_qr) where w_qr = w_r - w_q and SD is self.specden.SD[SD_id]."""
         
     def _evaluate_SD_in_freq(self,SD_id):
         """This function returns the value of the SD_id_th spectral density at frequencies corresponding to the differences between exciton energies.

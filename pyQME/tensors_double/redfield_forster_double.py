@@ -31,7 +31,7 @@ class RedfieldForsterTensorDouble(RedfieldTensorDouble):
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False,clusters=None):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_exponential_term=False,clusters=None,secularize=True):
         "This function handles the variables which are initialized to the main RedfieldTensorRealDouble Class."
         
         self.V,pairs = _get_H_double(V)
@@ -47,7 +47,7 @@ class RedfieldForsterTensorDouble(RedfieldTensorDouble):
             
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
-                         specden_adiabatic=specden_adiabatic)
+                         specden_adiabatic=specden_adiabatic,secularize=secularize)
     @property
     def redfield_dephasing(self):
         """This function returns the dephasing induced by Redfield EET processes
@@ -142,11 +142,8 @@ class RedfieldForsterTensorDouble(RedfieldTensorDouble):
         #sum
         self.rates = self.forster_rates + self.redfield_rates
 
-    def _calc_tensor(self,secularize=True):
-        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass.
-        
-        secularize: Bool
-            if True, the relaxation tensor is secularized"""
+    def _calc_tensor(self):
+        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass."""
         
         #get forster rates
         if not hasattr(self, 'forster_rates'):
@@ -158,7 +155,7 @@ class RedfieldForsterTensorDouble(RedfieldTensorDouble):
 
         #get redfield tensor
         if not hasattr(self,'redfield_tensor'):
-            self.redfield_tensor = self._calc_redfield_tensor(secularize=secularize)
+            self.redfield_tensor = self._calc_redfield_tensor()
             
         #sum
         self.RTen = self.redfield_tensor + Forster_Tensor
@@ -209,7 +206,7 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorDouble):
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the exponential term proposed by Yang et al. (https://doi.org/10.1016/S0006-3495(03)74461-0) will be included in the calculation of Generalized-Forster EET rates."""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True,include_exponential_term=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_redfield_dephasing=False,include_redfield_dephasing_real=True,include_exponential_term=False,secularize=True):
         "This function handles the variables which are initialized to the main RedfieldTensorComplexDouble Class."
         
         self.V,pairs = _get_H_double(V)
@@ -220,7 +217,7 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorDouble):
 
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
-                         specden_adiabatic=specden_adiabatic)
+                         specden_adiabatic=specden_adiabatic,secularize=secularize)
     
     @property
     def _redfield_dephasing(self):
@@ -313,11 +310,8 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorDouble):
         #sum
         self.rates = self.forster_rates + self.redfield_rates
 
-    def _calc_tensor(self,secularize=True):
-        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass.
-        
-        secularize: Bool
-            if True, the relaxation tensor is secularized"""
+    def _calc_tensor(self):
+        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass."""
         
         #get forster rates
         if not hasattr(self, 'forster_rates'):
@@ -329,7 +323,7 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorDouble):
 
         #get redfield tensor
         if not hasattr(self,'redfield_tensor'):
-            self.redfield_tensor = self._calc_redfield_tensor(secularize=secularize)
+            self.redfield_tensor = self._calc_redfield_tensor()
 
         #sum
         self.RTen = self.redfield_tensor + Forster_Tensor
@@ -485,11 +479,8 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         #sum
         self.rates = self.forster_rates + self.redfield_rates
 
-    def _calc_tensor(self,secularize=True):
-        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass.
-        
-        secularize: Bool
-            if True, the relaxation tensor is secularized"""
+    def _calc_tensor(self):
+        """This function computes the tensor of Redfield-Forster energy transfer rates. This function makes easier the management of the Modified Redfield-Forster subclass."""
         
         #get forster rates
         if not hasattr(self, 'forster_rates'):
@@ -502,7 +493,7 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         #get redfield tensor
         if not hasattr(self,'redfield_tensor'):
             super()._calc_rates()
-            self.redfield_tensor = self._calc_redfield_tensor(secularize=secularize)
+            self.redfield_tensor = self._calc_redfield_tensor()
 
         #sum
         self.RTen = self.redfield_tensor + Forster_Tensor

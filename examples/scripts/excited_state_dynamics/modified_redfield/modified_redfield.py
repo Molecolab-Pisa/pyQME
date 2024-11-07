@@ -6,8 +6,9 @@
 import numpy as np
 
 
+
 from pyQME.spectral_density import SpectralDensity
-from pyQME.tensors import ModifiedRedfieldTensor
+from pyQME.tensors.markov import ModifiedRedfieldTensor
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
 
 
@@ -29,8 +30,6 @@ H[1] = np.asarray([coupling_12 , E0+energy_gap   , coupling_23     ])
 H[2] = np.asarray([coupling_13 , coupling_23     , E0+2*energy_gap ])
 
 
-with np.printoptions(suppress=True):
-    print(H)
 
 
 # **Temperature (Kelvin)**
