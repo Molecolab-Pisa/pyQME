@@ -138,7 +138,6 @@ class RedfieldForsterTensor(RedfieldTensor):
                 if not hasattr(self,'redf_xi_fluo'):
                     self.redf_xi_fluo = redf_xi_abs.copy().conj()
                     redf_xi_fluo = self.redf_xi_fluo.copy()
-                #redf_xi_fluo = self.get_xi_td()+self.xi_ti_a[:,None]            
         else:
             redf_xi_abs = np.zeros([self.dim,time_axis.size],dtype=np.complex128)
             redf_xi_fluo = np.zeros([self.dim,time_axis.size],dtype=np.complex128)

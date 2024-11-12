@@ -28,8 +28,14 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     include_lamb_shift: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the off-diagonal term induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
+    include_lamb_shift_mR: Boolean
+        if True, the off-diagonal lineshape term calculated using the Full-Cumulant Expansion, will be included in the calculation of modified Redfield EET rates
+        if False, the "standard" Modified-Redfield expression for EET rates will be used        
     lamb_shift_is_markov: Boolean
         if True, the off-diagonal term will be calculated under Markov approxation (i.e. using Redfield dephasing)
+        if False, the off-diagonal term is kept to be time-dependent (i.e. using xi)
+    lamb_shift_mR_is_markov: Boolean
+        if True, the off-diagonal term used for the calculation of modified Redfield EET rates will be calculated under Markov approxation (i.e. using Redfield dephasing)
         if False, the off-diagonal term is kept to be time-dependent (i.e. using xi)
     forster_is_markov: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
@@ -42,13 +48,11 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
         If not provided, the Hamiltonian will be fully diagonalized"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift=True,lamb_shift_is_markov=True,forster_is_markov=False,damping_tau=None,clusters=None):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift=True,include_lamb_shift_mR=True,lamb_shift_is_markov=True,forster_is_markov=False,damping_tau=None,clusters=None,lamb_shift_mR_is_markov=False):
         "This function handles the variables which are initialized to the main RedfieldTensor Class"        
         
         self.V = V.copy()
         
-        self.include_lamb_shift = include_lamb_shift
-        self.lamb_shift_is_markov = lamb_shift_is_markov    
         self.forster_is_markov = forster_is_markov
         
         #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
@@ -59,13 +63,12 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
             
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
-                         specden_adiabatic=specden_adiabatic,damping_tau=damping_tau)
+                         specden_adiabatic=specden_adiabatic,damping_tau=damping_tau,include_lamb_shift=include_lamb_shift_mR,lamb_shift_is_markov=lamb_shift_mR_is_markov)
         self.V_exc = self.transform(self.V)
     
     def _calc_forster_rates(self):
         
         time_axis=self.specden.time
-        
         if self.include_lamb_shift:
             if self.lamb_shift_is_markov:
                 redf_xi_abs = self.calc_redf_xi()
@@ -121,7 +124,6 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
 
     def _calc_tensor(self):
         """This function computes the tensor of Redfield-Forster relaxation tensor."""
-        
         #get forster rates
         if not hasattr(self, 'forster_rates'):
             self._calc_forster_rates()

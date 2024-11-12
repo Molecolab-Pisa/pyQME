@@ -11,7 +11,7 @@ wn = 2*np.pi*3.e-2 #factor used for the Fast Fourier Transform
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 
 def expmat(kappa):
-    """ Computes the exponential of a complex matrix exp(-K(t)).
+    """ Computes the exponential of a complex matrix exp(K(t)).
     
     Parameters:
     kappa : ndarray
@@ -44,9 +44,9 @@ def expmat(kappa):
     # Taylor step
     xodd = np.zeros((n_site, n_site), dtype=np.complex128)
     xeven = np.zeros((n_site, n_site), dtype=np.complex128)
-    delta = 1.0
-    thresh = 1.0e-8
-    J = 0
+    delta = 1.0       #variable used to control the convergence of the Taylor expansion
+    thresh = 1.0e-8   #treshold compared to delta when the convergence is checked
+    J = 0             #counter
 
     while delta > thresh:
         J += 1

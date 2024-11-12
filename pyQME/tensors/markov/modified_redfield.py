@@ -229,8 +229,9 @@ def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,t
             if np.any(weight_aabb[:,D,A]) > 1e-10:
                 gA = g_aabb[A,A]
 
-                energy = Om[A,D]+2*(ReorgD-reorg_aabb[D,A]) + dephasing[D].conj() + dephasing[A]
+                energy = Om[A,D]+2*(ReorgD-reorg_aabb[D,A])
                 exponent = 1j*energy*time_axis + gD + gA - 2*g_aabb[D,A]
+                exponent += time_axis*(dephasing[D].conj() + dephasing[A])
                 tmp = gdot_abbb[A,D]-gdot_abbb[D,A]+2*1j*reorg_aaab[D,A]
                 g_derivatives_term = gddot_abba[D,A]-tmp**2
                 integrand = np.exp(-exponent)*g_derivatives_term

@@ -250,19 +250,7 @@ class RedfieldTensor(RelTensorNonMarkov):
         xi_tilde_cc_abt[:,:,1:] += cumtrapz(rates_abt,x=time_axis)        
         return xi_tilde_cc_abt
     
-    def get_xi_td(self):
-        """This function calculates and stores the time-dependent xi(t) function, used to calculate fluorescence spectra under secular approximation.
-        
-        Returns
-        -------
-        xi_td_at: np.array(dtype=np.complex128), shape = (self.dim,self.specden.size)
-            time-dependent xi(t) function"""
-        
-        if not hasattr(self,'xi_td_at'):
-            self._calc_xi_td()
-        return self.xi_td_at
-    
-    def _calc_xi_td(self):
+    def _calc_xi_fluo(self):
         """This function calculates and stores the time-dependent part of the fluorescence xi function."""
         
         S = self.specden.SDfunction_imag
@@ -289,11 +277,5 @@ class RedfieldTensor(RelTensorNonMarkov):
 
         #sum over all values of b not equal to a
         contract('aat->at',xi_td_abt)[...] = 0.
-        xi_td_at = contract('abt->at',xi_td_abt)
-        self.xi_td_at = xi_td_at
-        
-    def _calc_xi_fluo(self):
-        """This function computes and stores xi_td_fluo(t), contributing to off-diagonal terms in fluorescence lineshape using Full Cumulant Expansion under secular approximation."""
-        
-        if not hasattr(self,'xi_at'):
-            self._calc_xi_td()
+        xi_fluo_at = contract('abt->at',xi_td_abt)
+        self.xi_fluo_at = xi_fluo_at

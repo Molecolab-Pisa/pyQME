@@ -69,15 +69,19 @@ class ModifiedRedfieldTensor(RedfieldTensor):
             damper = np.exp(-(time_axis**2)/(2*(self.damping_tau**2))) 
         
         if self.include_lamb_shift:
-            xi = self.get_xi()
+            xi_abs = self.get_xi()
             if self.lamb_shift_is_markov:
-                dephasing = xi[:,-1]/self.specden.time[-1]
-                xi = np.einsum('a,t->at',dephasing,self.specden.time)
+                dephasing = xi_abs[:,-1]/self.specden.time[-1]
+                xi_abs = np.einsum('a,t->at',dephasing,self.specden.time)
+                xi_fluo = xi_abs.conj()
+            else:
+                #xi_fluo = self.get_xi_fluo()
+                xi_fluo = xi_abs.conj()
         else:
             xi = np.zeros([self.dim,time_axis.size],dtype=np.complex128)
             
         #compute the rates
-        rates = _calc_modified_redfield_rates(self.Om,self.weight_aabb,self.weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis,xi)
+        rates = _calc_modified_redfield_rates(self.Om,self.weight_aabb,self.weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis,xi_abs,xi_fluo)
 
         #fix diagonal
         nchrom=self.dim
@@ -150,7 +154,7 @@ class ModifiedRedfieldTensor(RedfieldTensor):
             
         return RTen
     
-def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis,xi):
+def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis,xi_abs,xi_fluo):
     """This function computes the Modified Redfield energy transfer rates in cm^-1
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier.
     
@@ -207,11 +211,11 @@ def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,g
         gdot_abbb  += w3*gdot_site[Z].reshape(1,1,-1)
         gddot_abba += w2*gddot_site[Z].reshape(1,1,-1)
 
-    rates = _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,xi,weight_aabb)
+    rates = _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,xi_abs,xi_fluo,weight_aabb)
     
     return rates
 
-def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,xi,weight_aabb):
+def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,xi_abs,xi_fluo,weight_aabb):
     """This function computes the Modified Redfield energy transfer rates in cm^-1.
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier.
     
@@ -251,7 +255,7 @@ def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,t
                 gA = g_aabb[A,A]
 
                 energy = Om[A,D]+2*(ReorgD-reorg_aabb[D,A])
-                exponent = 1j*energy*time_axis + gD + gA - 2*g_aabb[D,A] + xi[D].conj() + xi[A]
+                exponent = 1j*energy*time_axis + gD + gA - 2*g_aabb[D,A] + xi_fluo[D] + xi_abs[A]
                 tmp = gdot_abbb[A,D]-gdot_abbb[D,A]+2*1j*reorg_aaab[D,A]
                 g_derivatives_term = gddot_abba[D,A]-tmp**2
                 integrand = np.exp(-exponent)*g_derivatives_term

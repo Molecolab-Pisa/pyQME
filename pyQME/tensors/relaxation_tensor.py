@@ -463,9 +463,9 @@ class RelTensor():
         self.xi_td_at: np.array(dtype=np.complex128), shape = (self.dim,self.specden.time.size)
             xi_fluo_td(t), used for the calculation of fluorescence spectra under secular approximation"""
         
-        if not hasattr(self,'xi_td_at'):
+        if not hasattr(self,'xi_fluo_at'):
             self._calc_xi_fluo()
-        return self.xi_td_at
+        return self.xi_fluo_at
     
     def get_xi(self):
         """This function computes and returns xi(t), contributing to off-diagonal terms in absorption lineshape using Full Cumulant Expansion under secular approximation.
@@ -671,7 +671,7 @@ class RelTensorMarkov(RelTensor):
         
         if not hasattr(self,'xi_at'):
             self._calc_xi()
-        self.xi_td_at = self.xi_at
+        self.xi_fluo_at = self.xi_at
         
     def _calc_xi(self):
         """This function computes and stores xi(t), contributing to off-diagonal terms in absorption lineshape using Full Cumulant Expansion under secular approximation.

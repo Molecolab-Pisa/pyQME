@@ -26,6 +26,9 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     include_lamb_shift: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
+    include_lamb_shift_mR: Boolean
+       if True, the off-diagonal lineshape term calculated using the Full-Cumulant Expansion, will be included in the calculation of modified Redfield EET rates, under Markov approximation (i.e. the dephasing)
+    if False, the "standard" Modified-Redfield expression for EET rates will be used
     damping_tau: np.float
         standard deviation in cm for the Gaussian function used to (eventually) damp the integrand of the modified redfield rates in the time domain.
     clusters: list
@@ -34,11 +37,11 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
         If not provided, the Hamiltonian will be fully diagonalized"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift=True,damping_tau=None,clusters=None):
-        "This function handles the variables which are initialized to the main RedfieldTensor Class"        
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift_mR =False,include_lamb_shift=True,damping_tau=None,clusters=None,include_yang_term=True):
+        "This function handles the variables which are initialized to the main RedfieldTensor Class"
         
         self.V = V.copy()
-        self.include_lamb_shift = include_lamb_shift
+        self.include_yang_term = include_yang_term
 
         #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
         if clusters is not None:
@@ -48,7 +51,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
             
         super().__init__(H=H_part.copy(),specden=specden,
                          SD_id_list=SD_id_list,initialize=initialize,
-                         specden_adiabatic=specden_adiabatic,damping_tau=damping_tau)
+                         specden_adiabatic=specden_adiabatic,damping_tau=damping_tau,include_lamb_shift=include_lamb_shift_mR)
         self.V_exc = self.transform(self.V)
     
     def _calc_forster_rates(self):
@@ -77,7 +80,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         gdot_abbb = np.dot(self.weight_aaab.T,gdot_site)
         reorg_aaab = np.dot(self.weight_aaab.T,self.specden.Reorg).T
 
-        rates = MRF_rates_loop(self.Om,self.V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb,reorg_aaab)
+        rates = MRF_rates_loop(self.Om,self.V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb,reorg_aaab,self.include_yang_term)
     
         self.forster_rates = rates        
                     
@@ -141,7 +144,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         xi_at += np.einsum('a,t->at',-0.5*np.diag(self.forster_rates),self.specden.time)
         self.xi_at = xi_at
     
-def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb,reorg_aaab):
+def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb,reorg_aaab,include_yang_term):
     """This function computes the Generalized Forster contribution to Modified Redfield-Forster energy transfer rates in cm^-1 under Markov Approximation.
     
     Arguments
@@ -195,8 +198,9 @@ def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb
                 integrand = 2. * ((V_exc[D,A]/h_bar)**2)*spectral_overlap_time.real
 
                 # YANG TERM
-                square_brakets = 2*(gdot_abbb[D,A] - gdot_abbb[A,D] - 2*1j*reorg_aaab[D,A])
-                integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag
+                if include_yang_term:
+                    square_brakets = 2*(gdot_abbb[D,A] - gdot_abbb[A,D] - 2*1j*reorg_aaab[D,A])
+                    integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag
 
                 rates[A,D] = np.trapz(integrand,time_axis)
 
@@ -210,8 +214,9 @@ def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb
                 integrand = 2. * ((V_exc[D,A]/h_bar)**2)*spectral_overlap_time.real
 
                 # YANG TERM
-                square_brakets = 2*(gdot_abbb[A,D] - gdot_abbb[D,A] - 2*1j*reorg_aaab[A,D])
-                integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag    
+                if include_yang_term:
+                    square_brakets = 2*(gdot_abbb[A,D] - gdot_abbb[D,A] - 2*1j*reorg_aaab[A,D])
+                    integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag    
 
                 rates[D,A] = np.trapz(integrand,time_axis)
     #fix diagonal
