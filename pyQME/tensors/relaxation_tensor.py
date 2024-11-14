@@ -616,7 +616,7 @@ class RelTensorMarkov(RelTensor):
         
         return RTen_secular
     
-    def _calc_eq_pop_fluo(self,include_deph=True,include_lamb=True,normalize=False):
+    def _calc_eq_pop_fluo(self,include_deph=False,include_lamb=True,normalize=False):
         """This function computes and stores the Boltzmann equilibrium population for fluorescence intensity.
         
         Arguments
