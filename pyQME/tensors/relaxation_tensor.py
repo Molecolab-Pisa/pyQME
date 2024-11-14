@@ -479,7 +479,7 @@ class RelTensor():
             self._calc_xi()    
         return self.xi_at
         
-    def get_eq_pop_fluo(self):
+    def get_eq_pop_fluo(self,normalize=False):
         """This function computes and returns the equilibrium population, used for the calculation of fluorescence lineshape using Full Cumulant Expansion under secular approximation.
         
         Returns
@@ -488,7 +488,7 @@ class RelTensor():
             equilibrium populations in the exciton basis."""
             
         if not hasattr(self,'eq_pop_fluo'):
-            self._calc_eq_pop_fluo()
+            self._calc_eq_pop_fluo(normalize=normalize)
         return self.eq_pop_fluo
 
 class RelTensorMarkov(RelTensor):
@@ -616,7 +616,7 @@ class RelTensorMarkov(RelTensor):
         
         return RTen_secular
     
-    def _calc_eq_pop_fluo(self,include_deph=True,include_lamb=True):
+    def _calc_eq_pop_fluo(self,include_deph=True,include_lamb=True,normalize=False):
         """This function computes and stores the Boltzmann equilibrium population for fluorescence intensity.
         
         Arguments
@@ -627,8 +627,12 @@ class RelTensorMarkov(RelTensor):
             
         include_lamb: Bool
             if True, the energies used for the calculation of the eq. pop. will be shifted by the reorganization energies
-            if False, the energies are not shifted"""
-        
+            if False, the energies are not shifted
+
+        normalize: Bool
+            if True, the sum of the equilibrium populations are normalized to 1
+            if False, the sum of the equilibrium populations are not normalized."""
+
         #for fluorescence spectra we need adiabatic equilibrium population, so we subtract the reorganization energy
         ene = self.ene.copy()
         if include_lamb:
@@ -642,6 +646,8 @@ class RelTensorMarkov(RelTensor):
         boltz = np.exp(-ene*self.specden.beta)
         
         #the populations are not normalized because the normalization must be done taking into account also of dipoles, which is managed by the SpectraCalculator 
+        if normalize:
+            boltz = boltz/boltz.sum()
         
         self.eq_pop_fluo = boltz
         
@@ -899,7 +905,7 @@ class RelTensorNonMarkov(RelTensor):
     def _calc_xi_td(self):
         raise NotImplementedError('This class does not implement xi calculation')
         
-    def _calc_eq_pop_fluo(self,include_xi_ti=True,include_lambda=True,normalize=True):
+    def _calc_eq_pop_fluo(self,include_xi_ti=True,include_lambda=True,normalize=False):
         """This function computes and stores the Boltzmann equilibrium population for fluorescence intensity.
         
         Arguments
@@ -912,7 +918,7 @@ class RelTensorNonMarkov(RelTensor):
             if False, the energies are not shifted
         normalize: Bool
             if True, the sum of the equilibrium populations are normalized to 1
-            if False, the sum of the equilibrium populations is not normalized."""
+            if False, the sum of the equilibrium populations are not normalized."""
         
         
         ene = self.ene.copy()
@@ -933,5 +939,7 @@ class RelTensorNonMarkov(RelTensor):
         boltz = np.exp(exponent)
         
         #the populations are not normalized because the normalization must be done taking into account also of dipoles, which is managed by the SpectraCalculator 
+        if normalize:
+            boltz = boltz/np.sum(boltz)
             
         self.eq_pop_fluo = boltz

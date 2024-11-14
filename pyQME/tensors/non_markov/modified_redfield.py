@@ -75,11 +75,10 @@ class ModifiedRedfieldTensor(RedfieldTensor):
                 xi_abs = np.einsum('a,t->at',dephasing,self.specden.time)
                 xi_fluo = xi_abs.conj()
             else:
-                #xi_fluo = self.get_xi_fluo()
                 xi_fluo = xi_abs.conj()
         else:
-            xi = np.zeros([self.dim,time_axis.size],dtype=np.complex128)
-            
+            xi_abs = np.zeros([self.dim,time_axis.size],dtype=np.complex128)            
+            xi_fluo = np.zeros([self.dim,time_axis.size],dtype=np.complex128)
         #compute the rates
         rates = _calc_modified_redfield_rates(self.Om,self.weight_aabb,self.weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis,xi_abs,xi_fluo)
 
