@@ -1,6 +1,7 @@
 import numpy as np
 from copy import deepcopy
-from .spectracalculator import SpectraCalculator,add_attributes
+from .spectracalculator import SpectraCalculator,add_attributes,_do_FFT
+from scipy.interpolate import UnivariateSpline
 
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 factOD = 108.86039 #conversion factor for optical spectra
@@ -102,20 +103,20 @@ class SecularSpectraCalculator(SpectraCalculator):
             absorption spectrum of each exciton (molar extinction coefficient in L · cm-1 · mol-1)."""
         
         self._calc_time_abs_a(dipoles)
-        
         abs_lineshape_a = np.zeros([self.dim,self.freq.size])
         for a in range(self.dim):
-            abs_lineshape_a[a] = self._do_FFT(self.time_abs_a[a])
+            abs_lineshape_a[a] = _do_FFT(self.time,self.time_abs_a[a])
         self.abs_lineshape_a = abs_lineshape_a
             
         #if the user provides a frequency axis, let's extrapolate the spectra over it
-        if freq is not None:
-            abs_lineshape_a = np.zeros([self.dim,freq.size])
-            for a in range(self.dim):
-                abs_lineshape_a[a] = self._fit_spline_spec(freq,self.abs_lineshape_a[a])
-            return freq,abs_lineshape_a
-        else:
+        if freq is None:
             return self.freq,self.abs_lineshape_a
+        else:
+            abs_lineshape_a = np.zeros([self.dim,freq.size])
+            self_freq = self.freq
+            for a in range(self.dim):
+                abs_lineshape_a[a] = UnivariateSpline(self_freq,self.abs_lineshape_a[a],s=0,k=1)(freq)
+            return freq,abs_lineshape_a
         
     def _calc_time_abs_a(self,dipoles):
         """This function calculates and stores the single-exciton contribution to the absorption spectrum in the time domain.
@@ -267,14 +268,14 @@ class SecularSpectraCalculator(SpectraCalculator):
         
         self.fluo_lineshape_a = np.zeros([self.dim,self.freq.size])
         for a in range(self.dim):
-            self.fluo_lineshape_a[a] = self._do_FFT(self.time_fluo_a[a])
+            self.fluo_lineshape_a[a] = _do_FFT(self.time,self.time_fluo_a[a])
         
         #if the user provides a frequency axis, let's extrapolate the spectra over it
         if freq is not None:
-            
+            self_freq=self.freq
             fluo_lineshape_a = np.zeros([self.dim,freq.size])
             for a in range(self.dim):
-                fluo_lineshape_a[a] = self._fit_spline_spec(freq,self.fluo_lineshape_a[a])
+                fluo_lineshape_a[a] = UnivariateSpline(self_freq,self.fluo_lineshape_a[a],s=0,k=1)(freq)
             return freq,fluo_lineshape_a
         else:
             return self.freq,self.fluo_lineshape_a

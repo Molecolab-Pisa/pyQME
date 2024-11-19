@@ -1,4 +1,3 @@
-from .forster_double import ForsterTensorDouble
-from .redfield_forster_double import RedfieldForsterTensorDouble,ModifiedRedfieldForsterTensorDouble
-from .redfield_double import RedfieldTensorDouble
-from .modified_redfield_double import ModifiedRedfieldTensorDouble
+from .relaxation_tensor_double import RelTensorDouble,RelTensorDoubleMarkov#,RelTensorDoubleNonMarkov
+from . import markov
+from . import non_markov

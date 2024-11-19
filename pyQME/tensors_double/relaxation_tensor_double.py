@@ -217,49 +217,7 @@ class RelTensorDouble():
         See "transform" function for input and output."""
         
         return self.transform(*args,**kwargs,inverse=True)
-    
-    def _secularize_and_store(self):
-        "This function stores the secularized relaxation tensor"
-        
-        self.RTen = self.secularize(self.RTen)
-        
-    def _secularize(self,RTen):
-        """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
-        This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
-        
-        Arguments
-        ---------
-        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
-            non-secular relaxation tensor.
-        
-        Returns
-        -------
-        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
-            secularized relaxation tensor."""
-        
-        eye = np.eye(self.dim)
-        
-        tmp1 = np.einsum('qrst,qr,st->qrst',RTen,eye,eye)
-        tmp2 = np.einsum('qrst,qs,rt->qrst',RTen,eye,eye)
-        
-        RTen = tmp1 + tmp2
-        
-        RTen[np.diag_indices_from(RTen)] /= 2.0
-        
-        return RTen
-        
-    def get_dephasing(self):
-        """This function returns the dephasing.
-        
-        Returns
-        -------
-        self.dephasing: np.array(dtype=np.float), shape = (self.dim)
-            dephasing."""
 
-        if not hasattr(self, 'dephasing'):
-            self._calc_dephasing()
-        return self.dephasing
-    
     def get_rates(self):
         """This function returns the energy transfer rates.
         
@@ -399,3 +357,77 @@ class RelTensorDouble():
         lambda_site = self.specden.Reorg
         weight = self.weight_qqqq
         self.lambda_q = np.dot(weight.T,lambda_site)
+
+    def get_xi(self):
+        """This function computes and returns xi(t), contributing to off-diagonal terms in absorption lineshape using Full Cumulant Expansion under secular approximation.
+        
+        Returns
+        -------
+        self.xi_qt: np.array(dtype=np.complex128), shape = (self.dim,self.specden.time.size)
+            xi(t), used for the calculation of absorption spectra under secular approximation"""
+        
+        if not hasattr(self,'xi_qt'):
+            self._calc_xi()    
+        return self.xi_qt
+
+class RelTensorDoubleMarkov(RelTensorDouble):
+    def __init__(self,*args,**kwargs):
+        "This function handles the variables which are initialized to the main RelTensor Class."
+        self.propagation_mode_default = 'exp'        
+        super().__init__(*args,**kwargs)
+
+    def get_dephasing(self):
+        """This function returns the dephasing.
+        
+        Returns
+        -------
+        self.dephasing: np.array(dtype=np.float), shape = (self.dim)
+            dephasing."""
+
+        if not hasattr(self, 'dephasing'):
+            self._calc_dephasing()
+        return self.dephasing
+
+    def _secularize(self,RTen):
+        """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
+        This is needed when using the Redfield theory, where the non-secular dynamics often gives non-physical negative populations.
+        
+        Arguments
+        ---------
+        RTen: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+            non-secular relaxation tensor.
+        
+        Returns
+        -------
+        RTen_secular: np.array(dtype=np.complex), shape = (dim,dim,dim,dim)
+            secularized relaxation tensor."""
+        
+        eye = np.eye(self.dim)
+        
+        tmp1 = np.einsum('qrst,qr,st->qrst',RTen,eye,eye)
+        tmp2 = np.einsum('qrst,qs,rt->qrst',RTen,eye,eye)
+        
+        RTen = tmp1 + tmp2
+        
+        RTen[np.diag_indices_from(RTen)] /= 2.0
+        
+        return RTen
+
+    def _calc_xi(self):
+        """This function computes and stores xi(t), contributing to off-diagonal terms in absorption lineshape using Full Cumulant Expansion under secular approximation.
+        
+        Returns
+        -------
+        xi_at: np.array(dype=np.complex128), shape = (self.rel_tensor.dim,self.specden.time.size)
+            xi function"""
+        
+        if not hasattr(self,'dephasing'):
+            self._calc_dephasing()
+        xi_qt = contract('q,t->qt',self.dephasing,self.specden.time)
+        self.xi_qt = xi_qt
+
+class RelTensorDoubleNonMarkov(RelTensorDouble):
+    def __init__(self,*args,**kwargs):
+        "This function handles the variables which are initialized to the main RelTensor Class."
+        self.propagation_mode_default = 'exp'        
+        super().__init__(*args,**kwargs)

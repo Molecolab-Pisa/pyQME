@@ -3,7 +3,8 @@ from scipy.integrate import cumtrapz
 from scipy.linalg import norm as scipy_norm
 from opt_einsum import contract
 import psutil
-from .spectracalculator import SpectraCalculator,add_attributes
+from .spectracalculator import SpectraCalculator,add_attributes,_do_FFT
+from scipy.interpolate import UnivariateSpline
 
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 factOD = 108.86039 #conversion factor for optical spectra
@@ -289,7 +290,7 @@ class FCE(SpectraCalculator):
         I_abw = np.zeros([nchrom,nchrom,self.freq.size])
         for a in range(nchrom):
             for b in range(nchrom):
-                I_abw[a,b] = self._do_FFT(I_abt[a,b])
+                I_abw[a,b] = _do_FFT(self.time,I_abt[a,b])
         self.I_abw = I_abw
         
     @add_attributes(spec_type='abs',units_type='lineshape',spec_components='exciton')
@@ -323,10 +324,11 @@ class FCE(SpectraCalculator):
         if freq is None:
             return self.freq,spec_abw
         else:
+            self_freq=self.freq
             spec_abw_user = np.zeros([self.dim,self.dim,freq.size])
             for a in range(self.dim):
                 for b in range(self.dim):
-                    spec_abw_user[a,b] = self._fit_spline_spec(freq,spec_abw[a,b],self.freq)
+                    spec_abw_user[a,b] = UnivariateSpline(self_freq,spec_abw[a,b],s=0,k=1)(freq)
             return freq,spec_abw_user
         
     @add_attributes(spec_type='abs',units_type='lineshape',spec_components=None)
@@ -389,7 +391,7 @@ class FCE(SpectraCalculator):
             self_freq = self.freq            
             for i in range(nchrom):
                 for j in range(nchrom):
-                    spec_ijw_user[i,j] = self._fit_spline_spec(freq,spec_ijw[i,j],self_freq)
+                    spec_ijw_user[i,j] = UnivariateSpline(self_freq,spec_ijw[i,j],s=0,k=1)(freq)
             return freq,spec_ijw_user
     
     @add_attributes(spec_type='abs',units_type='OD',spec_components='exciton')
@@ -575,7 +577,7 @@ class FCE(SpectraCalculator):
         F_abw = np.zeros([nchrom,nchrom,self.freq.size])
         for a in range(nchrom):
             for b in range(nchrom):
-                F_abw[a,b] = self._do_FFT(F_abt[a,b])
+                F_abw[a,b] = _do_FFT(self.time,F_abt[a,b])
         self.F_abw = F_abw
         
     @add_attributes(spec_type='fluo',units_type='lineshape',spec_components='exciton')
@@ -618,7 +620,7 @@ class FCE(SpectraCalculator):
             self_freq = self.freq            
             for a in range(nchrom):
                 for b in range(nchrom):
-                    spec_abw_user[a,b] = self._fit_spline_spec(freq,spec_abw[a,b],self_freq)
+                    spec_abw_user[a,b] = UnivariateSpline(self_freq,spec_abw[a,b],s=0,k=1)(freq)
             return freq,spec_abw_user
         
     @add_attributes(spec_type='fluo',units_type='OD',spec_components='exciton')
@@ -733,7 +735,7 @@ class FCE(SpectraCalculator):
             spec_ijw_user = np.zeros([self.dim,self.dim,freq.size])
             for i in range(nchrom):
                 for j in range(nchrom):
-                    spec_ijw_user[i,j] = self._fit_spline_spec(freq,spec_ijw[i,j],self_freq)
+                    spec_ijw_user[i,j] = UnivariateSpline(self_freq,spec_ijw[i,j],s=0,k=1)(freq)
             return freq,spec_ijw_user
 
     @add_attributes(spec_type='CD',units_type='lineshape',spec_components='exciton')

@@ -2,7 +2,8 @@ from scipy.interpolate import UnivariateSpline,RegularGridInterpolator
 import numpy as np
 from .utils import factOD
 from copy import deepcopy
-
+from .linear_spectra.spectracalculator import _do_FFT
+from .linear_spectra import SecularSpectraCalculator
 
 class PumpProbeCalculator():
     """Class for calculations of pump-probe spectra in the doorway-windows approximation.
@@ -110,6 +111,8 @@ class PumpProbeCalculator():
         if not rel_tensor_single.dim == 1 and not rel_tensor_double.dim == int(0.5 * np.math.factorial(rel_tensor_single.dim)/np.math.factorial(rel_tensor_single.dim-2)):
             raise ValueError('The number of double excitons is not compatible with the number of single excitons!')
 
+        self.lin_spec_calculator = SecularSpectraCalculator(self.rel_tensor_single,RWA=RWA,include_xi_imag=include_xi_single_imag,include_xi_real=include_xi_single_real,approximation=approximation)
+
     def _get_freqaxis(self):
         "This function gets the frequency axis for FFT as conjugate axis of self.time and stores it into self.freq."
         
@@ -128,8 +131,7 @@ class PumpProbeCalculator():
         
         #get the real and imaginary part of the complex xi
         self.xi_a = self.rel_tensor_single.get_xi()
-        deph_q = self.rel_tensor_double.get_dephasing()
-        self.xi_q = np.einsum('q,t->qt',deph_q,t)
+        self.xi_q = self.rel_tensor_double.get_xi()
         
         #if specified,neglect the real part of the xi in the single-exciton manifold
         if not self.include_xi_single_real:
@@ -235,7 +237,6 @@ class PumpProbeCalculator():
         dim_single = self.dim_single
         
         t = self.time
-        factFT = self._factFT
         self_freq = self.freq
         RWA = self.RWA
         
@@ -266,31 +267,15 @@ class PumpProbeCalculator():
         xi_aq = self.xi_aq
         
         #GSB LINESHAPE
-        W_GSB_a = np.empty([dim_single,self_freq.size])
-        for a in range(dim_single):
-            exponent = (1j*(-w_a[a]+RWA))*t - g_a[a] - xi_a[a]
-            D = np.exp(exponent)
-            integrand = d2_a[a]*D
-            
-            #switch from time to frequency domain using hermitian FFT (-> real output)
-            integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
-            W_GSB_a[a] = integral
+        _,W_GSB_a = self.lin_spec_calculator.calc_abs_lineshape_a(dipoles,freq=self.freq)
+        W_GSB_a = -W_GSB_a
         
         #SE LINESHAPE
-        W_SE_a = np.empty([dim_single,self_freq.size])
-        for a in range(dim_single):
-            e0_a = w_a[a] - 2*lambda_a[a]
-            exponent = (1j*(-e0_a+RWA))*t - g_a[a].conj()-xi_a[a]
-            W = np.exp(exponent)
-            integrand = d2_a[a]*W
-            
-            #switch from time to frequency domain using hermitian FFT (-> real output)
-            integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))*factFT
-            W_SE_a[a] = integral 
-        
+        _,W_SE_a = self.lin_spec_calculator.calc_fluo_lineshape_a(dipoles,eq_pop=np.ones(self.dim_single),freq=self.freq)
+        W_SE_a = -W_SE_a
+
         #ESA LINESHAPE
         W_ESA_a = np.zeros([dim_single,self_freq.size])
-        self.W_ESA_aq = np.zeros([dim_single,dim_double,self_freq.size])
         for a in range(dim_single):
             for q in range(dim_double):
                 e0_qa =  w_aq[a,q] + 2*(lambda_a[a]-lambda_aq[a,q])
@@ -299,16 +284,14 @@ class PumpProbeCalculator():
                 integrand = d2_qa[q,a]*Wp
                 
                 #switch from time to frequency domain using hermitian FFT (-> real output)
-                integral = np.flipud(np.fft.fftshift(np.fft.hfft(integrand)))
-                self.W_ESA_aq[a,q] = integral*factFT
-                W_ESA_a[a] = W_ESA_a[a] + integral*factFT
+                W_ESA_a[a] += _do_FFT(self.time,integrand)
 
         
         self.W_GSB_a = W_GSB_a
         self.W_SE_a = W_SE_a
         self.W_ESA_a = W_ESA_a
              
-    def get_pump_probe_spec(self,pop_t,freq=None,dipoles=None):
+    def calc_pump_probe_lineshape_a(self,dipoles,pop_t,freq=None):
         """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
         
         Arguments
@@ -326,61 +309,93 @@ class PumpProbeCalculator():
         GSB,SE,ESA,PP: np.array(dtype = np.float), shape = (time.size,freq.size)
             components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
         
+        #check input
+        if pop_t.ndim==2:
+            pass
+        elif pop_t.ndim==1:
+            pop_t = np.asarray([pop_t_exc])
+        else:
+            raise ValueError('The population must be a 2D numpy.array')
+
         pop_tot = np.sum(pop_t[0]) #fraction of excited population created by the pump pulse
         time_axis_prop_size = pop_t.shape[0]
         
-        if not hasattr(self,'W_GSB_a') or not hasattr(self,'W_SE_a') or not hasattr(self,'W_ESA_a'):
-            self.calc_components_lineshape(dipoles=dipoles)
-        
+        for attr in ['W_GSB_a','W_SE_a','W_ESA_a']:
+            if not hasattr(self,attr):
+                self.calc_components_lineshape(dipoles=dipoles)
+                break
+                
         #compute the component of the pump-probe spectra at different delay times according to the population dynamics provided
-        self.GSB = -np.sum(self.W_GSB_a,axis=0)*pop_tot
-        self.SE = -np.dot(pop_t,self.W_SE_a)
-        self.ESA = np.dot(pop_t,self.W_ESA_a)
-        self.PP = self.SE + self. ESA + np.asarray([self.GSB]*time_axis_prop_size)
+        self.GSB_a = self.W_GSB_a*pop_tot
+        self.SE_a = np.einsum('ta,aw->atw',pop_t,self.W_SE_a)
+        self.ESA_a = np.einsum('ta,aw->atw',pop_t,self.W_ESA_a)
+
+        tmp_GSB = np.broadcast_to(self.GSB_a[:, None, :], (self.GSB_a.shape[0], time_axis_prop_size, self.GSB_a.shape[1]))
+        
+        self.PP_a = self.SE_a + self.ESA_a + tmp_GSB
         
         #if the user provides a frequency axis, let's extrapolate the spectra over it
-        if freq is not None:
-            
+        if freq is None:
+            return self.freq,self.GSB_a,self.SE_a,self.ESA_a,self.PP_a
+        else:
             self_freq = self.freq
+
+            GSB_a = np.zeros([self.dim_single,freq.size])
+            SE_a = np.zeros([self.dim_single,time_axis_prop_size,freq.size])
+            ESA_a = np.zeros([self.dim_single,time_axis_prop_size,freq.size])
             
-            norm = -np.min(self.GSB)
-            GSB_spl = UnivariateSpline(self_freq,self.GSB/norm,s=0)
-            GSB = GSB_spl(freq)*norm
-
-            if time_axis_prop_size == 1:
-
-                norm = -np.min(self.SE)
-                SE_spl = UnivariateSpline(self_freq,self.SE/norm,s=0)
-                SE = np.asarray([SE_spl(freq)*norm])
+            for a in range(self.dim_single):
                 
-                norm = -np.min(self.ESA)
-                ESA_spl = UnivariateSpline(self_freq,self.ESA[0]/norm,s=0)
-                ESA = np.asarray([ESA_spl(freq)*norm])
-                
-                norm = -np.min(self.PP)
-                PP_spl = UnivariateSpline(self_freq,self.PP[0]/norm,s=0)
-                PP = np.asarray([PP_spl(freq)*norm])
-            else:
+                norm = np.abs(self.GSB_a[a]).max()
+                GSB_spl = UnivariateSpline(self_freq,self.GSB_a[a]/norm,s=0,k=1)
+                GSB_a[a] = GSB_spl(freq)*norm
+
                 time_axis_prop_dummy = np.linspace(0.,1.,num=time_axis_prop_size)
                 time_mesh, freq_mesh = np.meshgrid(time_axis_prop_dummy, freq)
 
-                norm = -np.min(self.SE)
-                SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.SE/norm)
-                SE = SE_spl((time_mesh, freq_mesh)).T*norm
+                norm = np.abs(self.SE_a[a]).max()
+                SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.SE_a[a]/norm)
+                SE_a[a] = SE_spl((time_mesh, freq_mesh)).T*norm
 
-                norm = np.max(self.ESA)            
-                ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.ESA/norm)
-                ESA = ESA_spl((time_mesh, freq_mesh)).T*norm
+                norm = np.abs(self.ESA_a[a]).max()
+                ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.ESA_a[a]/norm)
+                ESA_a[a] = ESA_spl((time_mesh, freq_mesh)).T*norm
 
-                norm = -np.min(self.PP)            
-                PP_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.PP/norm)
-                PP = PP_spl((time_mesh, freq_mesh)).T*norm
+            tmp_GSB = np.broadcast_to(GSB_a[:, None, :], (GSB_a.shape[0], time_axis_prop_size,GSB_a.shape[1]))
+            PP_a = SE_a + ESA_a + tmp_GSB
+            return freq,GSB_a,SE_a,ESA_a,PP_a
 
-            return freq,GSB,SE,ESA,PP
-        else:
-            return self.freq,self.GSB,self.SE,self.ESA,self.PP
+    def calc_pump_probe_lineshape(self,dipoles,pop_t,freq=None):
+        """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
         
-    def get_pump_probe(self,pop_t,freq=None,dipoles=None):
+        Arguments
+        ---------
+        pop_t: np.array(dtype = np.float), shape = (time.size,rel_tensor_single.dim)
+            exciton populations at different delay time.
+        freq: np.array(dtype = np.float)
+            array of frequencies used to evaluate the spectra in cm^-1.
+            if None, the frequency axis is computed using FFT on self.time.
+            
+        Returns
+        -------
+        freq: np.array(dtype = np.float)
+            frequency axis of the spectrum in cm^-1.
+        GSB,SE,ESA,PP: np.array(dtype = np.float), shape = (time.size,freq.size)
+            components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
+            
+        for attr in ['GSB_a,SE_a,ESA_a,PP_a']:
+            if not hasattr(self,attr):
+                freq,GSB_a,SE_a,ESA_a,PP_a = self.calc_pump_probe_lineshape_a(dipoles,pop_t,freq=freq)
+                break
+
+        GSB = GSB_a.sum(axis=0)
+        SE = SE_a.sum(axis=0)
+        ESA = ESA_a.sum(axis=0)
+        PP = PP_a.sum(axis=0)
+
+        return freq,GSB,SE,ESA,PP
+
+    def calc_pump_probe_OD(self,dipoles,pop_t,freq=None):
         """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
         
         Arguments
@@ -399,15 +414,15 @@ class PumpProbeCalculator():
             components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
         
         
-        freq,GSB,SE,ESA,PP = self.get_pump_probe_spec(pop_t,freq=freq,dipoles=dipoles)
+        freq,GSB,SE,ESA,PP = self.calc_pump_probe_lineshape(dipoles,pop_t,freq=freq)
         GSB *= freq*factOD
-        SE *= freq*factOD
-        ESA *= freq*factOD
-        PP *= freq*factOD
+        SE *= freq[None,:]*factOD
+        ESA *= freq[None,:]*factOD
+        PP *= freq[None,:]*factOD
         return freq,GSB,SE,ESA,PP
-        
-    def get_pump_probe_a(self,pop_t,freq=None,dipoles=None):
-        """This function computes the pump-probe spectrum separately for each exciton. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
+
+    def calc_pump_probe_OD_a(self,dipoles,pop_t,freq=None):
+        """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
         
         Arguments
         ---------
@@ -421,58 +436,13 @@ class PumpProbeCalculator():
         -------
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
-        GSB_a,SE_a,ESA_a,PP_a: np.array(dtype = np.float), shape = (rel_tensor_single.dim,time.size,freq.size)
-            components of the pump-probe spectra of each exciton (molar extinction coefficient in L · cm-1 · mol-1)."""
-        
-        pop_tot = np.sum(pop_t[0]) #fraction of excited population created by the pump pulse
-        time_axis_prop_size = pop_t.shape[0]
-        
-        if not hasattr(self,'W_GSB_a') or not hasattr(self,'W_SE_a') or not hasattr(self,'W_ESA_a'):
-            self.calc_components_lineshape(dipoles=dipoles)
-            
-        #compute the component of the pump-probe spectra for each exciton separately at different delay times according to the population dynamics provided
-        self.GSB_a = - self.W_GSB_a*pop_tot
-        self.SE_a = - np.einsum('ta,aw->atw',pop_t,self.W_SE_a)
-        self.ESA_a = np.einsum('ta,aw->atw',pop_t,self.W_ESA_a)
-        self.PP_a = self.SE_a + self.ESA_a + np.asarray([self.GSB_a]*time_axis_prop_size).transpose((1,0,2))
+        GSB,SE,ESA,PP: np.array(dtype = np.float), shape = (time.size,freq.size)
+            components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
         
         
-        #if the user provides a frequency axis, let's extrapolate the spectra over it
-        if freq is not None:
-            
-            GSB_a = np.zeros([self.rel_tensor_single.dim,freq.size])
-            SE_a = np.zeros([self.rel_tensor_single.dim,time_axis_prop_size,freq.size])
-            ESA_a = np.zeros([self.rel_tensor_single.dim,time_axis_prop_size,freq.size])
-            
-            self_freq = self.freq
-            
-            time_axis_prop_dummy = np.linspace(0.,1.,num=time_axis_prop_size)
-            time_mesh, freq_mesh = np.meshgrid(time_axis_prop_dummy, freq)
-
-            for a in range(self.rel_tensor_single.dim):
-                norm = -np.min(self.GSB_a[a])
-                GSB_spl = UnivariateSpline(self_freq,self.GSB_a[a]/norm,s=0)
-                GSB_a[a] = GSB_spl(freq)*norm
-
-                norm = -np.min(self.SE_a[a])
-                SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.SE_a[a]/norm)
-                SE_a[a] = SE_spl((time_mesh, freq_mesh)).T*norm
-
-                norm = np.max(self.ESA_a[a])
-                ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.ESA_a[a]/norm)
-                ESA_a[a] = ESA_spl((time_mesh, freq_mesh)).T*norm
-            
-            PP_a = SE_a + ESA_a + np.asarray([GSB_a]*time_axis_prop_size).transpose((1,0,2))
-            
-            return freq,GSB_a,SE_a,ESA_a,PP_a
-
-        else:
-            return self.freq,self.GSB_a,self.SE_a,self.ESA_a,self.PP_a
-
-    @property
-    def _factFT(self):
-        """Fourier Transform factor used to compute spectra."""
-    
-        deltat = self.time[1]-self.time[0]
-        factFT = deltat/(2*np.pi)
-        return factFT
+        freq,GSB_a,SE_a,ESA_a,PP_a = self.calc_pump_probe_lineshape_a(dipoles,pop_t,freq=freq)
+        GSB_a *= freq[None,:]*factOD
+        SE_a *= freq[None,None,:]*factOD
+        ESA_a *= freq[None,None,:]*factOD
+        PP_a *= freq[None,None,:]*factOD
+        return freq,GSB_a,SE_a,ESA_a,PP_a

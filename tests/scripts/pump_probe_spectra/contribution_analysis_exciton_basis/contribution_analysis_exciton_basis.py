@@ -9,7 +9,7 @@ import numpy as np
 from pyQME.spectral_density import SpectralDensity
 from pyQME.pump_probe import PumpProbeCalculator
 from pyQME.tensors.markov import RedfieldTensor
-from pyQME.tensors_double import RedfieldTensorDouble
+from pyQME.tensors_double.markov import RedfieldTensorDouble
 from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
 
 
@@ -94,8 +94,8 @@ spectrum_obj = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double)
 
 
 spectrum_obj.calc_components_lineshape(dipoles=dipoles)
-freq_axis,GSB_a,SE_a,ESA_a,PP_a = spectrum_obj.get_pump_probe_a(pop_t_exc) #to be saved
-_,GSB,SE,ESA,PP = spectrum_obj.get_pump_probe(pop_t_exc) #to be saved
+freq_axis,GSB_a,SE_a,ESA_a,PP_a = spectrum_obj.calc_pump_probe_OD_a(pop_t_exc) #to be saved
+_,GSB,SE,ESA,PP = spectrum_obj.calc_pump_probe_OD(pop_t_exc) #to be saved
 
 
 

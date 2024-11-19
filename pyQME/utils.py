@@ -336,7 +336,7 @@ def get_timeaxis(reorg,energies,maxtime):
     time = np.arange(0.,tmax+dt,dt)
     return time
 
-def get_gelzinis_eq(H,lambda_site,temp=300.):
+def get_gelzinis_eq(H,lambda_site,temp,basis='site'):
     """This function returns the equilibrium population in the site basis,
     according to the formula from Gelzinis et al. (https://doi.org/10.1063/1.5141519),
     which has been shown to reproduce the correct equilibrium population
@@ -350,6 +350,9 @@ def get_gelzinis_eq(H,lambda_site,temp=300.):
         reorganization energies in the site basis in cm^-1.
     temp: np.float
         temperature in Kelvine
+    basis: string
+        basis in which the equilibrium populations are returned
+        can be 'site' or 'exc'
     
     Returns
     -------
@@ -382,10 +385,12 @@ def get_gelzinis_eq(H,lambda_site,temp=300.):
     #normalize to 1
     eq_pop = eq_pop/eq_pop.sum()
     
-    #fro exciton basis to site basis
-    eq_pop_site = np.einsum('ia,a->i',CC_eff**2,eq_pop) 
-
-    return eq_pop_site  
+    if basis=='exc':
+        return eq_pop
+    elif basis=='site':
+        #from exciton basis to site basis
+        eq_pop_site = np.einsum('ia,a->i',CC_eff**2,eq_pop) 
+        return eq_pop_site
             
 def clusterize_pop(pop,clusters):
     """This function returns the population clusterized (summed up) according to the clusters given as input.
