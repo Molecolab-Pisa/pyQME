@@ -4,6 +4,7 @@ import scipy.fftpack as fftpack
 import psutil
 from tqdm import tqdm
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
+wn2ips = 0.188495559215 #conversion factor from ps to cm
 
 def _do_ifft_complete(omega,spec,t):
     """This function performs inverse FT, spec(omega) -> x(t), where spec(omega) is defined over a *symmetric* range around 0, and time axis could be anything.
@@ -89,6 +90,28 @@ class SpectralDensity():
         #calculate lineshape function
         self._calc_gt()
 
+    def set_time_axis(self,time_axis,units='cm'):
+        """This function helps the user to set the time axis in arbitrary units
+        
+        Arguments
+        ---------
+        time_axis: np.array(dtype=np.float)
+            time axis
+        units: string
+            units in which the time_axis is provided
+            can be 'cm', 'ps' or 'fs'"""
+
+        #convert time_axis to cm
+        if units=='ps':
+            time_axis *= wn2ips
+        elif units=='fs':
+            time_axis *= wn2ips/1000.
+        elif units=='cm':
+            pass
+        else:
+            raise ValueError('Units not recognized!')
+        self.time = time_axis
+
     @property
     def time(self):
         "Time axis over which the correlation function is defined"
@@ -103,10 +126,6 @@ class SpectralDensity():
         #update the lineshape function
         if hasattr(self,'gt'):
             self._calc_gt()
-
-        #update the correlation function
-        if hasattr(self,'Ct'):
-            self._calc_Ct()
 
     def set_temperature(self,T):
         """This function sets the temperature.
