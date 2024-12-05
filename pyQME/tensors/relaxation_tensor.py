@@ -748,7 +748,19 @@ class RelTensorMarkov(RelTensor):
         R_rho  += -1.j*self.Om*rho.reshape((self.dim,self.dim))
         
         return R_rho.reshape(shape_)
-        
+    
+    def get_rho_eq(self):
+        "This function calculates and returns the equilibrium density matrix in the eigenstate basis."
+        nchrom=self.dim
+        Liouv = self.get_Liouv()
+        Liouv_ = Liouv.reshape([nchrom**2,nchrom**2])
+        eigval,eigvec = np.linalg.eig(Liouv_)
+        eq_idx = np.abs(eigval.real).argmin()
+        rho_eq_exc_ = eigvec[:,eq_idx]
+        rho_eq_exc = rho_eq_exc_.reshape([nchrom,nchrom])
+        rho_eq_exc /= rho_eq_exc.trace()
+        return rho_eq_exc
+
 class RelTensorNonMarkov(RelTensor):
     """Non Markovian Relaxation tensor class in the single-exciton manifold.
     

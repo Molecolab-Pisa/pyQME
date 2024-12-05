@@ -668,7 +668,67 @@ class SpectralDensity():
             integrand *= SD[:,np.newaxis]/np.pi
             Ct_complex[s_idx] = np.trapz(integrand,w,axis=0)
         return Ct_complex
+    
+    def _calc_Gamma_HCE_loop_over_time(self):
+        "This function calculates and stores the Gamma function, used to calculate fluorescence spectra using the Hybrid Cumulant Expansion theory."
+        w = self.w
+        time_axis = self.time
+        SD_list = self.SD
+        Gamma_HCE_Zt = np.zeros([self.nsds,time_axis.size])
+        for Z in range(self.nsds):
+            SD_i = SD_list[Z]
+            for t_idx in tqdm(range(time_axis.size)):
+                integrand = SD_i*np.cos(w*time_axis[t_idx])/w
+                Gamma_HCE_Zt[Z,t_idx] = np.trapz(integrand,w)
+        Gamma_HCE_Zt /= np.pi
+        self.Gamma_HCE_Zt = Gamma_HCE_Zt
+    
+    def get_Gamma_HCE(self):
+        """This function calculates and returns the Gamma function, used to calculate fluorescence spectra using the Hybrid Cumulant Expansion theory.
+        
+        Returns
+        self.Gamma_HCE_Zt: np.array(dtype=np.float), shape = (self.nsds,self.time.size)
+            Gamma function, used to calculate fluorescence spectra using the Hybrid Cumulant Expansion theory."""
+        
+        if not hasattr(self,'Gamma_HCE_Zt'):
+            self._calc_Gamma_HCE_loop_over_time()
+        return self.Gamma_HCE_Zt
+        
 
+    def get_Ct_imaginary_time(self):
+        """This function calculates and returns the bath correlation function in the imaginary time axis (from zero to beta).
+        
+        Returns
+        -------
+        self.Ct_imag_time: np.array(dtype=np.complex128), shape = (self.nsds,self.time_axis_0_to_beta.size)
+            bath correlation function in the imaginary time axis (from zero to beta)."""
+        
+        if not hasattr(self,'Ct_imag_time'):
+            self._calc_Ct_imaginary_time()
+        return self.Ct_imag_time
+        
+    def _calc_Ct_imaginary_time(self):
+        """This funtion calculates and stores the bath correlation function in the imaginary time axis (from zero to beta)."""
+        
+        w=self.w
+        beta=self.beta
+        self.time_axis_0_to_beta = self.time[self.time<=self.beta]
+        time_axis_0_to_beta = self.time_axis_0_to_beta
+        Ct_imag_time = np.zeros([self.nsds,time_axis_0_to_beta.size],dtype=np.complex128)
+        
+        for Z in range(self.nsds):
+            SD = self.SD[Z]        
+            integrand  = np.cosh(w[:,np.newaxis]*(0.5*beta-1j*(-1j*time_axis_0_to_beta[np.newaxis,:])))
+            integrand /= np.sinh(0.5*w[:,np.newaxis]*beta)
+            integrand *= SD[:, np.newaxis] / (np.pi)
+        
+            # Perform the integration using np.trapz along the w axis
+            Ct_imag_time[Z] = np.trapz(integrand, w, axis=0)
+        
+        del integrand
+
+        self.Ct_imag_time = Ct_imag_time
+        
 def is_ascending(arr):
     """This function determines whether the Numpy array given as input is ascending.
     

@@ -1,3 +1,3 @@
 from .secular import SecularSpectraCalculator
-from .non_secular import FCE
+from .non_secular import FCE,NonSecularSpectraCalculator,HCE
 from .spectracalculator import SpectraCalculator

@@ -97,15 +97,10 @@ spectrum_obj_complex = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,appr
 spectrum_obj_imag = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'iR')
 
 
-spectrum_obj_diag_approx.calc_components_lineshape(dipoles=dipoles)
-spectrum_obj_real.calc_components_lineshape(dipoles=dipoles)
-spectrum_obj_complex.calc_components_lineshape(dipoles=dipoles)
-spectrum_obj_imag.calc_components_lineshape(dipoles=dipoles)
-
-freq_axis,GSB_diag_approx,SE_diag_approx,ESA_diag_approx,PP_diag_approx = spectrum_obj_diag_approx.calc_pump_probe_OD(pop_t_exc)     #to be saved
-_,GSB_real,SE_real,ESA_real,PP_real = spectrum_obj_real.calc_pump_probe_OD(pop_t_exc)     #to be saved
-_,GSB_complex,SE_complex,ESA_complex,PP_complex = spectrum_obj_complex.calc_pump_probe_OD(pop_t_exc)     #to be saved
-_,GSB_imag,SE_imag,ESA_imag,PP_imag = spectrum_obj_imag.calc_pump_probe_OD(pop_t_exc)     #to be saved
+freq_axis,GSB_diag_approx,SE_diag_approx,ESA_diag_approx,PP_diag_approx = spectrum_obj_diag_approx.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
+_,GSB_real,SE_real,ESA_real,PP_real = spectrum_obj_real.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
+_,GSB_complex,SE_complex,ESA_complex,PP_complex = spectrum_obj_complex.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
+_,GSB_imag,SE_imag,ESA_imag,PP_imag = spectrum_obj_imag.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
 
 
 

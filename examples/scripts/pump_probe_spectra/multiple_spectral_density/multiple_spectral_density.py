@@ -97,8 +97,7 @@ pop_t_exc = np.einsum('tkk->tk',rho_t_exc)
 spectrum_obj = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double)
 
 
-spectrum_obj.calc_components_lineshape(dipoles=dipoles)
-freq_axis,GSB,SE,ESA,PP = spectrum_obj.calc_pump_probe_OD(pop_t_exc)     #to be saved
+freq_axis,GSB,SE,ESA,PP = spectrum_obj.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
 
 
 
