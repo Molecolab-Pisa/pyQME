@@ -25,7 +25,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
     initialize: Boolean
         the relaxation tensor is computed when the class is initialized.
-    include_lamb_shift: Boolean
+    include_lamb_shift_GF: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the off-diagonal term induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
     include_lamb_shift_mR: Boolean
@@ -48,12 +48,13 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
         If not provided, the Hamiltonian will be fully diagonalized"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift=True,include_lamb_shift_mR=True,lamb_shift_is_markov=True,forster_is_markov=False,damping_tau=None,clusters=None,lamb_shift_mR_is_markov=False):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift_GF=True,include_lamb_shift_mR=True,lamb_shift_is_markov=True,forster_is_markov=False,damping_tau=None,clusters=None,lamb_shift_mR_is_markov=False):
         "This function handles the variables which are initialized to the main RedfieldTensor Class"        
         
         self.V = V.copy()
         
         self.forster_is_markov = forster_is_markov
+        self.include_lamb_shift_GF = include_lamb_shift_GF
         
         #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
         if clusters is not None:
@@ -69,7 +70,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     def _calc_forster_rates(self):
         
         time_axis=self.specden.time
-        if self.include_lamb_shift:
+        if self.include_lamb_shift_GF:
             if self.lamb_shift_is_markov:
                 redf_xi_abs = self.calc_redf_xi()
                 dephasing = redf_xi_abs[:,-1]/self.specden.time[-1]

@@ -43,7 +43,7 @@ temp = 600
 
 # **Spectral density**
 
-freq_axis_SD = np.arange(0.1,4000,0.1) 
+freq_axis_SD = np.arange(0.1,4000,0.5) 
 
 
 SD_data = overdamped_brownian(freq_axis_SD,30,37)

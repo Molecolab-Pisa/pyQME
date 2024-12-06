@@ -23,7 +23,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     specden_adiabatic: class
         SpectralDensity class.
         if not None, it is used to compute the reorganization energy that is subtracted from exciton Hamiltonian diagonal before its diagonalization.
-    include_lamb_shift: Boolean
+    include_lamb_shift_GF: Boolean
         if False, the "standard" Generalized-Forster expression for EET rates will be employed
         if True, the dephasing induced by Redfield EET processes is included in the calculation of Generalized-Forster rates
     include_lamb_shift_mR: Boolean
@@ -37,12 +37,13 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
         If not provided, the Hamiltonian will be fully diagonalized"""
 
-    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift_mR =False,include_lamb_shift=True,damping_tau=None,clusters=None,include_yang_term=True):
+    def __init__(self,H_part,V,specden,SD_id_list = None,initialize=False,specden_adiabatic=None,include_lamb_shift_mR =False,include_lamb_shift_GF=True,damping_tau=None,clusters=None,include_yang_term=True):
         "This function handles the variables which are initialized to the main RedfieldTensor Class"
         
         self.V = V.copy()
         self.include_yang_term = include_yang_term
-
+        self.include_lamb_shift_GF = include_lamb_shift_GF
+        
         #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
         if clusters is not None:
             self.clusters = clusters
@@ -59,7 +60,7 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
         
         time_axis = self.specden.time
         
-        if self.include_lamb_shift:
+        if self.include_lamb_shift_GF:
             if not hasattr(self,'redf_dephasing'):
                 self.redf_dephasing = self._calc_redfield_dephasing()        
             redf_dephasing = self.redf_dephasing.copy()
@@ -173,7 +174,7 @@ def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb
     
     dim = Om.shape[0]
     rates = np.zeros([dim,dim])
-
+    
     #loop over donors
     for D in range(dim):
         gD = g_aabb[D,D]
@@ -207,8 +208,8 @@ def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb
                 #A-->D rate
 
                 # GENERALIZED-FORSTER TERM
-                energy = Om[D,A]+2*ReorgA
-                exponent = 1j*energy*time_axis+lineshape_function+redf_dephasing[A].conj()+redf_dephasing[D]
+                energy = 1j*Om[D,A]+1j*2*ReorgA+redf_dephasing[A].conj()+redf_dephasing[D]
+                exponent = energy*time_axis+lineshape_function
                 exponent = exponent - 2*(g_aabb[D,A]+1j*time_axis*reorg_aabb[D,A])
                 spectral_overlap_time = np.exp(-exponent)
                 integrand = 2. * ((V_exc[D,A]/h_bar)**2)*spectral_overlap_time.real
