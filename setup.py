@@ -9,5 +9,5 @@ setup(
     description=open("README.md").read(),
     packages=find_packages(),
     python_requires='>3.5.0',
-    install_requires=["numpy", "scipy", "opt_einsum","tqdm","psutil"],
+    install_requires=["numpy", "scipy", "opt_einsum","tqdm","psutil","pathlib"],
 )

@@ -832,6 +832,7 @@ def put_submatrix_into_supramatrix_using_cluster(submat,supramat,cluster):
         The updated supra-matrix with the submatrix inserted at the specified indices.
     """
     
+    cluster=len(cluster)
     for i_sub,i_supra in enumerate(cluster):
         for j_sub,j_supra in enumerate(cluster):
             supramat[i_supra,j_supra] = submat[i_sub,j_sub]
@@ -842,25 +843,25 @@ def calc_cluster_to_exc_mapper(U, clusters):
 
     Arguments
     ---------
-    U: np.array(), shape = (n_excitons, n_sites)
-        A square matrix where each column represents an exciton and each row represents a site.
+    U: np.array(), shape = (n_excitons, n_features)
+        A matrix where each column represents an exciton and each row represents a feature.
         The values in the matrix are used to determine the association of excitons to clusters.
 
     clusters: list of lists
-        A list where each sublist contains the indices of sites that belong to a specific cluster.
+        A list where each sublist contains the indices of features that belong to a specific cluster.
         The index of the sublist corresponds to the cluster number.
 
     Returns
     -------
     cluster_to_exc_mapper: list of lists
         A list where each sublist contains the indices of excitons that belong to the corresponding cluster.
-        The index of the sublist corresponds to the cluster number."""
-
+        The index of the sublist corresponds to the cluster number.
+    """
     exc_to_cluster_mapper = []  # Initialize a list to map excitons to clusters
 
     # Iterate over each exciton (column in U)
     for exc in range(U.shape[0]):
-        # Create a mask for sites where the absolute value is greater than a small threshold
+        # Create a mask for features where the absolute value is greater than a small threshold
         mask = np.where(np.abs(U[:, exc]) > 1e-14)
 
         # Find the index of the cluster that corresponds to the current exciton
@@ -876,4 +877,3 @@ def calc_cluster_to_exc_mapper(U, clusters):
     cluster_to_exc_mapper = [list(np.where(exc_to_cluster_mapper == i)[0]) for i in range(len(clusters))]
 
     return cluster_to_exc_mapper  # Return the final mapping of clusters to excitons
-

@@ -92,7 +92,6 @@ rel_tens_obj = RedfieldForsterTensor(H_part,V,SD_obj,forster_is_markov=False,inc
 #site basis
 rho_0 = np.zeros([nchrom,nchrom])
 rho_0[1,1] = 1.
-rho_0[0,1] = rho_0[0,1]
 
 #convert to exciton basis
 rho_0_exc = rel_tens_obj.transform(rho_0)
@@ -100,7 +99,7 @@ rho_0_exc = rel_tens_obj.transform(rho_0)
 
 # **Propagate**
 
-rho_t_exc = rel_tens_obj.propagate(rho_0_exc,time_axis_cm)     #to be saved
+rho_t_exc = rel_tens_obj.propagate(rho_0_exc,time_axis_ps,units='ps',propagation_mode='exp')     #to be saved
 
 #convert to site basis
 rho_t_site = rel_tens_obj.transform_back(rho_t_exc)     #to be saved
