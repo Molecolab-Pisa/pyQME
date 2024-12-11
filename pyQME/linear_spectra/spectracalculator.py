@@ -401,7 +401,7 @@ class SpectraCalculator():
         calculator = self._get_function_from_decorator_attribute(spec_type=spec_type,units_type=units_type,spec_components=spec_components)
         freq,spec = calculator(*args,**kwargs)
         return freq,spec
-
+    
     def _get_function_from_decorator_attribute(self,spec_type,units_type,spec_components):
         method_returned = None
         for attr_of_self in dir(self):

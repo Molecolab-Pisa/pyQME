@@ -82,7 +82,7 @@ SD_obj.time = time_axis_cm
 
 # **Relaxation Tensor**
 
-rel_tens_obj = ModifiedRedfieldForsterTensor(H_part,V,SD_obj,forster_is_markov=True,include_lamb_shift=False,lamb_shift_is_markov=True)
+rel_tens_obj = ModifiedRedfieldForsterTensor(H_part,V,SD_obj,forster_is_markov=True,include_lamb_shift_GF=False,lamb_shift_is_markov=True)
 
 
 # # Excited state dynamics
@@ -92,7 +92,6 @@ rel_tens_obj = ModifiedRedfieldForsterTensor(H_part,V,SD_obj,forster_is_markov=T
 #site basis
 rho_0 = np.zeros([nchrom,nchrom])
 rho_0[1,1] = 1.
-rho_0[0,1] = rho_0[0,1]
 
 #convert to exciton basis
 rho_0_exc = rel_tens_obj.transform(rho_0)

@@ -80,7 +80,6 @@ time_axis_cm = time_axis_ps*wn2ips
 #site basis
 rho_0 = np.zeros([nchrom,nchrom])
 rho_0[1,1] = 1.
-rho_0[0,1] = rho_0[0,1]
 
 #convert to exciton basis
 rho_0_exc = rel_tens_obj.transform(rho_0)

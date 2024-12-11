@@ -1,6 +1,6 @@
 import numpy as np
 from .redfield import RedfieldTensor
-from ...utils import h_bar
+from ...utils import h_bar,extract_submatrix_using_cluster,put_submatrix_into_supramatrix_using_cluster,calc_cluster_to_exc_mapper
 from opt_einsum import contract
 
 class RedfieldForsterTensor(RedfieldTensor):
@@ -32,7 +32,7 @@ class RedfieldForsterTensor(RedfieldTensor):
     clusters: list
         List of clusters. Each element must be a list of indices of chromophores in the same cluster.
         Maximum length: n_chrom
-        If provided the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
+        If provided, instead of performing one Redfield calculation of size n_chrom, more (len(clusters)) Redfield calculation of size len(cluster_i) will be performed, and the Hamiltonian will be partitioned block by block, each block being defined by each cluster list
         If not provided, the Hamiltonian will be fully diagonalized
     secularize: Bool
         if True, the relaxation tensor is secularized"""
@@ -43,26 +43,45 @@ class RedfieldForsterTensor(RedfieldTensor):
         self.V = V.copy()
         self.include_lamb_shift = include_lamb_shift
         self.include_exponential_term = include_exponential_term
-        
+                        
         #if the clusters are provided, the Hamiltonian is diagonalized block by block, avoiding numerical issues occurring in case of resonant excitons
-        if clusters is not None:
-            self.clusters = clusters
         if hasattr(self,'clusters'):
             self._diagonalize_ham = self._diagonalize_ham_block
         
-        super().__init__(H=H_part.copy(),specden=specden,
-                         SD_id_list=SD_id_list,initialize=initialize,
+        super().__init__(H=H_part.copy(),specden=specden,SD_id_list=SD_id_list,initialize=initialize,
                          specden_adiabatic=specden_adiabatic,secularize=secularize)
+
+        #if the user provides clusters, we generate one Redfield Tensor for each cluster
+        if clusters is not None:
+            self.clusters = clusters
+            self.redf_tensors = []
+            for i,cluster in enumerate(self.clusters):
+                SD_id_list_i = [self.SD_id_list[j] for j in cluster]
+                H_part_i = extract_submatrix_using_cluster(H_part,cluster)
+                self.redf_tensors.append(RedfieldTensor(H_part_i,specden,SD_id_list=SD_id_list_i,initialize=initialize,specden_adiabatic=specden_adiabatic,secularize=secularize))
+            
+            #list of lists of lenght len(clusters). The element i is a list of the indeces of the excitons to which cluster i belongs
+            self.cluster_to_exc_mapper = calc_cluster_to_exc_mapper(self.U,clusters)
 
     def _calc_rates(self):
         "This function computes the Redfield-Forster energy transfer rates in cm^-1"
         
         #get generalized forster rates
         if not hasattr(self,'forster_rates'):
-            self._calc_forster_rates()
-            
-        #get redfield rates
-        if not hasattr(self,'redfield_rates'):
+            self._calc_forster_rates()            
+       
+        #get Redfield rates
+        if hasattr (self,'redf_tensors'): #if the user provides the clusters, a list of Redfield Tensors, one for each cluster, is avaiable, and we perform many smaller Redfield calculations
+            redfield_rates = np.zeros([self.dim,self.dim])
+            for cluster_to_exc_mapper_i,redf_i in zip(self.cluster_to_exc_mapper,self.redf_tensors):                
+                
+                #Redfield rates of cluster i
+                rates_i = redf_i._calc_redfield_rates()
+
+                #we plug rates_i into the whole Redfield rates matrix
+                redfield_rates = put_submatrix_into_supramatrix_using_cluster(rates_i,redfield_rates,cluster_to_exc_mapper_i)
+            self.redfield_rates = redfield_rates
+        else: #if the user doesn't provide clusters, we perform one big Redfield calculation
             self.redfield_rates = self._calc_redfield_rates()
         
         #sum
@@ -181,29 +200,29 @@ def RF_rates_loop(time_axis,Om,gt_exc,Reorg_exc,V_exc,redf_dephasing,exponent_ya
         #loop over acceptors
         for A in range(D+1,dim):
 
-            if np.abs(V_exc[D,A]) > 1e-10:
+            if np.abs(V_exc[D,A]) < 1e-10: continue
 
-                gA = gt_exc[A]
-                ReorgA = Reorg_exc[A]
+            gA = gt_exc[A]
+            ReorgA = Reorg_exc[A]
 
-                #D-->A rate
-                energy = 1j*Om[A,D]+1j*2*ReorgD+redf_dephasing.conj()[D]+redf_dephasing[A]
-                lineshape_function = gD+gA
-                exponent = energy*time_axis+lineshape_function
-                if exponent_yang is not None:
-                    exponent = exponent + exponent_yang[A,D]
-                integrand = np.exp(-exponent)
-                integral = np.trapz(integrand,time_axis)
-                rates[A,D] =  2. * ((V_exc[D,A]/h_bar)**2) * integral.real                    
+            #D-->A rate
+            energy = 1j*Om[A,D]+1j*2*ReorgD+redf_dephasing.conj()[D]+redf_dephasing[A]
+            lineshape_function = gD+gA
+            exponent = energy*time_axis+lineshape_function
+            if exponent_yang is not None:
+                exponent = exponent + exponent_yang[A,D]
+            integrand = np.exp(-exponent)
+            integral = np.trapz(integrand,time_axis)
+            rates[A,D] =  2. * ((V_exc[D,A]/h_bar)**2) * integral.real                    
 
-                #A-->D rate
-                energy = 1j*Om[D,A]+1j*2*ReorgA+redf_dephasing.conj()[A]+redf_dephasing[D]
-                exponent = energy*time_axis+lineshape_function
-                if exponent_yang is not None:
-                    exponent = exponent + exponent_yang[D,A]
-                integrand = np.exp(-exponent)
-                integral = np.trapz(integrand,time_axis)
-                rates[D,A] =  2. * ((V_exc[D,A]/h_bar)**2) * integral.real
+            #A-->D rate
+            energy = 1j*Om[D,A]+1j*2*ReorgA+redf_dephasing.conj()[A]+redf_dephasing[D]
+            exponent = energy*time_axis+lineshape_function
+            if exponent_yang is not None:
+                exponent = exponent + exponent_yang[D,A]
+            integrand = np.exp(-exponent)
+            integral = np.trapz(integrand,time_axis)
+            rates[D,A] =  2. * ((V_exc[D,A]/h_bar)**2) * integral.real
 
     
     #fix diagonal

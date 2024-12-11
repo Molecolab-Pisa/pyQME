@@ -790,3 +790,90 @@ def clusterize_rates(rates,clusters,time_step):
     np.fill_diagonal(rates_clusterized,-rates_clusterized.sum(axis=0))
     
     return rates_clusterized
+
+def extract_submatrix_using_cluster(mat,cluster):
+    """This function takes a matrix mat and estract a submatrix according to indeces defined using cluster.
+
+    Arguments
+    ---------
+    mat: np.array(),shape = (dim,dim)
+        matrix
+    cluster: list of integers
+        list of integers used as indices to extract the elements of mat
+
+    Returns
+    -------
+    mat_sub: np.array(dtype=mat.dtype), shape = (len(cluster),len(clusters))
+        matrix in the subspace defined by indices given as input in cluster."""
+
+    ncluster = len(cluster)
+    mat_sub = np.zeros([ncluster,ncluster],dtype=mat.dtype)
+    for i_sub,i_supra in enumerate(cluster):
+        for j_sub,j_supra in enumerate(cluster):
+            mat_sub[i_sub,j_sub] = mat[i_supra,j_supra]
+    return mat_sub
+
+def put_submatrix_into_supramatrix_using_cluster(submat,supramat,cluster):
+    """This function takes a submatrix and inserts it into a larger matrix (supra-matrix) at the indices defined by the provided cluster.
+
+    Arguments
+    ---------
+    submat: np.array(), shape = (len(cluster), len(cluster))
+        The submatrix to be inserted into the supra-matrix.
+    supramat: np.array(), shape = (dim, dim)
+        The larger matrix (supra-matrix) into which the submatrix will be inserted.
+    cluster: list of integers
+        A list of integers used as indices to determine where to place the elements of submat 
+        in supramat.
+
+    Returns
+    -------
+    supramat: np.array(dtype=supramat.dtype), shape = (dim, dim)
+        The updated supra-matrix with the submatrix inserted at the specified indices.
+    """
+    
+    cluster=len(cluster)
+    for i_sub,i_supra in enumerate(cluster):
+        for j_sub,j_supra in enumerate(cluster):
+            supramat[i_supra,j_supra] = submat[i_sub,j_sub]
+    return supramat
+
+def calc_cluster_to_exc_mapper(U, clusters):
+    """This function maps excitons to their corresponding clusters based on the provided matrix U.
+
+    Arguments
+    ---------
+    U: np.array(), shape = (n_excitons, n_features)
+        A matrix where each column represents an exciton and each row represents a feature.
+        The values in the matrix are used to determine the association of excitons to clusters.
+
+    clusters: list of lists
+        A list where each sublist contains the indices of features that belong to a specific cluster.
+        The index of the sublist corresponds to the cluster number.
+
+    Returns
+    -------
+    cluster_to_exc_mapper: list of lists
+        A list where each sublist contains the indices of excitons that belong to the corresponding cluster.
+        The index of the sublist corresponds to the cluster number.
+    """
+    exc_to_cluster_mapper = []  # Initialize a list to map excitons to clusters
+
+    # Iterate over each exciton (column in U)
+    for exc in range(U.shape[0]):
+        # Create a mask for features where the absolute value is greater than a small threshold
+        mask = np.where(np.abs(U[:, exc]) > 1e-14)
+
+        # Find the index of the cluster that corresponds to the current exciton
+        idx = clusters.index(list(mask[0]))  # This idx tells us what cluster is found in exciton exc
+
+        # Append the cluster index to the mapper list
+        exc_to_cluster_mapper.append(idx)
+
+    # Convert the mapper list to a NumPy array for easier processing
+    exc_to_cluster_mapper = np.asarray(exc_to_cluster_mapper)
+
+    # Create a list of lists to map clusters to their corresponding excitons
+    cluster_to_exc_mapper = [list(np.where(exc_to_cluster_mapper == i)[0]) for i in range(len(clusters))]
+
+    return cluster_to_exc_mapper  # Return the final mapping of clusters to excitons

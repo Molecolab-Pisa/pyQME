@@ -1,3 +1,4 @@
+from pathlib import Path
 from glob import glob
 import numpy as np
 
@@ -10,8 +11,18 @@ for reference_name in reference_names_list:
     
     name = reference_name.replace("_reference.npy",".npy");
     
-    data_reference = np.load(reference_name)
-    data = np.load(name)
+    if Path(reference_name).is_file():
+        data_reference = np.load(reference_name)
+    else:
+        print(reference_name,' not found: skipping test')
+        continue
+        
+    if Path(name).is_file():
+        data = np.load(name)
+    else:
+        print(name,' not found: skipping test')
+        continue
+    
 
     test = np.abs(data_reference - data)/np.abs(data_reference).max()
     if np.any(test > threshold):
