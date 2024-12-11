@@ -306,8 +306,6 @@ class RelTensor():
             rhot_transformed = self.transform(rhot,inverse=inverse)
             return np.einsum('tkk->tk',rhot_transformed.real)
 
-
-
     
     def get_rates(self):
         """This function returns the energy transfer rates.
@@ -403,7 +401,6 @@ class RelTensor():
             rho_t_exc_1 = self._propagate_exp_tensor(rho0,t[mask])    
             rho_t_exc_2 = self._propagate_eig_tensor(rho_t_exc_1[-1],t[~mask])  
             rhot = np.concatenate((rho_t_exc_1,rho_t_exc_2),axis=0)
-
         elif propagation_mode == 'exp+eig_cond_num':
             raise NotImplementedError('propagation_mode not implemented!')                
             #rhot = self._propagate_exp_eig_cond_num(rho0,t,cond_num_threshold=cond_num_threshold)
@@ -417,7 +414,7 @@ class RelTensor():
         else:
             return rhot
 
-    def propagate_rates(self,pop,t,propagation_mode=None,units='cm',basis='exciton'):
+    def propagate_rates(self,pop,t,propagation_mode=None,units='cm',basis='exciton',t_switch_exp_to_eig=None):
         """This function computes the dynamics of the populations pop under the influence of the rates.
         
         Arguments
@@ -430,13 +427,17 @@ class RelTensor():
         propagation_mode: string
             if 'eig', the populations are propagated using the eigendecomposition of the rate matrix.
             if 'exp', the populations are propagated using the exponential matrix of the rate matrix.
+            if 'exp_then_eig', the density matrix is propagated using 'exp', before t_switch_exp_to_eig, and 'eig' after it
         units: string
             can be 'ps' or 'cm' or 'fs'
             units of the time axis given as input.
         basis: string
             if 'exciton', the initial populations pop and the propagated ones popt are in the eigenbasis (exciton basis)
             if 'site', the initial populations and the propagated ones popt are in the site basis
-            
+        t_switch_exp_to_eig: float
+            time (in same units as t), at which occurs the switch from propagation_mode='exp' to propagation_mode='eig'
+            this is used if propagation_mod='exp_then_eig'
+           
         Returns
         -------
         popt: np.array(dtype=complex), shape = (t.size,dim,)
@@ -444,13 +445,19 @@ class RelTensor():
         
         if propagation_mode is None:
             propagation_mode=self.propagation_mode_default
-            
+
+        if propagation_mode == 'exp_then_eig' and t_switch_exp_to_eig is None:
+            raise ValueError('You must input t_switch_exp_to_eig')
         
         if units == 'ps':
             t = t*wn2ips
+            if t_switch_exp_to_eig is not None:
+                t_switch_exp_to_eig = t_switch_exp_to_eig*wn2ips
         elif units == 'fs':
             t = t*wn2ips/1000            
-            
+            if t_switch_exp_to_eig is not None:
+                t_switch_exp_to_eig = t_switch_exp_to_eig*wn2ips/1000
+
         pop0 = pop.copy()
         if basis == 'site':
             pop_site = pop0
@@ -463,9 +470,14 @@ class RelTensor():
         
         
         if propagation_mode == 'eig':
-            popt = self._propagate_eig_rates(pop0,t).real
+            popt = self._propagate_eig_rates(pop0,t)
         elif propagation_mode == 'exp':
             popt = self._propagate_exp_rates(pop0,t)
+        elif propagation_mode == 'exp_then_eig':
+            mask = t<t_switch_exp_to_eig
+            popt_1 = self._propagate_exp_rates(pop0,t[mask])    
+            popt_2 = self._propagate_eig_rates(popt_1[-1],t[~mask])
+            popt = np.concatenate((popt_1,popt_2),axis=0)
         else:
             raise ValueError('propagation_mode not recognized!')
         
@@ -740,7 +752,7 @@ class RelTensorMarkov(RelTensor):
 
         A = self.get_rates()
 
-        popt = self._propagate_eig(A,pop,t)
+        popt = self._propagate_eig(A,pop,t).real
 
         return popt
         
