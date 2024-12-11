@@ -272,6 +272,43 @@ class RelTensor():
         
         return self.transform(*args,**kwargs,inverse=True)
 
+    def transform_populations(self,pop,inverse=False):
+        """Transform populations to eigenstate basis (i.e. from the site basis to the exciton basis).
+        
+        Arguments
+        ---------
+        pop: np.array()
+            populations to be transformed.
+            if an additional axis is given (e.g. time axis), it must be axis 0 (e.g. propagated density matrix must be of shape [time.size,dim,dim])
+        ndim: integer
+            number of dimensions (rank) of arr (e.g. pop = vector --> ndim=1, pop = matrix --> ndim = 2).
+        inverse: Boolean
+            if True, the transformation performed is from the exciton basis to the site basis.
+            if False, the transformation performed is from the site basis to the exciton basis.
+        
+        Returns
+        -------
+        pop_transformed: np.array(dtype=type(pop)), shape = np.shape(pop)
+            Transformed populations"""
+
+        ndim = pop.ndim
+        
+        # standard population tranformation (pop(self.dim,)-->rho(self.dim,self.dim))
+        if ndim == 1:
+            rho = np.diag(pop + 0*1j)
+            rho_transformed = self.transform(rho,inverse=inverse)
+            return np.diag(rho_transformed.real)
+        
+        # propagated population tranformation (pop(time.size,self.dim,)-->rho(time.size,self.dim,self.dim))
+        if ndim == 2:
+            rhot = np.zeros((pop.shape[0],pop.shape[-1],pop.shape[-1]),dtype=np.complex128)
+            np.einsum('tkk->tk',rhot.real) [...] = pop
+            rhot_transformed = self.transform(rhot,inverse=inverse)
+            return np.einsum('tkk->tk',rhot_transformed.real)
+
+
+
+    
     def get_rates(self):
         """This function returns the energy transfer rates.
         
@@ -356,14 +393,15 @@ class RelTensor():
             raise ValueError('basis not recognized')
         self.rho0 = rho0
         
+
         if propagation_mode == 'eig':
-            rhot = self._propagate_eig(rho0,t)
+            rhot = self._propagate_eig_tensor(rho0,t)
         elif propagation_mode == 'exp':
-            rhot = self._propagate_exp(rho0,t)
+            rhot = self._propagate_exp_tensor(rho0,t)
         elif propagation_mode == 'exp_then_eig':
             mask = t<t_switch_exp_to_eig
-            rho_t_exc_1 = self._propagate_exp(rho0,t[mask])    
-            rho_t_exc_2 = self._propagate_eig(rho_t_exc_1[-1],t[~mask])  
+            rho_t_exc_1 = self._propagate_exp_tensor(rho0,t[mask])    
+            rho_t_exc_2 = self._propagate_eig_tensor(rho_t_exc_1[-1],t[~mask])  
             rhot = np.concatenate((rho_t_exc_1,rho_t_exc_2),axis=0)
 
         elif propagation_mode == 'exp+eig_cond_num':
@@ -372,12 +410,71 @@ class RelTensor():
         else:
             raise ValueError('propagation_mode not recognized!')
         
+
         if basis == 'site':
             rhot_site = self.transform_back(rhot)
             return rhot_site
         else:
             return rhot
+
+    def propagate_rates(self,pop,t,propagation_mode=None,units='cm',basis='exciton'):
+        """This function computes the dynamics of the populations pop under the influence of the rates.
         
+        Arguments
+        ---------
+        pop: np.array(dtype=complex), shape = (dim,)
+            dim must be equal to self.dim.
+            populations at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+        propagation_mode: string
+            if 'eig', the populations are propagated using the eigendecomposition of the rate matrix.
+            if 'exp', the populations are propagated using the exponential matrix of the rate matrix.
+        units: string
+            can be 'ps' or 'cm' or 'fs'
+            units of the time axis given as input.
+        basis: string
+            if 'exciton', the initial populations pop and the propagated ones popt are in the eigenbasis (exciton basis)
+            if 'site', the initial populations and the propagated ones popt are in the site basis
+            
+        Returns
+        -------
+        popt: np.array(dtype=complex), shape = (t.size,dim,)
+            propagated populations"""
+        
+        if propagation_mode is None:
+            propagation_mode=self.propagation_mode_default
+            
+        
+        if units == 'ps':
+            t = t*wn2ips
+        elif units == 'fs':
+            t = t*wn2ips/1000            
+            
+        pop0 = pop.copy()
+        if basis == 'site':
+            pop_site = pop0
+            pop0 = self.transform_populations(pop_site)
+        elif basis == 'exciton':
+            pass
+        else:
+            raise ValueError('basis not recognized')
+        self.pop0 = pop0
+        
+        
+        if propagation_mode == 'eig':
+            popt = self._propagate_eig_rates(pop0,t).real
+        elif propagation_mode == 'exp':
+            popt = self._propagate_exp_rates(pop0,t)
+        else:
+            raise ValueError('propagation_mode not recognized!')
+        
+        if basis == 'site':
+            popt_site = self.transform_populations(popt,inverse=True)
+            return popt_site
+        else:
+            return popt
+
     def get_Liouv(self):
         """This function returns the representation tens
             
@@ -515,16 +612,15 @@ class RelTensorMarkov(RelTensor):
         "This function handles the variables which are initialized to the main RelTensor Class."
         self.propagation_mode_default = 'exp'        
         super().__init__(*args,**kwargs)
-        
     
-    def _propagate_exp(self,rho,t):
-        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
-        
+    def _propagate_exp_tensor(self,rho,t):
+        """Intermediate function used to call the one actually computing the dynamics of the density matrix under the Liouvillian of the system.
+
         Arguments
         ---------
         rho: np.array(dtype=complex), shape = (dim,dim)
             dim must be equal to self.dim.
-            density matrix at t=0
+            density matrix rho at t=0
         t: np.array(dtype=np.float)
             time axis used for the propagation.
             
@@ -532,19 +628,65 @@ class RelTensorMarkov(RelTensor):
         -------
         rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
             propagated density matrix"""
+
+        A = self.get_Liouv()
+        A_ = A.reshape(self.dim**2,self.dim**2)
+        rho0_ = rho.reshape(self.dim**2)
+        
+        rhot_ = self._propagate_exp(A_,rho0_,t)
+        rhot = rhot_.reshape(-1,self.dim,self.dim)
+        
+        return rhot
+
+    def _propagate_exp_rates(self,pop,t):
+        """Intermediate function used to call the one actually computing the dynamics of the populations under the rate matrix of the system.
+
+        Arguments
+        ---------
+        pop: np.array(dtype=complex), shape = (dim,)
+            dim must be equal to self.dim.
+            populations pop at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+            
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated populations"""
+
+        A = self.get_rates()
+
+        popt = self._propagate_exp(A,pop,t)
+
+        return popt
+
+
+    def _propagate_exp(self,A,arr,t):
+        """This function computes the dynamics of the populations pop or of a reshaped rho under the influence of a matrix A (either the matrix of rates of the entire Liouvillian tensor) using the exponential of A.
+        
+        Arguments
+        ---------
+        arr: np.array(dtype=complex), shape = (dim,)
+            dim must be equal to self.dim.
+            populations or reshaped rho at t=0
+        A: np.array(dtype=np.float), shape = (dim, dim)
+            dim must be equal to self.dim.
+            matrix of the rates or reshaped Liouvillian.
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+            
+        Returns
+        -------
+        arr_t: np.array(dtype=complex), shape = (t.size,dim,)
+            propagated populations or reshaped rho"""
                 
         t -= t.min()
         
         assert np.all(np.abs(np.diff(np.diff(t))) < 1e-10)
 
-        Liouv = self.get_Liouv() 
+        arr_t = expm_multiply(A,arr,start=t[0],stop=t[-1],num=len(t) )
 
-        A = Liouv.reshape(self.dim**2,self.dim**2)
-        rho_ = rho.reshape(self.dim**2)
-
-        rhot = expm_multiply(A,rho_,start=t[0],stop=t[-1],num=len(t) )
-
-        return rhot.reshape(-1,self.dim,self.dim)
+        return arr_t.reshape(-1,self.dim)
 
     def _calc_Liouv(self):
         """This function calaculates and stores the Liouvillian"""
@@ -554,28 +696,74 @@ class RelTensorMarkov(RelTensor):
         
         eye   = np.eye(self.dim)
         self.Liouv = self.RTen + 1.j*contract('cd,ac,bd->abcd',self.Om.T,eye,eye)
-        
-    def _propagate_eig(self,rho,t):
-        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
-        
+
+    def _propagate_eig_tensor(self,rho,t):
+        """Intermediate function used to call the one actually computing the dynamics of the density matrix under the Liouvillian of the system.
+
         Arguments
         ---------
         rho: np.array(dtype=complex), shape = (dim,dim)
             dim must be equal to self.dim.
-            density matrix at t=0
+            density matrix rho at t=0
         t: np.array(dtype=np.float)
             time axis used for the propagation.
             
         Returns
         -------
-        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+        rho_t: np.array(dtype=complex), shape = (t.size,dim,dim)
             propagated density matrix"""
+
+        A = self.get_Liouv()
+        A_ = A.reshape(self.dim**2,self.dim**2)
+        rho0_ = rho.reshape(self.dim**2)
+
+        rhot_ = self._propagate_eig(A_,rho0_,t)
+        rhot = rhot_.reshape(-1,self.dim,self.dim)
+
+        return rhot
+
+    def _propagate_eig_rates(self,pop,t):
+        """Intermediate function used to call the one actually computing the dynamics of the populations under the rate matrix of the system.
+
+        Arguments
+        ---------
+        pop: np.array(dtype=complex), shape = (dim,)
+            dim must be equal to self.dim.
+            populations pop at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+            
+        Returns
+        -------
+        popt: np.array(dtype=complex), shape = (t.size,dim,)
+            propagated populations"""
+
+        A = self.get_rates()
+
+        popt = self._propagate_eig(A,pop,t)
+
+        return popt
+        
+    def _propagate_eig(self,A,arr,t):
+        """This function computes the dynamics of the populations pop or of a reshaped rho under the influence of a matrix A (either the matrix of rates or the entire Liouvillian tensor) using the eigendecomposition of A.
+        
+        Arguments
+        ---------
+        arr: np.array(dtype=complex), shape = (dim,)
+            dim must be equal to self.dim.
+            populations or reshaped rho at t=0
+        A: np.array(dtype=np.float), shape = (dim, dim)
+            dim must be equal to self.dim.
+            matrix of the rates or the reshaped Liouvillian.
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+            
+        Returns
+        -------
+        arr_t: np.array(dtype=complex), shape = (t.size,dim,)
+            propagated populations or reshaped rho"""
         
         t -= t.min()
-        
-        Liouv = self.get_Liouv()
-        A = Liouv.reshape(self.dim**2,self.dim**2)
-        rho_ = rho.reshape(self.dim**2)
 
         # Compute left-right eigendecomposition
         kk,vl,vr = la.eig(A,left=True,right=True)
@@ -583,12 +771,12 @@ class RelTensorMarkov(RelTensor):
         vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
 
         # Compute exponentials
-        y0 = np.dot(vl.conj().T,rho_)
+        y0 = np.dot(vl.conj().T,arr)
         exps = np.exp( np.einsum('l,t->lt',kk,t) )
 
-        rhot = np.dot( vr, np.einsum('lt,l->lt', exps, y0) ).T
+        arr_t = np.dot( vr, np.einsum('lt,l->lt', exps, y0) ).T
 
-        return rhot.reshape(-1,self.dim,self.dim)
+        return arr_t.reshape(-1,self.dim)
 
     def _secularize(self,RTen):
         """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
@@ -785,23 +973,50 @@ class RelTensorNonMarkov(RelTensor):
         "This function handles the variables which are initialized to the main RelTensor Class."        
         self.propagation_mode_default = 'exp'
         super().__init__(*args,**kwargs)
-        
-    def _propagate_exp(self,rho,t):
-        """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the exponential matrix of the (reshaped) relaxation tensor.
-        
+
+    def _propagate_exp_tensor(self,rho,t):
+        """Intermediate function used to call the one actually computing the dynamics of the density matrix under the Liouvillian of the system.
+
         Arguments
         ---------
         rho: np.array(dtype=complex), shape = (dim,dim)
             dim must be equal to self.dim.
-            density matrix at t=0
+            density matrix rho at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
+
+        A = self.get_Liouv()
+        A_ = A.reshape(self.dim**2,self.dim**2,self.specden.time.size)
+        rho0_ = rho.reshape(self.dim**2)
+
+        rhot_ = self._propagate_exp(A_,rho0_,t)
+        rhot = rhot_.reshape(-1,self.dim,self.dim)
+
+        return rhot
+
+    def _propagate_exp(self,A,state,t):
+        """This function computes the dynamics of a state under the influence of a time-dependent operator.
+        
+        Arguments
+        ---------
+        A: np.array(dtype=complex),shape = (dim,dim,t.size)
+        
+        state: np.array(dtype=complex), shape = (dim,)
+            state at t=0
         t: np.array(dtype=np.float)
             time axis used for the propagation.
             
         Returns
         -------
-        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
-            propagated density matrix"""
-                        
+        state_t: np.array(dtype=complex), shape = (t.size,dim,)
+            propagated state"""
+
+        dim = state.size
         dt = t[1] - t[0]
         
         #check that t is increasing
@@ -811,17 +1026,17 @@ class RelTensorNonMarkov(RelTensor):
         
         t -= t.min()
         
-        Liouv = self.get_Liouv()            
+#        Liouv = self.get_Liouv()            
 
-        A = Liouv.reshape(self.dim**2,self.dim**2,self.specden.time.size)
-        rho_ = rho.reshape(self.dim**2)
-        rhot = np.zeros([t.size,self.dim**2],dtype=np.complex128)
-        rhot[0] = rho_.copy()
+#        A = Liouv.reshape(self.dim**2,self.dim**2,self.specden.time.size)
+#        rho_ = rho.reshape(self.dim**2)
+        state_t = np.zeros([t.size,dim],dtype=np.complex128)
+        state_t[0] = state.copy()
 
         for i,mapper in enumerate(mapper_t_to_specden_time_list):
             if i>0:
-                rhot[i] = expm_multiply(A[:,:,mapper-1]*dt,rhot[i-1])
-        return rhot.reshape(-1,self.dim,self.dim)
+                state_t[i] = expm_multiply(A[:,:,mapper-1]*dt,state_t[i-1])
+        return state_t.reshape(-1,dim,)
 
 
     def _calc_Liouv(self):
@@ -842,13 +1057,41 @@ class RelTensorNonMarkov(RelTensor):
             raise ValueError('The time axis must be equal or contained in SpectralDensity.time!')
         mapper_t_to_specden_time_list = [np.argmin(np.abs(t_i-self.specden.time)) for t_i in time_axis_user]
         return mapper_t_to_specden_time_list
-        
-    def _propagate_eig(self,rho,t):
+    
+    def _propagate_eig_tensor(self,rho,t):
+        """Intermediate function used to call the one actually computing the dynamics of the density matrix under the Liouvillian of the system.
+
+        Arguments
+        ---------
+        rho: np.array(dtype=complex), shape = (dim,dim)
+            dim must be equal to self.dim.
+            density matrix rho at t=0
+        t: np.array(dtype=np.float)
+            time axis used for the propagation.
+
+        Returns
+        -------
+        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+            propagated density matrix"""
+
+        A = self.get_Liouv()
+        A_ = A.reshape(self.dim**2,self.dim**2,self.specden.time.size)
+        rho0_ = rho.reshape(self.dim**2)
+
+        rhot_ = self._propagate_eig(A_,rho0_,t)
+        rhot = rhot_.reshape(-1,self.dim,self.dim)
+
+        return rhot
+
+
+
+    def _propagate_eig(self,A,state,t):
         """This function computes the dynamics of the density matrix rho under the influence of the relaxation tensor using the eigendecomposition of the (reshaped) relaxation tensor.
         
         Arguments
         ---------
-        rho: np.array(dtype=complex), shape = (dim,dim)
+        A:
+        state: np.array(dtype=complex), shape = (dim,)
             dim must be equal to self.dim.
             density matrix at t=0
         dt: np.array(dtype=np.float)
@@ -856,9 +1099,10 @@ class RelTensorNonMarkov(RelTensor):
             
         Returns
         -------
-        rhot: np.array(dtype=complex), shape = (t.size,dim,dim)
+        state_t: np.array(dtype=complex), shape = (t.size,dim,)
             propagated density matrix"""
         
+        dim = state.size
         dt = t[1] - t[0]
         
         #check that t is increasing
@@ -868,22 +1112,18 @@ class RelTensorNonMarkov(RelTensor):
                 
         t -= t.min()
         
-        Liouv = self.get_Liouv()            
-
-        A = Liouv.reshape(self.dim**2,self.dim**2,self.specden.time.size)
-        
-        rhot = np.zeros([t.size,self.dim,self.dim],dtype=np.complex128)
-        rhot[0] = rho.copy()
+        state_t = np.zeros([t.size,dim],dtype=np.complex128)
+        state_t[0] = state.copy()
         for i in range(1,t.size):
             mapper = mapper_t_to_specden_time_list[i]
             kk,vl,vr = la.eig(A[:,:,mapper-1],left=True,right=True)
             vl /= contract('ki,ki->i',vl.conj(),vr).real
-            rho_ = rhot[i-1].reshape(self.dim**2)
-            y0 = np.dot(vl.conj().T,rho_)
+            #rho_ = rho_t[i-1].reshape(self.dim**2)
+            y0 = np.dot(vl.conj().T,state_t[i-1])
             exps = np.exp(kk*dt)
-            rhot[i] = np.dot( vr,exps*y0 ).T.reshape(self.dim,self.dim)
+            state_t[i] = np.dot( vr,exps*y0 ).T
 
-        return rhot
+        return state_t
     
     def _secularize(self,RTen):
         """This function secularizes the Relaxation Tensor (i.e. neglect the coherence dynamics but considers only its effect on coherence decay).
