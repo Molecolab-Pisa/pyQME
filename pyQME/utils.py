@@ -551,7 +551,7 @@ def transform_back(arr,H,ndim=None):
 
     return transform(arr,H,ndim=ndim,inverse=True)
 
-def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tensor,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_spec_low_high=False,approx=None,SD_id_list=None,**kwargs):
+def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tensor,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_components=False,approx=None,SD_id_list=None,**kwargs):
     """This function computes the absorption spectrum treating as localized one part of the spectral density.
 
     Arguments
@@ -706,7 +706,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     spec_obj_diag = SecularSpectraCalculator(tensor_diag,approximation=approx)
     freq_axis_spec,spec_diag = spec_obj_diag.get_spectrum(dipoles,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,**kwargs)
     
-    #localized sideband
+    #localized sideband       
     spec_high = spec_diag - spec_low_no_coup
     
     #sometimes, for numerical reasons, the localized 0-0 band doesn't cancel perfectly, so we make sure that this happens, exciton by exciton
@@ -730,8 +730,8 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     #calculate the resulting spectrum
     spec = spec_low + spec_high
     
-    if return_spec_low_high:
-        return freq_axis_spec,spec_low,spec_high,spec
+    if return_components:
+        return freq_axis_spec,spec_low,spec_low_no_coup,spec_diag,spec
     else:
         return freq_axis_spec,spec
 

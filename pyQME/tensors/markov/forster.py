@@ -65,28 +65,31 @@ class ForsterTensor(RelTensorMarkov):
         self.rates = self.transform(rates)
         
     def _calc_rates_freq_domain(self,*args,**kwargs):
-        """This function computes the Forster energy transfer rates by directly calculating the overlap between the fluorescence spectrum of the donor and the absorption spectrum of the acceptor."""
-        
-        lin_spec = SecularLinearSpectraCalculator(self,*args,**kwargs)
-        
-        w,OD_a = lin_spec.calc_OD_a()
-        OD_a = OD_a/(factOD*w)
+            """This function computes the Forster energy transfer rates by directly calculating the overlap between the fluorescence spectrum of the donor and the absorption spectrum of the acceptor."""
 
-        w,FL_a = lin_spec.calc_FL_a(eqpop=np.ones(self.dim))
-        FL_a = FL_a/(factOD*(w**3))
-        
-        rates = np.zeros([self.dim,self.dim])
-        for D in range(self.dim):
-            for A in range(D+1,self.dim):
-                
-                rates[A,D] = np. pi * 2. * ((self.V[A,D])**2)*np.trapz(FL_a[D]*OD_a[A],w).real/h_bar
-                rates[D,A] = np. pi * 2. * ((self.V[A,D])**2)*np.trapz(OD_a[D]*FL_a[A],w).real/h_bar
-                
-        #fix diagonal
-        rates[np.diag_indices_from(rates)] = 0.0
-        rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
-        
-        self.rates = self.transform(rates)
+            lin_spec = SecularSpectraCalculator(self,*args,**kwargs)
+
+            dipoles = np.zeros([self.dim,3])
+            dipoles[:,0] = np.sqrt(1./self.dim)
+
+            w,OD_a = lin_spec.calc_abs_lineshape_a(dipoles)
+            OD_a /= np.trapz(OD_a,axis=1,x=w)[:,None]
+
+            w,FL_a = lin_spec.calc_fluo_lineshape_a(dipoles,eq_pop=np.ones(self.dim))
+            FL_a /= np.trapz(FL_a,axis=1,x=w)[:,None]
+
+            rates = np.zeros([self.dim,self.dim])
+            for D in range(self.dim):
+                for A in range(D+1,self.dim):
+
+                    rates[A,D] = np. pi * 2. * ((self.V[A,D])**2)*np.trapz(FL_a[D]*OD_a[A],w).real/h_bar
+                    rates[D,A] = np. pi * 2. * ((self.V[A,D])**2)*np.trapz(OD_a[D]*FL_a[A],w).real/h_bar
+
+            #fix diagonal
+            rates[np.diag_indices_from(rates)] = 0.0
+            rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
+
+            self.rates = self.transform(rates)
 
     
     def _calc_tensor(self):

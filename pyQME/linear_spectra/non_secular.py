@@ -337,8 +337,6 @@ class NonSecularSpectraCalculator(SpectraCalculator):
         Ct_list = self.rel_tensor.specden.get_Ct()
         
         time_axis = self.time
-        
-        K_II_ab = np.zeros([nchrom,nchrom],dtype=np.complex128)
 
         K_RR_ab = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
         integrand_sp = np.zeros(time_axis.size,dtype=np.complex128)
@@ -355,6 +353,10 @@ class NonSecularSpectraCalculator(SpectraCalculator):
 
                         factor = weight_abbc[Z_idx,a,c,b]*np.exp(beta*Om[a,b])
                         K_RR_ab[a,b,1:] += factor*cumtrapz(integrand_sp,x=time_axis)
+        # for a in range(nchrom):
+        #     for b in range(nchrom):
+        #         if not a==b:
+        #             K_RR_ab[a,b].imag *= 0.
         self.K_RR_ab = K_RR_ab
         
     def _calc_F_abw(self,*args):
