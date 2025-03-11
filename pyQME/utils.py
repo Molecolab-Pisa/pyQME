@@ -9,7 +9,9 @@ from scipy.linalg import expm,logm
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
-factOD = 108.86039 #conversion factor for optical spectra
+factOD = 108.86039 #conversion factor from debye^2 to molar extinction coefficient in L · cm-1 · mol-1
+dipAU2cgs = 64604.72728516 #factor to convert dipoles from atomic units to cgs
+factCD = factOD*4e-4*np.pi*dipAU2cgs #conversion factor from debye^2 to cgs units for CD, which is 10^-40 esu^2 cm^2 (same unit as GaussView CD Spectrum)
 
 def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
     """This function returns a density matrix whose diagonal is populated according to the overlap between the linear absorption spectrum of each exciton and the spectrum of the pulse. 

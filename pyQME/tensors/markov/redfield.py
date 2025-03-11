@@ -79,6 +79,7 @@ class RedfieldTensor(RelTensorMarkov):
         SD_id_list = self.SD_id_list
 
         GammF = np.zeros([self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
+        GammF_iabcd = np.zeros([self.dim,self.dim,self.dim,self.dim,self.dim],dtype=np.complex128)
         
         #loop over the redundancies-free list of spectral densities
         for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
@@ -89,7 +90,9 @@ class RedfieldTensor(RelTensorMarkov):
             
             #GammF_abcd = sum_Z J_z (w_ab) sum_{i in Z} c_ia c_ib c_ic c_id
             GammF = GammF + contract('iab,icd,ba->abcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
+            GammF_iabcd = GammF + contract('iab,icd,ba->iabcd',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix/2)
 
+        self.GammF_iabcd = GammF_iabcd
         self.GammF = GammF
 
         RTen = self._from_GammaF_to_RTen(GammF)        

@@ -1,8 +1,12 @@
 import numpy as np
 from copy import deepcopy
 
-Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
-factOD = 108.86039 #conversion factor for optical spectra
+factOD = 108.86039 #conversion factor from debye^2 to molar extinction coefficient in L · cm-1 · mol-1
+dipAU2cgs = 64604.72728516 #factor to convert dipoles from atomic units to cgs
+FactRV = 471.4436078822227
+hartree2wn=220000 # cm-1 per hartree
+ToDeb = 2.54158 #AU to debye conversion factor for dipoles
+factCD = factOD*4e-4*dipAU2cgs*np.pi/(ToDeb**2) #conversion factor from debye^2 to cgs units for CD, which is 10^-40 esu^2 cm^2 (same unit as GaussView CD Spectrum)
 
 def _do_FFT(time,signal_time):
     """This function performs the Hermitian Fast Fourier Transform (HFFT) of the spectrum.
@@ -115,10 +119,8 @@ class SpectraCalculator():
 
         Arguments
         --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array containing the geometrical centre of each chromophore
+        r_ij: np.array(dtype = np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strength matrix
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -128,22 +130,22 @@ class SpectraCalculator():
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         CD: np.array(dtype = np.float), shape = (self.dim,self.dim,freq.size)
-            circular dicroism lineshape (Debye^2)."""
+            circular dicroism lineshape.
+            units: same as r_ij"""
         
         freq,CD_ij = self.calc_CD_lineshape_ij(*args,**kwargs)
         CD = CD_ij.sum(axis=(0,1))
         return freq,CD
     
     @add_attributes(spec_type='CD',units_type='OD',spec_components='site')
-    def calc_CD_OD_ij(self,dipoles,cent,freq=None):
+    def calc_CD_OD_ij(self,r_ij,freq=None):
         """This function computes the site matrix of circular dicroism optical densities.
 
         Arguments
         --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array containing the geometrical centre of each chromophore
+        r_ij: np.array(dtype = np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strength matrix
+            units: debye^2
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -153,23 +155,23 @@ class SpectraCalculator():
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         CD_OD_ij: np.array(dtype = np.float), shape = (self.dim,self.dim,freq.size)
-            site matrix of circular dicroism optical densities (molar extinction coefficient in L · cm-1 · mol-1)."""
+            site matrix of circular dicroism optical densities
+            units: cgs units for CD, which is 10^-40 esu^2 cm^2 (same unit as GaussView CD Spectrum)"""
         
-        freq,CD_ij = self.calc_CD_lineshape_ij(dipoles,cent,freq=freq)
-        CD_OD_ij = CD_ij*factOD*freq[np.newaxis,np.newaxis,:]
+        freq,CD_ij = self.calc_CD_lineshape_ij(r_ij,freq=freq)
+        CD_OD_ij = CD_ij*factCD*freq[np.newaxis,np.newaxis,:]
         return freq,CD_OD_ij
     
         
     @add_attributes(spec_type='CD',units_type='OD',spec_components=None)
-    def calc_CD_OD(self,dipoles,cent,freq=None):
+    def calc_CD_OD(self,r_ij,freq=None):
         """This function computes the circular dicroism optical density.
 
         Arguments
         --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array containing the geometrical centre of each chromophore
+        r_ij: np.array(dtype = np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strength matrix
+            units: debye^2
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -179,10 +181,11 @@ class SpectraCalculator():
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         CD_OD: np.array(dtype = np.float), shape = (freq.size)
-            circular dicroism optical density (molar extinction coefficient in L · cm-1 · mol-1)."""
+            circular dicroism optical density
+            units: cgs units for CD, which is 10^-40 esu^2 cm^2 (same unit as GaussView CD Spectrum)."""
         
-        freq,CD = self.calc_CD_lineshape(dipoles,cent,freq=freq)
-        CD_OD = CD*freq*factOD
+        freq,CD = self.calc_CD_lineshape(r_ij,freq=freq)
+        CD_OD = CD*freq*factCD
         return freq,CD_OD
     
     @add_attributes(spec_type='fluo',units_type='OD',spec_components=None)
@@ -231,8 +234,8 @@ class SpectraCalculator():
         abs_OD = abs_lineshape* freq * factOD
         return freq,abs_OD
     
-    def _calc_rot_strengh_matrix_CD(self,cent,dipoles):
-        """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra.
+    def get_rot_str_mat_no_intr_mag(self,cent,dipoles):
+        """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, neglecting the intrinsic magnetic dipole of chromophores.
         
         Arguments
         --------
@@ -240,22 +243,121 @@ class SpectraCalculator():
             array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
         cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
             array containing the geometrical centre of each chromophore
+            units: cm
             
         Returns
         -------
-        M_ij: np.array(dtype=np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
-            rotatory strenght matrix in the site basis"""
+        r_ij: np.array(dtype=np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strenght matrix in the site basis
+            units: debye^2"""
         
         n = self.rel_tensor.dim #number of chromophores
         H = self.rel_tensor.H #hamiltonian
-        M_ij = np.zeros([n,n])
+        r_ij = np.zeros([n,n])
+        for i in range(n):
+            for j in range(i+1,n):
+                R_ij = cent[i] - cent[j]
+                r_ij[i,j] = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
+                r_ij[i,j] *= np.sqrt(H[i,i]*H[j,j])
+                r_ij[j,i] = r_ij[i,j]
+        r_ij *= 0.5
+        return r_ij
+    
+    def get_rot_str_mat_intr_mag(self,nabla,mag_dipoles):
+        """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, including the intrinsic magnetic dipole of chromophores. Ref: https://doi.org/10.1002/jcc.25118
+        
+        Arguments
+        --------
+        nabla: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            electric dipole moment in the velocity gauge
+        mag_dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            magnetic dipole moments
+            
+        Returns
+        -------
+        r_ij: np.array(dtype=np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strenght matrix in the site basis
+            if nabla and mag_dipoles are given in A.U. (as it is when using exat), r_ij is given in Debye^2"""
+        
+        n = nabla.shape[0]
+        site_cm = np.diag(self.rel_tensor.H).copy()
+        site_hartree=site_cm/hartree2wn
+        r_ij = np.zeros([n,n])
         for i in range(n):
             for j in range(n):
-                R_ij = cent[i] - cent[j]
-                tprod = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
-                M_ij[i,j] = tprod*np.sqrt(H[i,i]*H[j,j])
-        return M_ij
+                fact = np.sqrt(site_hartree[i]*site_hartree[j])
+                r_ij[i,j] = 0.5*(nabla[i]@mag_dipoles[j] + nabla[j]@mag_dipoles[i])/fact
+        r_ij *= FactRV*0.5
+        r_ij /= np.pi*dipAU2cgs
+        r_ij *= ToDeb**2
+        return r_ij
     
+    def get_rot_str_mat_intr_mag_exc_ene(self,nabla,mag_dipoles):
+        """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, including the intrinsic magnetic dipole of chromophores. This function is a version of the "get_rot_str_mat_intr_mag_exc_ene" function, where the geometrical average is done in the exciton basis. This function is needed only to compare with other softwares, as the right way is to do this in the site basis. https://doi.org/10.1002/jcc.25118
+        
+        
+        Arguments
+        --------
+        nabla: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            electric dipole moment in the velocity gauge
+        mag_dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            magnetic dipole moments
+            
+        Returns
+        -------
+        r_ij: np.array(dtype=np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strenght matrix in the site basis
+            if nabla and mag_dipoles are given in A.U. (as it is when using exat), r_ij is given in Debye^2"""
+
+        n = self.dim
+        
+        nabla_ax = np.einsum('ia,ix->ax',self.rel_tensor.U,nabla)
+        mag_ax = np.einsum('ia,ix->ax',self.rel_tensor.U,mag_dipoles)
+
+        ene_hartree=self.rel_tensor.ene/hartree2wn
+        r_ab = np.zeros([n,n])
+        for a in range(n):
+            for b in range(a,n):
+                fact = np.sqrt(ene_hartree[a]*ene_hartree[b])
+                r_ab[a,b] = 0.5*(nabla_ax[a]@mag_ax[b] + nabla_ax[b]@mag_ax[a])/fact
+                r_ab[b,a] = r_ab[a,b]
+        r_ab *= FactRV*0.5
+        r_ab /= np.pi*dipAU2cgs
+        r_ab *= ToDeb**2
+        r_ij = np.einsum('ia,ab,jb->ij',self.rel_tensor.U,r_ab,self.rel_tensor.U)
+        return r_ij
+    
+    def get_rot_str_mat_no_intr_mag_exc_ene(self,cent,dipoles):
+        """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, neglecting the intrinsic magnetic dipole of chromophores. This function is a version of the "get_rot_str_mat_intr_mag_exc_ene" function, where the geometrical average is done in the exciton basis. This function is needed only to compare with other softwares, as the right way is to do this in the site basis.
+        
+        Arguments
+        --------
+        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+            array containing the geometrical centre of each chromophore
+            units: cm
+            
+        Returns
+        -------
+        r_ij: np.array(dtype=np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strenght matrix in the site basis
+            units: debye^2"""
+        n = self.dim
+        r_ij = np.zeros([n,n])
+        U = self.rel_tensor.U
+        ene = self.rel_tensor.ene
+        for i in range(n):
+            for j in range(i+1,n):
+                R_ij = cent[i] - cent[j]
+                r_ij[i,j] = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
+                r_ij[j,i] = r_ij[i,j]
+        r_ij *= 0.5
+        r_ab = np.einsum('ia,ij,jb->ab',U,r_ij,U)
+        r_ab *= np.sqrt(ene[:,None]*ene[None,:])
+        r_ij = np.einsum('ia,ab,jb->ij',U,r_ab,U)
+        return r_ij
+
     def _calc_rot_strengh_matrix_LD(self,dipoles):
         """This function calculates the rotatory strength matrix in the site basis for linear dichroism spectra.
         
@@ -284,7 +386,7 @@ class SpectraCalculator():
         Arguments
         --------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -294,7 +396,7 @@ class SpectraCalculator():
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         LD: np.array(dtype = np.float), shape = (self.dim,self.dim,freq.size)
-            linear dicroism lineshape (Debye^2)."""
+            linear dicroism lineshape."""
         
         freq,LD_ij = self.calc_LD_lineshape_ij(*args,**kwargs)
         LD = LD_ij.sum(axis=(0,1))
@@ -371,13 +473,14 @@ class SpectraCalculator():
         Arguments
         ----------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
+            If units_type == 'OD', the units of dipoles must be Debye
         eq_pop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
             equilibrium population
         freq: np.array(dtype = np.float)
             array of frequencies at which the spectrum is evaluated.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array containing the geometrical centre of each chromophore (needed for CD)
+        r_ij: np.array(dtype = np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strength matrix
         spec_type: string
             if 'abs':  the absorption   spectrum is calculated
             if 'fluo': the fluorescence spectrum is calculated

@@ -16,7 +16,7 @@ from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,ca
 
 # **Hamiltonian (1/cm)**
 
-nchrom = 2 #numero di cromofori
+nchrom = 2 #num. of chromophores
 
 coupling = 100
 E0 = 10000

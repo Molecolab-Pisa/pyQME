@@ -3,9 +3,10 @@ from copy import deepcopy
 from .spectracalculator import SpectraCalculator,add_attributes,_do_FFT
 from scipy.interpolate import UnivariateSpline
 
-Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
-factOD = 108.86039 #conversion factor for optical spectra
-
+factOD = 108.86039 #conversion factor from debye^2 to molar extinction coefficient in L · cm-1 · mol-1
+dipAU2cgs = 64604.72728516 #factor to convert dipoles from atomic units to cgs
+ToDeb = 2.54158 #AU to debye conversion factor for dipoles
+factCD = factOD*4e-4*dipAU2cgs*np.pi/(ToDeb**2) #conversion factor from debye^2 to cgs units for CD, which is 10^-40 esu^2 cm^2 (same unit as GaussView CD Spectrum)
 
 class SecularSpectraCalculator(SpectraCalculator):
     """Class for calculations of absorption and fluorescence spectra using the Full Cumulant Expansion under secular approximation.
@@ -91,7 +92,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies at which the spectrum is evaluated in cm^-1.
             
@@ -100,7 +101,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float), shape = (freq.size)
             frequency axis of the spectrum in cm^-1.
         OD_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
-            absorption spectrum of each exciton (molar extinction coefficient in L · cm-1 · mol-1)."""
+            absorption spectrum of each exciton
+            units: same as dipoles^2."""
         
         self._calc_time_abs_a(dipoles)
         abs_lineshape_a = np.zeros([self.dim,self.freq.size])
@@ -124,7 +126,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore."""
+            array of transition dipole coordinates. Each row corresponds to a different chromophore."""
         
         self._initialize()
         self._get_xi_abs()
@@ -161,7 +163,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         spec_abs: np.array(dtype = np.float)
-            absorption spectrum (Debye**2)."""
+            absorption spectrum."""
         
         freq,abs_lineshape_a = self.calc_abs_lineshape_a(dipoles=dipoles,freq=freq)
         abs_OD_a = abs_lineshape_a* freq * factOD
@@ -174,7 +176,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         --------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -184,7 +186,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         spec_abs: np.array(dtype = np.float)
-            absorption spectrum (Debye**2)."""
+            absorption spectrum.
+            units: same as dipoles^2"""
         
         freq,abs_lineshape_a = self.calc_abs_lineshape_a(dipoles=dipoles,freq=freq)
         abs_lineshape = abs_lineshape_a.sum(axis=0)
@@ -197,7 +200,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies at which the spectrum is evaluated in cm^-1.
             
@@ -206,7 +209,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float), shape = (freq.size)
             frequency axis of the spectrum in cm^-1.
         OD_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
-            absorption spectrum of each site (molar extinction coefficient in L · cm-1 · mol-1)."""        
+            absorption spectrum of each site
+            units: same as dipoles^2."""        
         
         dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
         dipoles_dummy_exc[:,0] = 1.        
@@ -253,7 +257,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies at which the spectrum is evaluated.
             
@@ -262,7 +266,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum.
         FL: np.array(dtype = np.float), shape = (freq.size)
-            fluorescence intensity."""
+            fluorescence intensity.
+            units: same as dipoles^2"""
         
         self._calc_time_fluo_a(dipoles,eq_pop=eq_pop)
         
@@ -300,7 +305,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         eq_pop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
             array of equilibrium populations.
             if None, the equilibrium populations are calculated using the self.rel_tensor method
@@ -339,7 +344,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies at which the spectrum is evaluated.
             
@@ -348,7 +353,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum.
         FL: np.array(dtype = np.float), shape = (freq.size)
-            fluorescence intensity."""
+            fluorescence lineshape.
+            units: same as dipoles^2"""
         
         freq,fluo_lineshape_a = self.calc_fluo_lineshape_a(dipoles,freq=freq,eq_pop=eq_pop)
         fluo_lineshape = fluo_lineshape_a.sum(axis=0)
@@ -384,7 +390,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         ---------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies at which the spectrum is evaluated in cm^-1.
             
@@ -393,7 +399,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float), shape = (freq.size)
             frequency axis of the spectrum in cm^-1.
         FL_a: np.array(dtype = np.float), shape = (self.rel_tensor.dim,freq.size)
-            fluorescence spectrum of each site."""        
+            fluorescence spectrum of each site.
+            units: same as dipoles^2"""        
         
         dipoles_dummy_exc = np.zeros([self.rel_tensor.dim,3])
         dipoles_dummy_exc[:,0] = 1.        
@@ -440,15 +447,13 @@ class SecularSpectraCalculator(SpectraCalculator):
         return freq,fluo_OD_i
     
     @add_attributes(spec_type='CD',units_type='lineshape',spec_components='exciton')
-    def calc_CD_lineshape_a(self,dipoles,cent,freq=None):
+    def calc_CD_lineshape_a(self,r_ij,freq=None):
         """This function computes the circular dicroism spectrum (Cupellini, L., Lipparini, F., & Cao, J. (2020). Absorption and Circular Dichroism Spectra of Molecular Aggregates with the Full Cumulant Expansion. Journal of Physical Chemistry B, 124(39), 8610–8617. https://doi.org/10.1021/acs.jpcb.0c05180).
 
         Arguments
         --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array containing the geometrical centre of each chromophore
+        r_ij: np.array(dtype = np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strength matrix
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -458,8 +463,9 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         CD: np.array(dtype = np.float)
-            circular dicroism spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
-            
+            circular dicroism spectrum
+            units: same as r_ij"""
+        
         n = self.rel_tensor.dim #number of chromophores
         
         dipoles_dummy_exc = np.zeros([n,3])
@@ -467,11 +473,10 @@ class SecularSpectraCalculator(SpectraCalculator):
         dipoles_dummy_site = self.rel_tensor.transform(dipoles_dummy_exc,ndim=1,inverse=True)
         
         freq,I_a =  self.calc_abs_lineshape_a(dipoles=dipoles_dummy_site,freq=freq) #single-exciton contribution to the absorption spectrum
+                   
+        r_a = np.einsum('ia,ij,ja->a',self.rel_tensor.U,r_ij,self.rel_tensor.U)
         
-        M_ij = self._calc_rot_strengh_matrix_CD(cent,dipoles)                
-        M_a = np.einsum('ia,ij,ja->a',self.rel_tensor.U,M_ij,self.rel_tensor.U)
-        
-        CD_a = M_a[:,None]*I_a
+        CD_a = r_a[:,None]*I_a
         return freq,CD_a
     
     @add_attributes(spec_type='LD',units_type='lineshape',spec_components='site')
@@ -482,7 +487,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         --------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -516,7 +521,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         Arguments
         --------
         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+            array of transition dipole coordinates. Each row corresponds to a different chromophore.
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -544,15 +549,13 @@ class SecularSpectraCalculator(SpectraCalculator):
         return freq,LD_a
     
     @add_attributes(spec_type='CD',units_type='lineshape',spec_components='site')
-    def calc_CD_lineshape_ij(self,dipoles,cent,freq=None):
+    def calc_CD_lineshape_ij(self,r_ij,freq=None):
         """This function computes the circular dicroism spectrum (Cupellini, L., Lipparini, F., & Cao, J. (2020). Absorption and Circular Dichroism Spectra of Molecular Aggregates with the Full Cumulant Expansion. Journal of Physical Chemistry B, 124(39), 8610–8617. https://doi.org/10.1021/acs.jpcb.0c05180).
 
         Arguments
         --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array containing the geometrical centre of each chromophore
+        r_ij: np.array(dtype = np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strength matrix
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -562,7 +565,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         CD: np.array(dtype = np.float)
-            circular dicroism spectrum (molar extinction coefficient in L · cm-1 · mol-1)."""
+            circular dicroism spectrum
+            units: same as r_ij"""
             
         #n = self.rel_tensor.dim #number of chromophores
         #H = self.rel_tensor.H #hamiltonian
@@ -575,21 +579,19 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq,I_a = self.calc_abs_lineshape_a(dipoles=dipoles_dummy_site,freq=freq)
         I_ij = np.einsum('ia,aw,ja->ijw',self.rel_tensor.U,I_a,self.rel_tensor.U) #chomophore-pair contribution to the absorption spectrum
         
-        M_ij = self._calc_rot_strengh_matrix_CD(cent,dipoles)
-        CD_ij = M_ij[:,:,None]*I_ij #chomophore-pair contribution to the circular dicroism spectrum
+        CD_ij = r_ij[:,:,None]*I_ij #chomophore-pair contribution to the circular dicroism spectrum
         return freq,CD_ij
     
         
     @add_attributes(spec_type='CD',units_type='OD',spec_components='exciton')
-    def calc_CD_OD_a(self,dipoles,cent,freq=None):
+    def calc_CD_OD_a(self,r_ij,freq=None):
         """This function computes the contribution of each exciton to the circular dicroism optical density.
 
         Arguments
         --------
-        dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
-            array containing the geometrical centre of each chromophore
+        r_ij: np.array(dtype = np.float), shape = (self.rel_tensor.dim,self.rel_tensor.dim)
+            rotatory strength matrix
+            units: debye^2
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
@@ -599,10 +601,11 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq: np.array(dtype = np.float)
             frequency axis of the spectrum in cm^-1.
         CD_OD_a: np.array(dtype = np.float), shape = (freq.size)
-            contribution of each exciton to the circular dicroism optical density (molar extinction coefficient in L · cm-1 · mol-1)."""
+            contribution of each exciton to the circular dicroism optical density
+            units: cgs units for CD, which is 10^-40 esu^2 cm^2 (same unit as GaussView CD Spectrum)"""
         
-        freq,CD_a = self.calc_CD_lineshape_a(dipoles,cent,freq=freq)
-        CD_OD_a = CD_a*freq[None,:]*factOD
+        freq,CD_a = self.calc_CD_lineshape_a(r_ij,freq=freq)
+        CD_OD_a = CD_a*freq[None,:]*factCD
         return freq,CD_OD_a
     
     @add_attributes(spec_type='LD',units_type='OD',spec_components='exciton')

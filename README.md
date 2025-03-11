@@ -238,11 +238,15 @@ https://doi.org/10.1063/1.4918343
 Cupellini, L.; Lipparini, F.; Cao, J. The Journal of Physical Chemistry B 2020, 124, 8610–8617.
 https://doi.org/10.1021/acs.jpcb.0c05180
 
-Nothling, J. A.; Mancal, T.; Kruger, T. P. J. The Journal of Chemical Physics2022, 157, 095103.
+Nothling, J. A.; Mancal, T.; Kruger, T. P. J. The Journal of Chemical Physics 2022, 157, 095103.
 https://doi.org/10.1063/5.0100977
 
 Ma, J., & Cao, J. (2015). Journal of Chemical Physics, 142(9). 
 https://doi.org/10.1063/1.4908599
+
+Circular Dichroism:
+Jurinovich, S., Cupellini, L., Guido, C. A., & Mennucci, B. (2018). Exat: Excitonic analysis tool. Journal of Computational Chemistry, 39(5), 279–286.
+https://doi.org/10.1002/jcc.25118
 
 Pump-probe:
 
