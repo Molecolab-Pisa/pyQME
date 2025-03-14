@@ -553,7 +553,7 @@ def transform_back(arr,H,ndim=None):
 
     return transform(arr,H,ndim=ndim,inverse=True)
 
-def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tensor,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_components=False,approx=None,SD_id_list=None,**kwargs):
+def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tensor,freq=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_components=False,approx=None,SD_id_list=None,**kwargs):
     """This function computes the absorption spectrum treating as localized one part of the spectral density.
 
     Arguments
@@ -589,7 +589,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
         if 'OD': the spectrum is multiplied by the frequency axis to some power, according to "spec_type"
     spec_components: string
         if 'exciton': the single-exciton contribution to the spectrum is returned
-        if 'site': the single-site contribution to the spectrum is returned
+        if 'site': the single-site contribution to the spectrum is returned (not implemented)
         if 'None': the total spectrum is returned
     threshold_fact: np.float
         the localized part of the spectrum will be set to zero where the delocalized part of the spectrum is greater than the maximum of the delocalized part of the spectrum multiplied by threshold_fact
@@ -620,7 +620,10 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
             dephasing_localized = np.zeros([nchrom],dtype=np.complex128) + dephasing_localized
         elif not(dephasing_localized.size == nchrom):
             raise ValueError('dephasing_localized must be a single value or a np.array of size n_site.')
-                
+    
+    if spec_components=='site':
+        raise ValueError('This functions is not implemented to return site components')
+        
     #initialize spectral densities from input
     
     #make sure that all SD objects have the same frequency axis
@@ -658,6 +661,14 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     else:
         raise ValueError('The temperature of the delocalized and localized spectral densities must match!')
         
+    #if any frequency axis is given as input, we set it, so that all spectra contributions are calculated on the same time axis 
+    if freq is None:
+        tensor_tmp = rel_tensor(H,SDobj)
+        spec_obj_tmp = SecularSpectraCalculator(tensor_tmp)
+        spec_obj_tmp._get_freqaxis()
+        freq = spec_obj_tmp.freq.copy()
+        del tensor_tmp,spec_obj_tmp
+
     #initialize relaxation tensor
     rel_tens = rel_tensor(H,SDobj,SD_id_list=SD_id_list)    
     
@@ -680,62 +691,63 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
             if not i==j:
                 H_no_localized_part[i,j] = H[i,j]*exp[i]*exp[j]
     
-    #for each spectrum contribution, create tensor object, spectrum object and calculate the spectrum
-    
-    #to set to zero the sideband spectrum, where the 0-0 localized band is greater than a threshold, we need the single exciton (or site) contribution to the spectrum
-    if spec_components is None:
-        spec_components_threshold = 'exciton'
-    else:
-        spec_components_threshold = spec_components
-        
     #first contribution to the spectrum: delocalized 0-0 band without sideband
     tensor_low = rel_tensor(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
     spec_obj_low = SecularSpectraCalculator(tensor_low,approximation=approx)
-    freq_axis_spec,spec_low  = spec_obj_low.get_spectrum(dipoles_low,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,**kwargs)
-            
+    _,spec_low_a  = spec_obj_low.get_spectrum(dipoles_low,spec_type=spec_type,units_type=units_type,spec_components='exciton',freq=freq,**kwargs)
+    
     #second contribution to the spectrum: localized 0-0 band without sideband
     _,gdot = SDobj_localized.get_gt(derivs=1)
+    
     reorg_high_list_imag = np.asarray([-gdot[SD_ID,-1].imag for SD_ID in SD_id_list])
     reorg_high_list_real = np.asarray([gdot[SD_ID,-1].real for SD_ID in SD_id_list])
+
     tensor_low_no_coup = rel_tensor(H_diag-np.diag(reorg_high_list),SDobj_delocalized,SD_id_list=SD_id_list)
     tensor_low_no_coup.dephasing = dephasing_localized + reorg_high_list_real
     spec_obj_low_no_coup = SecularSpectraCalculator(tensor_low_no_coup,approximation=approx)
-    freq_axis_spec,spec_low_no_coup  = spec_obj_low_no_coup.get_spectrum(dipoles_low,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,**kwargs)
-    
+    _,spec_low_no_coup_a  = spec_obj_low_no_coup.get_spectrum(dipoles_low,spec_type=spec_type,units_type=units_type,spec_components='exciton',freq=freq,**kwargs)
+   
     #third contribution to the spectrum: localized 0-0 band + localized sideband
     tensor_diag = rel_tensor(H_diag,SDobj,SD_id_list=SD_id_list)
-    tensor_diag.dephasing = dephasing_localized
+    tensor_diag.dephasing = dephasing_localized + reorg_high_list_real
     spec_obj_diag = SecularSpectraCalculator(tensor_diag,approximation=approx)
-    freq_axis_spec,spec_diag = spec_obj_diag.get_spectrum(dipoles,spec_type=spec_type,units_type=units_type,spec_components=spec_components_threshold,**kwargs)
-    
+    _,spec_diag_a = spec_obj_diag.get_spectrum(dipoles,spec_type=spec_type,units_type=units_type,spec_components='exciton',freq=freq,**kwargs)
+
     #localized sideband       
-    spec_high = spec_diag - spec_low_no_coup
+    spec_high_a = spec_diag_a - spec_low_no_coup_a
     
     #sometimes, for numerical reasons, the localized 0-0 band doesn't cancel perfectly, so we make sure that this happens, exciton by exciton
     #to do so, we set to zero the sideband spectrum, where the 0-0 localized band is greater than a threshold
     for a in range(nchrom):
-        if np.any(spec_low_no_coup[a]<-1e-3):
-            mask = spec_low_no_coup[a] > threshold_fact*spec_low_no_coup[a].max()
+        if np.any(spec_low_no_coup_a[a]<-1e-3):
+            mask = spec_low_spec_low_no_coup_ano_coup[a] > threshold_fact*spec_low_no_coup_a[a].max()
             sideband_and_00_overlap_is_zero = True #FIXME IMPLEMENT THIS CHECK: if w_vib is small, we cannot just set the spec_high[a,mask] = 0.
             if sideband_and_00_overlap_is_zero:
-                spec_high[a,mask] = 0.
+                spec_high_a[a,mask] = 0.
             else:
                 raise NotImplementedError
             
-    #sum over excitons
+    #sum over excitons    
     if spec_components is None:
-        spec_high = spec_high.sum(axis=0)
-        spec_low_no_coup = spec_low_no_coup.sum(axis=0)
-        spec_diag = spec_diag.sum(axis=0)
-        spec_low = spec_low.sum(axis=0)
-    
-    #calculate the resulting spectrum
-    spec = spec_low + spec_high
-    
+        spec_low = spec_low_a.sum(axis=0)
+        spec_high = spec_high_a.sum(axis=0)
+        spec_diag = spec_diag_a.sum(axis=0)
+        spec_low_no_coup = spec_low_no_coup_a.sum(axis=0)
+        spec = spec_low + spec_high
+    elif spec_components=='exciton':
+        spec_a = spec_low_a + spec_high_a     
+        
+    #return the results, separating the cases
     if return_components:
-        return freq_axis_spec,spec_low,spec_low_no_coup,spec_diag,spec
+        if spec_components is None:
+            return freq,spec_low,spec_low_no_coup,spec_diag,spec
+        elif spec_components=='exciton':
+            return freq,spec_low_a,spec_low_no_coup_a,spec_diag_a,spec_a
     else:
-        return freq_axis_spec,spec
+        if spec_components is None:
+            return freq,spec
+        elif spec_components=='exciton':
+            return freq,spec_a
 
 def clusterize_rates(rates,clusters,time_step):
     """
