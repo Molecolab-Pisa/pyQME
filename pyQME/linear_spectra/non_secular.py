@@ -252,7 +252,7 @@ class NonSecularSpectraCalculator(SpectraCalculator):
         I_abw = self.I_abw
         
         cc = self.rel_tensor.U
-        I_ijw = contract('ia,abw,bj->ijw',cc,I_abw,cc)
+        I_ijw = contract('ia,abw,jb->ijw',cc,I_abw,cc)
         
         M_ij = np.einsum('ix,jx->ij',dipoles,dipoles)
         spec_ijw = np.einsum('ij,ijw->ijw',M_ij,I_ijw)
