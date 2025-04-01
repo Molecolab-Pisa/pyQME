@@ -11,6 +11,9 @@ h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 factOD = 108.86039 #conversion factor from debye^2 to molar extinction coefficient in L · cm-1 · mol-1
 dipAU2cgs = 64604.72728516 #factor to convert dipoles from atomic units to cgs
+FactRV = 471.4436078822227
+hartree2wn=220000 # cm-1 per hartree
+ToDeb = 2.54158 #AU to debye conversion factor for dipoles
 factCD = factOD*4e-4*np.pi*dipAU2cgs #conversion factor from debye^2 to cgs units for CD, which is 10^-40 esu^2 cm^2 (same unit as GaussView CD Spectrum)
 
 def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
@@ -566,7 +569,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
         excitonic Hamiltonian in cm^-1.
     dipoles: np.array(dtype = np.float), shape = (n_site,3)
         array of transition dipole coordinates in debye. Each row corresponds to a different chromophore.
-        cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+        cent: np.array(dtype = np.float), shape = (nchrom,3)
             array containing the geometrical centre of each chromophore (used for CD spectra)
     rel_tensor: Class
         class of the type RelTensor used to calculate the component of the spectrum.
@@ -593,9 +596,9 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
         if 'None': the total spectrum is returned
     threshold_fact: np.float
         the localized part of the spectrum will be set to zero where the delocalized part of the spectrum is greater than the maximum of the delocalized part of the spectrum multiplied by threshold_fact
-    eq_pop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
+    eq_pop: np.array(dtype = np.float), shape = (nchrom)
         equilibrium population
-    cent: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+    cent: np.array(dtype = np.float), shape = (nchrom,3)
     approx: string
         approximation used for the lineshape theory.
         if 'no xi', the xi isn't included (Redfield theory with diagonal approximation).
@@ -891,3 +894,133 @@ def calc_cluster_to_exc_mapper(U, clusters):
     cluster_to_exc_mapper = [list(np.where(exc_to_cluster_mapper == i)[0]) for i in range(len(clusters))]
 
     return cluster_to_exc_mapper  # Return the final mapping of clusters to excitons
+
+def get_rot_str_mat_no_intr_mag(cent,dipoles,H):
+    """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, neglecting the intrinsic magnetic dipole of chromophores.
+
+    Arguments
+    --------
+    dipoles: np.array(dtype = np.float), shape = (nchrom,3)
+        array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+    cent: np.array(dtype = np.float), shape = (nchrom,3)
+        array containing the geometrical centre of each chromophore
+        units: cm
+    H: np.array(dtype = np.float), shape = (nchrom,3)
+        Hamiltonian (cm-1)
+
+    Returns
+    -------
+    r_ij: np.array(dtype=np.float), shape = (nchrom,nchrom)
+        rotatory strenght matrix in the site basis
+        units: debye^2"""
+
+    n = H.shape[0] #number of chromophores
+    r_ij = np.zeros([n,n])
+    for i in range(n):
+        for j in range(i+1,n):
+            R_ij = cent[i] - cent[j]
+            r_ij[i,j] = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
+            r_ij[i,j] *= np.sqrt(H[i,i]*H[j,j])
+            r_ij[j,i] = r_ij[i,j]
+    r_ij *= 0.5
+    return r_ij
+
+def get_rot_str_mat_intr_mag(nabla,mag_dipoles,H):
+    """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, including the intrinsic magnetic dipole of chromophores. Ref: https://doi.org/10.1002/jcc.25118
+
+    Arguments
+    --------
+    nabla: np.array(dtype = np.float), shape = (nchrom,3)
+        electric dipole moment in the velocity gauge
+    mag_dipoles: np.array(dtype = np.float), shape = (nchrom,3)
+        magnetic dipole moments
+    H: np.array(dtype = np.float), shape = (nchrom,3)
+        Hamiltonian (cm-1)
+
+    Returns
+    -------
+    r_ij: np.array(dtype=np.float), shape = (nchrom,nchrom)
+        rotatory strenght matrix in the site basis
+        if nabla and mag_dipoles are given in A.U. (as it is when using exat), r_ij is given in Debye^2"""
+
+    n = nabla.shape[0]
+    site_cm = np.diag(H).copy()
+    site_hartree=site_cm/hartree2wn
+    r_ij = np.zeros([n,n])
+    for i in range(n):
+        for j in range(n):
+            fact = np.sqrt(site_hartree[i]*site_hartree[j])
+            r_ij[i,j] = 0.5*(nabla[i]@mag_dipoles[j] + nabla[j]@mag_dipoles[i])/fact
+    r_ij *= FactRV*0.5
+    r_ij /= np.pi*dipAU2cgs
+    r_ij *= ToDeb**2
+    return r_ij
+
+def get_rot_str_mat_intr_mag_exc_ene(nabla,mag_dipoles,H):
+    """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, including the intrinsic magnetic dipole of chromophores. This function is a version of the "get_rot_str_mat_intr_mag_exc_ene" function, where the geometrical average is done in the exciton basis. This function is needed only to compare with other softwares, as the right way is to do this in the site basis. https://doi.org/10.1002/jcc.25118
+
+
+    Arguments
+    --------
+    nabla: np.array(dtype = np.float), shape = (nchrom,3)
+        electric dipole moment in the velocity gauge
+    mag_dipoles: np.array(dtype = np.float), shape = (nchrom,3)
+        magnetic dipole moments
+    H: np.array(dtype = np.float), shape = (nchrom,3)
+        Hamiltonian (cm-1)
+
+    Returns
+    -------
+    r_ij: np.array(dtype=np.float), shape = (nchrom,nchrom)
+        rotatory strenght matrix in the site basis
+        if nabla and mag_dipoles are given in A.U. (as it is when using exat), r_ij is given in Debye^2"""
+
+    n = nabla.shape[0]
+    ene,U = np.linalg.eigh(H)
+    nabla_ax = np.einsum('ia,ix->ax',U,nabla)
+    mag_ax = np.einsum('ia,ix->ax',U,mag_dipoles)
+
+    ene_hartree=ene/hartree2wn
+    r_ab = np.zeros([n,n])
+    for a in range(n):
+        for b in range(a,n):
+            fact = np.sqrt(ene_hartree[a]*ene_hartree[b])
+            r_ab[a,b] = 0.5*(nabla_ax[a]@mag_ax[b] + nabla_ax[b]@mag_ax[a])/fact
+            r_ab[b,a] = r_ab[a,b]
+    r_ab *= FactRV*0.5
+    r_ab /= np.pi*dipAU2cgs
+    r_ab *= ToDeb**2
+    r_ij = np.einsum('ia,ab,jb->ij',U,r_ab,U)
+    return r_ij
+
+def get_rot_str_mat_no_intr_mag_exc_ene(cent,dipoles,H):
+    """This function calculates the rotatory strength matrix in the site basis for circular dichroism spectra, neglecting the intrinsic magnetic dipole of chromophores. This function is a version of the "get_rot_str_mat_intr_mag_exc_ene" function, where the geometrical average is done in the exciton basis. This function is needed only to compare with other softwares, as the right way is to do this in the site basis.
+
+    Arguments
+    --------
+    dipoles: np.array(dtype = np.float), shape = (nchrom,3)
+        array of transition dipole coordinates in Debye. Each row corresponds to a different chromophore.
+    cent: np.array(dtype = np.float), shape = (nchrom,3)
+        array containing the geometrical centre of each chromophore
+        units: cm
+    H: np.array(dtype = np.float), shape = (nchrom,3)
+        Hamiltonian (cm-1)
+
+    Returns
+    -------
+    r_ij: np.array(dtype=np.float), shape = (nchrom,nchrom)
+        rotatory strenght matrix in the site basis
+        units: debye^2"""
+    n = H.shape[0]
+    r_ij = np.zeros([n,n])
+    ene,U = np.linalg.eigh(H)
+    for i in range(n):
+        for j in range(i+1,n):
+            R_ij = cent[i] - cent[j]
+            r_ij[i,j] = np.dot(R_ij,np.cross(dipoles[i],dipoles[j]))
+            r_ij[j,i] = r_ij[i,j]
+    r_ij *= 0.5
+    r_ab = np.einsum('ia,ij,jb->ab',U,r_ij,U)
+    r_ab *= np.sqrt(ene[:,None]*ene[None,:])
+    r_ij = np.einsum('ia,ab,jb->ij',U,r_ab,U)
+    return r_ij
