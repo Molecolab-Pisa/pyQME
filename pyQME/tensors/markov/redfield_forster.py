@@ -147,7 +147,7 @@ class RedfieldForsterTensor(RedfieldTensor):
         if self.include_lamb_shift:
             if not hasattr(self,'redf_dephasing'):
                 self.redf_dephasing = self._calc_redfield_dephasing()        
-                redf_dephasing = self.redf_dephasing.copy()
+            redf_dephasing = self.redf_dephasing.copy()
         else:
             redf_dephasing = np.zeros([self.dim,time_axis.size])
 

@@ -5,6 +5,7 @@ from scipy.interpolate import UnivariateSpline
 from .linear_spectra import SecularSpectraCalculator
 from .spectral_density import SpectralDensity
 from scipy.linalg import expm,logm
+from copy import deepcopy
 
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 h_bar = 1.054571817*5.03445*wn2ips #Reduced Plank constant
@@ -1024,3 +1025,94 @@ def get_rot_str_mat_no_intr_mag_exc_ene(cent,dipoles,H):
     r_ab *= np.sqrt(ene[:,None]*ene[None,:])
     r_ij = np.einsum('ia,ab,jb->ij',U,r_ab,U)
     return r_ij
+
+def enforce_detailed_balance_rates(rates, ene, beta):
+    """This function enforces detailed balance based on energies given as input on a given rate matrix for population dynamics.
+    For each rate, the physically correct rate is assumed to be the downhill one, an the uphill is adjusted according to the detailed balance using the Boltzmann distribution.
+    The diagonal elements are then adjusted to ensure conservation of population (columns sum to zero).
+
+    Arguments
+    --------
+    rates: np.array(dtype=np.float64), shape = (n, n)
+        rate matrix
+        units: 1/fs (or any consistent time unit)
+    ene: np.array(dtype=np.float64), shape = (n,)
+        energies of the eigenstates
+        units: same as rates
+    beta: float
+        inverse thermal energy, 1/(k_B * T)
+        units: same (but inverted) as rates and energy
+
+    Returns
+    -------
+    rates_detbal: np.array(dtype=np.float64), shape = (n, n)
+        new rate matrix satisfying detailed balance
+        units: same as `rates`
+    """
+    # Check that the rates are real-valued
+    if not rates.dtype == np.float64:
+        raise ValueError('Rates must be real!')
+
+    rates_detbal = rates.copy()
+    dim = ene.size
+
+    # Enforce detailed balance on off-diagonal elements
+    for a in range(dim):
+        for b in range(a + 1, dim):
+            deltaE = ene[b] - ene[a]
+            fact = np.exp(-deltaE * beta)
+            if deltaE > 0:
+                rates_detbal[b, a] = rates[a, b] * fact
+            else:
+                rates_detbal[a, b] = rates[b, a] / fact
+
+    # Set diagonals to ensure probability conservation (columns sum to zero)
+    for b in range(dim):
+        rates_detbal[b, b] = 0.0
+        rates_a = rates_detbal[:, b]
+        rates_detbal[b, b] = -rates_a.sum(0)
+
+    return rates_detbal
+
+def enforce_detailed_balance(rel_tensor_obj,ene):
+    """This function enforces detailed balance on a relaxation tensor object. It extracts the transition 
+    rates from the object, modifies them to satisfy detailed balance using Boltzmann statistics, updates 
+    the corresponding elements of the relaxation tensor, and returns a new object satisfying the detailed balance.
+
+    Arguments
+    --------
+    rel_tensor_obj: object
+        Relaxatino Tensor Object
+    ene: np.array(dtype=np.float64), shape = (n,)
+        Energies used to define the enforced detailed balance. Units: 1/cm
+        
+    Returns
+    -------
+    rel_tens_obj_detbal: object
+        A deepcopy of the input relaxation tensor object, but with the rates and corresponding 
+        tensor components modified to fulfill detailed balance. If a Liouvillian is defined, it is 
+        recalculated accordingly."""
+    
+    # Extract the original rate matrix
+    rates = rel_tensor_obj.get_rates()
+
+    # Enforce detailed balance on the rate matrix using Boltzmann distribution
+    rates_detbal = enforce_detailed_balance_rates(rates, ene, rel_tensor_obj.specden.beta)
+
+    # Create a deepcopy of the original object to avoid in-place modification
+    rel_tens_obj_detbal = deepcopy(rel_tensor_obj)
+
+    # Assign the updated tensor and rate matrix to the new object
+    rel_tens_obj_detbal.rates = rates_detbal
+
+     # Extract the full relaxation tensor
+    tensor = rel_tensor_obj.get_tensor().copy()
+
+    # Update the real part of the diagonal components of the tensor with the new detailed-balanced rates
+    np.einsum('iijj...->ij...', tensor).real[...]=rates_detbal
+    rel_tens_obj_detbal.RTen = tensor
+        
+    # Recompute the Liouvillian to reflect the updated rates
+    rel_tens_obj_detbal._calc_Liouv()
+
+    return rel_tens_obj_detbal

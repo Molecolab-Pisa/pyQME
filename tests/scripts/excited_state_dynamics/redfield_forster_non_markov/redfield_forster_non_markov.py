@@ -82,7 +82,7 @@ SD_obj.time = time_axis_cm
 
 # **Relaxation Tensor**
 
-rel_tens_obj = RedfieldForsterTensor(H_part,V,SD_obj,forster_is_markov=False,include_lamb_shift=True,lamb_shift_is_markov=False)
+rel_tens_obj = RedfieldForsterTensor(H_part,V,SD_obj,forster_is_markov=False,include_lamb_shift=True,lamb_shift_is_markov=True)
 
 
 # # Excited state dynamics
