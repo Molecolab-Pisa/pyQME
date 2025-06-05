@@ -1129,7 +1129,7 @@ class RelTensorNonMarkov(RelTensor):
         for i in range(1,t.size):
             mapper = mapper_t_to_specden_time_list[i]
             kk,vl,vr = la.eig(A[:,:,mapper-1],left=True,right=True)
-            vl /= contract('ki,ki->i',vl.conj(),vr).real
+            vl /= contract('ki,ki->i',vl.conj(),vr).conj()
             #rho_ = rho_t[i-1].reshape(self.dim**2)
             y0 = np.dot(vl.conj().T,state_t[i-1])
             exps = np.exp(kk*dt)
