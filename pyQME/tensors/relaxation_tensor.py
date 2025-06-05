@@ -780,7 +780,7 @@ class RelTensorMarkov(RelTensor):
         # Compute left-right eigendecomposition
         kk,vl,vr = la.eig(A,left=True,right=True)
 
-        vl /= np.einsum('ki,ki->i',vl.conj(),vr).real
+        vl /= np.einsum('ki,ki->i',vl.conj(),vr).conj()
 
         # Compute exponentials
         y0 = np.dot(vl.conj().T,arr)
