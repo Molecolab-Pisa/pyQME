@@ -120,17 +120,11 @@ class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
     def _calc_dephasing(self):
         """This function computes and stores the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation."""
         
-        #case 1: the full tensor is available
-        if hasattr(self,'RTen'):
-            dephasing = -0.5*np.einsum('aaaa->a',self.RTen)
-        
-        #case 2: the full tensor is not available --> let's use the rates
-        else:
-            if not hasattr(self,'redf_dephasing'):
-                self.redf_dephasing = self._calc_redfield_dephasing()        
-            if not hasattr(self,'forster_rates'):
-                self._calc_forster_rates()
-            dephasing = self.redf_dephasing - 0.5*np.diag(self.forster_rates)
+        if not hasattr(self,'redf_dephasing'):
+            self.redf_dephasing = self._calc_redfield_dephasing()        
+        if not hasattr(self,'forster_rates'):
+            self._calc_forster_rates()
+        dephasing = self.redf_dephasing - 0.5*np.diag(self.forster_rates)
         self.dephasing = dephasing
 
     def _calc_xi(self):

@@ -337,15 +337,9 @@ class RedfieldForsterTensorComplexDouble(RedfieldTensorDouble):
         dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1"""
         
-        #case 1: the full tensor is available
-        if hasattr(self,'RTen'):
-            dephasing = -0.5*np.einsum('aaaa->a',self.RTen)
-        
-        #case 2: the full tensor is not available --> let's use the rates
-        else:
-            if not hasattr(self,'forster_rates'):
-                    self._calc_forster_rates()
-            dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
+        if not hasattr(self,'forster_rates'):
+                self._calc_forster_rates()
+        dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         self.dephasing = dephasing
 
 class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
@@ -507,13 +501,7 @@ class ModifiedRedfieldForsterTensorDouble(ModifiedRedfieldTensorDouble):
         dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1."""
         
-        #case 1: the full tensor is available
-        if hasattr(self,'RTen'):
-            dephasing = -0.5*np.einsum('aaaa->a',self.RTen.real)
-        
-        #case 2: the full tensor is not available --> let's use the rates
-        else:
-            if not hasattr(self,'forster_rates'):
-                    self._calc_forster_rates()
-            dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
+        if not hasattr(self,'forster_rates'):
+                self._calc_forster_rates()
+        dephasing = self._redfield_dephasing - 0.5*np.diag(self.forster_rates)
         return dephasing
