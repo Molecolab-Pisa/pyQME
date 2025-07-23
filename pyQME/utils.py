@@ -35,12 +35,13 @@ def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
         density matrix. Can be used as starting matrix for the propagation of the density matrix (see RelTensor.propagate)."""
     
     dim = np.shape(OD_k)[0]
-    rho0 = np.zeros([dim,dim])
+    rho0 = np.zeros([dim,dim],dtype=np.complex128)
     freq_step = freq_axis[1]-freq_axis[0]
     
     for k,OD in enumerate(OD_k):
         overlap = simps(OD*pulse) * freq_step  # Overlap of the abs with the pump
         rho0[k,k] = overlap
+    rho0 = rho0/rho0.trace()
     return rho0
 
 def gauss_pulse(freq_axis,center,fwhm,amp):
@@ -415,7 +416,7 @@ def clusterize_pop(pop,clusters):
         pop_clusterized[cl_i] = sum_i pop[i] for i in clusters(cl_i)"""
 
     pop_clusterized = np.zeros([len(clusters)]) #the populations are always real
-    for cluster_idx,cluster in clusters:
+    for cluster_idx,cluster in enumerate(clusters):
         for i in enumerate(cluster):
             pop_clusterized [cluster_idx] = pop_clusterized [cluster_idx] + pop[i]
     return pop_clusterized
@@ -681,12 +682,8 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     HR_high_list = np.asarray([SDobj_localized.Huang_Rhys[SD_idx] for SD_idx in SD_id_list])
     reorg_high_list = np.asarray([SDobj_localized.Reorg[SD_idx] for SD_idx in SD_id_list])
     exp = np.exp(-0.5*HR_high_list)
-    
     dipoles_low = dipoles*exp[:,np.newaxis]
-    dipoles_high = dipoles*np.sqrt((1 - exp[:,np.newaxis]**2))
-    print(dipoles)
-    print(dipoles_low)
-    print(dipoles_high)
+    dipoles_high = dipoles*np.sqrt((1 - exp[:,np.newaxis]**2))    
     
     #partition Hamiltonian
     H_diag = np.diag(np.diag(H))
