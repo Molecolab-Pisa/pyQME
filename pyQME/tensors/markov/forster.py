@@ -89,7 +89,7 @@ class ForsterTensor(RelTensorMarkov):
             rates[np.diag_indices_from(rates)] = 0.0
             rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
-            self.rates = self.transform(rates)
+            self.rates = rates #self.transform(rates)
 
     
     def _calc_tensor(self):

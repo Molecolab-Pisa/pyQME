@@ -683,7 +683,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     reorg_high_list = np.asarray([SDobj_localized.Reorg[SD_idx] for SD_idx in SD_id_list])
     exp = np.exp(-0.5*HR_high_list)
     dipoles_low = dipoles*exp[:,np.newaxis]
-    dipoles_high = dipoles*np.sqrt((1 - exp[:,np.newaxis]**2))    
+    #dipoles_high = dipoles*np.sqrt((1 - exp[:,np.newaxis]**2))    
     
     #partition Hamiltonian
     H_diag = np.diag(np.diag(H))

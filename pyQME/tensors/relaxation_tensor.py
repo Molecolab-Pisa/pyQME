@@ -835,16 +835,17 @@ class RelTensorMarkov(RelTensor):
 
         #for fluorescence spectra we need adiabatic equilibrium population, so we subtract the reorganization energy
         ene = self.ene.copy()
+        #ene = ene + 1j*0
         if include_lamb:
             ene -= self.get_lambda_a()
         if include_deph:
             ene += self.get_dephasing().imag
-        
+            #ene -= 1j*self.get_dephasing().real
         #we scale the energies to avoid numerical difficulties
         ene -= ene.min()
         
         boltz = np.exp(-ene*self.specden.beta)
-        
+
         #the populations are not normalized because the normalization must be done taking into account also of dipoles, which is managed by the SpectraCalculator 
         if normalize:
             boltz = boltz/boltz.sum()

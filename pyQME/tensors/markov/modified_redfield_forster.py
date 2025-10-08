@@ -185,9 +185,9 @@ def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb
                 #D-->A rate
 
                 # GENERALIZED-FORSTER TERM
-                energy = Om[A,D]+2*ReorgD
+                energy = 1j*Om[A,D]+1j*2*ReorgD+redf_dephasing[D].conj()+redf_dephasing[A]
                 lineshape_function = gD+gA
-                exponent = 1j*energy*time_axis+lineshape_function+redf_dephasing[D].conj()+redf_dephasing[A]
+                exponent = energy*time_axis+lineshape_function
                 exponent = exponent - 2*(g_aabb[A,D]+1j*time_axis*reorg_aabb[A,D])
                 spectral_overlap_time = np.exp(-exponent)
                 integrand = 2. * ((V_exc[D,A]/h_bar)**2)*spectral_overlap_time.real
@@ -211,8 +211,7 @@ def MRF_rates_loop(Om,V_exc,redf_dephasing,time_axis,g_aabb,reorg_aabb,gdot_abbb
                 # YANG TERM
                 if include_yang_term:
                     square_brakets = 2*(gdot_abbb[A,D] - gdot_abbb[D,A] - 2*1j*reorg_aaab[A,D])
-                    integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag    
-
+                    integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag
                 rates[D,A] = np.trapz(integrand,time_axis)
     #fix diagonal
     rates[np.diag_indices_from(rates)] = 0.0

@@ -164,22 +164,26 @@ class RedfieldTensor(RelTensorMarkov):
 
         #case 2: the full GammF tensor is not available, but we cannot use the rates because they are real --> let's compute the dephasing
         else:
+            cc = self.U
+            dephasing = np.zeros([self.dim],dtype=np.complex128)
             SD_id_list = self.SD_id_list
 
             #loop over the redundancies-free list of spectral densities
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
                 Cw_matrix = self.specden(self.Om.T,SD_id=SD_id,imag=True)
-
+                
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-                if SD_idx == 0:
-                    GammF_aaaa  = contract('iaa,iaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
-                    GammF_abba =  contract('iab,iba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
-                else:
-                    GammF_aaaa = GammF_aaaa + contract('iaa,iaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
-                    GammF_abba = GammF_abba + contract('iab,iba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
+                dephasing += contract('ia,ib,ba,ab->a',cc[mask,:]**2,cc[mask,:]**2,Cw_matrix,1-np.eye(self.dim))/2
 
-            dephasing = -0.5*(GammF_aaaa - contract('ab->a',GammF_abba))
+#                 if SD_idx == 0:
+#                     GammF_aaaa  = contract('iaa,iaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
+#                     GammF_abba =  contract('iab,iba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
+#                 else:
+#                     GammF_aaaa = GammF_aaaa + contract('iaa,iaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
+#                     GammF_abba = GammF_abba + contract('iab,iba,ba->ab',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)
+
+#             dephasing = -0.5*(GammF_aaaa - contract('ab->a',GammF_abba))
             
         return dephasing
 
