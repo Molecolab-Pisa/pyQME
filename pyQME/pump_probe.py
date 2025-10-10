@@ -326,17 +326,17 @@ class PumpProbeCalculator():
                 break
                 
         #compute the component of the pump-probe spectra at different delay times according to the population dynamics provided
-        self.GSB_a = self.W_GSB_a*pop_tot
-        self.SE_a = np.einsum('ta,aw->atw',pop_t,self.W_SE_a)
-        self.ESA_a = np.einsum('ta,aw->atw',pop_t,self.W_ESA_a)
+        GSB_a = self.W_GSB_a*pop_tot
+        SE_a = np.einsum('ta,aw->atw',pop_t,self.W_SE_a)
+        ESA_a = np.einsum('ta,aw->atw',pop_t,self.W_ESA_a)
 
-        tmp_GSB = np.broadcast_to(self.GSB_a[:, None, :], (self.GSB_a.shape[0], time_axis_prop_size, self.GSB_a.shape[1]))
+        tmp_GSB = np.broadcast_to(GSB_a[:, None, :], (GSB_a.shape[0], time_axis_prop_size, GSB_a.shape[1]))
         
-        self.PP_a = self.SE_a + self.ESA_a + tmp_GSB
+        PP_a = SE_a + ESA_a + tmp_GSB
         
         #if the user provides a frequency axis, let's extrapolate the spectra over it
         if freq is None:
-            return self.freq,self.GSB_a,self.SE_a,self.ESA_a,self.PP_a
+            return self.freq,GSB_a,SE_a,ESA_a,PP_a
         else:
             self_freq = self.freq
 
@@ -346,19 +346,19 @@ class PumpProbeCalculator():
             
             for a in range(self.dim_single):
                 
-                norm = np.abs(self.GSB_a[a]).max()
-                GSB_spl = UnivariateSpline(self_freq,self.GSB_a[a]/norm,s=0,k=1)
+                norm = np.abs(GSB_a[a]).max()
+                GSB_spl = UnivariateSpline(self_freq,GSB_a[a]/norm,s=0,k=1)
                 GSB_a[a] = GSB_spl(freq)*norm
 
                 time_axis_prop_dummy = np.linspace(0.,1.,num=time_axis_prop_size)
                 time_mesh, freq_mesh = np.meshgrid(time_axis_prop_dummy, freq)
 
-                norm = np.abs(self.SE_a[a]).max()
-                SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.SE_a[a]/norm)
+                norm = np.abs(SE_a[a]).max()
+                SE_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),SE_a[a]/norm)
                 SE_a[a] = SE_spl((time_mesh, freq_mesh)).T*norm
 
-                norm = np.abs(self.ESA_a[a]).max()
-                ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),self.ESA_a[a]/norm)
+                norm = np.abs(ESA_a[a]).max()
+                ESA_spl = RegularGridInterpolator((time_axis_prop_dummy,self_freq),ESA_a[a]/norm)
                 ESA_a[a] = ESA_spl((time_mesh, freq_mesh)).T*norm
 
             tmp_GSB = np.broadcast_to(GSB_a[:, None, :], (GSB_a.shape[0], time_axis_prop_size,GSB_a.shape[1]))
