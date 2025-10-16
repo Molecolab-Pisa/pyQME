@@ -724,7 +724,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     #to do so, we set to zero the sideband spectrum, where the 0-0 localized band is greater than a threshold
     for a in range(nchrom):
         if np.any(spec_low_no_coup_a[a]<-1e-3):
-            mask = spec_low_spec_low_no_coup_ano_coup[a] > threshold_fact*spec_low_no_coup_a[a].max()
+            mask = spec_low_no_coup_a[a] > threshold_fact*spec_low_no_coup_a[a].max()
             sideband_and_00_overlap_is_zero = True #FIXME IMPLEMENT THIS CHECK: if w_vib is small, we cannot just set the spec_high[a,mask] = 0.
             if sideband_and_00_overlap_is_zero:
                 spec_high_a[a,mask] = 0.

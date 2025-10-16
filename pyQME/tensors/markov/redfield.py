@@ -23,11 +23,15 @@ class RedfieldTensor(RelTensorMarkov):
     secularize: Bool
         if True, the relaxation tensor is secularized"""
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,marcus_renger=False,**kwargs):
         "This function handles the variables which are initialized to the main RelTensorMarkov Class."
         
+        self.marcus_renger=marcus_renger
                 
         super().__init__(*args,**kwargs)
+        
+        if marcus_renger:
+            self._calc_eq_pop_fluo(include_deph=False,include_lamb=False,normalize=False)
     
     def _calc_rates(self):
         "This function computes and stores the Redfield energy transfer rates in cm^-1"
@@ -147,34 +151,82 @@ class RedfieldTensor(RelTensorMarkov):
     def _calc_dephasing(self):
         """This function stores the Redfield dephasing in cm^-1. This function makes easier the management of the Redfield-Forster subclasses."""
         
-        dephasing = self._calc_redfield_dephasing()
-        self.dephasing = dephasing   
+        dephasing = self._calc_redfield_dephasing(marcus_renger=self.marcus_renger)
+        self.dephasing = dephasing
     
-    def _calc_redfield_dephasing(self):
+    def _calc_redfield_dephasing(self,marcus_renger=False):
         """This function computes the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation.
         
         Returns
         -------
         dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1"""
-
+            
         #case 1: the full GammF tensor is available
         if hasattr(self,'GammF'):
             dephasing = -(contract('aaaa->a',self.GammF) - contract('abba->a',self.GammF))
 
         #case 2: the full GammF tensor is not available, but we cannot use the rates because they are real --> let's compute the dephasing
         else:
+            SD_id_list = self.SD_id_list
+            Om=self.Om
+            if marcus_renger:
+
+                #way 1:
+                # omegap_ab=np.zeros([self.dim,self.dim])   #the first index is the "leading exciton" (of which the pure energy self.ene is used)
+                # cc2 = self.U**2
+                # for a in range(self.dim):
+                #     omegap_ab[a] = self.ene[a]
+                #     for i in range(self.dim):
+                #         lambda_i = self.specden.Reorg[SD_id_list[i]]
+                #         for b in range(self.dim):
+                #             omegap_ab[a,b]-=2*lambda_i*cc2[i,a]*cc2[i,b]
+                # Om=np.zeros_like(omegap_ab)
+                # for a in range(self.dim):
+                #     for b in range(self.dim):
+                #         Om[a,b]=omegap_ab[a,a]-omegap_ab[b,a]
+                # way 2:
+                # lambda_a=self.get_lambda_a()
+                # self._calc_weight_aabb()
+                # weight_aabb=self.weight_aabb
+                # lambda_ab=np.einsum('Zab,Z->ab',weight_aabb,self.specden.Reorg)
+                # for a in range(self.dim):
+                #     for b in range(self.dim):
+                #         Om[a,b]+=-2*lambda_a[a]+2*lambda_ab[a,b]
+                #way 3:
+                cc = self.U
+                gamma_MNKL = np.zeros([self.dim,self.dim,self.dim,self.dim])
+                for M in range(self.dim):
+                    for N in range(self.dim):
+                        for K in range(self.dim):
+                            for L in range (self.dim):
+                                for m in range(self.dim):
+                                    gamma_MNKL[M,N,K,L] += cc[m,M]*cc[m,N]*cc[m,K]*cc[m,L]
+                gamma_MK = np.einsum('MKKM->MK',gamma_MNKL)
+                omegap_KM = np.zeros([self.dim,self.dim])
+                reorg = self.specden.Reorg[0]
+
+                for K in range(self.dim):
+                    for M in range(self.dim):
+                        omegap_KM[K,M] = self.ene[K]-2*reorg*gamma_MK[M,K]
+                
+                
+                Om = np.zeros([self.dim,self.dim])
+                for M in range(self.dim):
+                    for K in range(self.dim):
+                        Om[M,K] = omegap_KM[M,M]-omegap_KM[K,M]
+                        #print('here')
+            #print(Om)
             cc = self.U
             dephasing = np.zeros([self.dim],dtype=np.complex128)
-            SD_id_list = self.SD_id_list
-
+            
             #loop over the redundancies-free list of spectral densities
             for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
 
-                Cw_matrix = self.specden(self.Om.T,SD_id=SD_id,imag=True)
+                Cw_matrix = self.specden(Om,SD_id=SD_id,imag=True)
                 
                 mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == SD_id]
-                dephasing += contract('ia,ib,ba,ab->a',cc[mask,:]**2,cc[mask,:]**2,Cw_matrix,1-np.eye(self.dim))/2
+                dephasing += contract('ia,ib,ab,ab->a',cc[mask,:]**2,cc[mask,:]**2,Cw_matrix,1-np.eye(self.dim))/2
 
 #                 if SD_idx == 0:
 #                     GammF_aaaa  = contract('iaa,iaa,aa->a',self.X[mask,:,:],self.X[mask,:,:],Cw_matrix)

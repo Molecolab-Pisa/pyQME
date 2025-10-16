@@ -268,9 +268,9 @@ class SecularSpectraCalculator(SpectraCalculator):
         FL: np.array(dtype = np.float), shape = (freq.size)
             fluorescence intensity.
             units: same as dipoles^2"""
-        
+        print(eq_pop)
         self._calc_time_fluo_a(dipoles,eq_pop=eq_pop)
-        
+               
         self.fluo_lineshape_a = np.zeros([self.dim,self.freq.size])
         for a in range(self.dim):
             self.fluo_lineshape_a[a] = _do_FFT(self.time,self.time_fluo_a[a])
@@ -312,6 +312,8 @@ class SecularSpectraCalculator(SpectraCalculator):
         include_lamb_shift: Bool
             if True, the equiliubrium populations are calculated including the lamb-shift"""
             
+        print(eq_pop)
+        
         self._initialize()
         self._get_xi_fluo()
         g_a = self.g_a.copy()
@@ -355,7 +357,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         FL: np.array(dtype = np.float), shape = (freq.size)
             fluorescence lineshape.
             units: same as dipoles^2"""
-        
+        print(eq_pop)
         freq,fluo_lineshape_a = self.calc_fluo_lineshape_a(dipoles,freq=freq,eq_pop=eq_pop)
         fluo_lineshape = fluo_lineshape_a.sum(axis=0)
         return freq,fluo_lineshape
@@ -632,3 +634,74 @@ class SecularSpectraCalculator(SpectraCalculator):
         freq,LD_a = self.calc_LD_lineshape_a(dipoles,freq=freq)
         LD_OD_a = LD_a*freq[None,:]*factOD
         return freq,LD_OD_a
+    
+
+# class MarcusRengerFluorescence(SecularSpectraCalculator):
+#     """Class for calculations of absorption and fluorescence spectra using the Renger-Marcus theory under secular approximation.
+#     References:
+#     https://doi.org/10.1063/1.4918343
+
+#     Arguments
+#     ---------
+#     rel_tensor: Class
+#         class of the type RelTensor.
+#     RWA: np.float
+#         order of magnitude of frequencies at which the spectrum is evaluated.
+#     include_xi_imag: Boolean
+#         if True, the imaginary part of the xi term is included, otherwise, the imaginary part isn't included.
+#     include_xi_real: Boolean
+#         if True, the real part of the xi term is included, otherwise, the real part isn't included.
+#     approximation: string
+#         approximation used for the lineshape theory.
+#         The use of this variable overwrites the use of the "include_xi_imag" and "include_xi_real" variables.
+#         if 'no xi', the xi isn't included (Redfield theory with diagonal approximation).
+#         if 'iR', the imaginary Redfield theory is used.
+#         if 'rR', the real Redfield theory is used.
+#         if 'cR', the complex Redfield theory is used."""
+    
+#     def __init__(self,*args,**kwargs):
+#         """This function initializes the class SecularLinearSpectraCalculator."""
+#         super().__init__(*args,**kwargs)
+#         self.rel_tensor.marcus_renger=True
+#         self.rel_tensor._calc_dephasing()
+#         self.rel_tensor._calc_xi_fluo()
+        
+#         self.rel_tensor._calc_eq_pop_fluo(include_deph=False,include_lamb=False,normalize=False)
+    
+#     def _calc_time_fluo_a(self,dipoles,eq_pop=None):
+#         """This function calculates and stores the single-exciton contribution to the fluorescence spectrum in the time domain.
+        
+#         Arguments
+#         ---------
+#         dipoles: np.array(dtype = np.float), shape = (self.rel_tensor.dim,3)
+#             array of transition dipole coordinates. Each row corresponds to a different chromophore.
+#         eq_pop: np.array(dtype = np.float), shape = (self.rel_tensor.dim)
+#             array of equilibrium populations.
+#             if None, the equilibrium populations are calculated using the self.rel_tensor method
+#         include_lamb_shift: Bool
+#             if True, the equiliubrium populations are calculated including the lamb-shift"""
+            
+#         self._initialize()
+#         self._get_xi_fluo()
+#         g_a = self.g_a.copy()
+#         xi = self.xi_at_fluo.copy()
+#         RWA = self.RWA.copy()
+#         t = self.time.copy()
+#         lambda_a = self.rel_tensor.get_lambda_a()
+        
+#         #get the squared modulus of dipoles in the exciton basis
+#         self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
+#         self.excd2 = np.sum(self.excdip**2,axis=1)
+
+#         if eq_pop is None:
+#             eq_pop = self.rel_tensor.get_eq_pop_fluo()
+#             Z = (eq_pop*self.excd2).sum()
+#             eq_pop = eq_pop/Z
+#         self.eq_pop = eq_pop
+        
+#         #compute the spectra in the time domain for each exciton without summing up
+#         self.time_fluo_a = np.empty([self.rel_tensor.dim,self.time.size],dtype=np.complex128)
+#         for (a,e_a) in enumerate(self.rel_tensor.ene):
+#             d_a = self.excd2[a]
+#             e0_a = e_a - lambda_a[a]
+#             self.time_fluo_a[a] = self.eq_pop[a]*d_a*np.exp((1j*(-e0_a+RWA))*t - g_a[a].conj()-xi[a])
