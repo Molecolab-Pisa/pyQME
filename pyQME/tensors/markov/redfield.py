@@ -173,18 +173,18 @@ class RedfieldTensor(RelTensorMarkov):
             if marcus_renger:
 
                 #way 1:
-                # omegap_ab=np.zeros([self.dim,self.dim])   #the first index is the "leading exciton" (of which the pure energy self.ene is used)
-                # cc2 = self.U**2
-                # for a in range(self.dim):
-                #     omegap_ab[a] = self.ene[a]
-                #     for i in range(self.dim):
-                #         lambda_i = self.specden.Reorg[SD_id_list[i]]
-                #         for b in range(self.dim):
-                #             omegap_ab[a,b]-=2*lambda_i*cc2[i,a]*cc2[i,b]
-                # Om=np.zeros_like(omegap_ab)
-                # for a in range(self.dim):
-                #     for b in range(self.dim):
-                #         Om[a,b]=omegap_ab[a,a]-omegap_ab[b,a]
+                omegap_ab=np.zeros([self.dim,self.dim])   #the first index is the "leading exciton" (of which the pure energy self.ene is used)
+                cc2 = self.U**2
+                for a in range(self.dim):
+                    omegap_ab[a] = self.ene[a]
+                    for i in range(self.dim):
+                        lambda_i = self.specden.Reorg[SD_id_list[i]]
+                        for b in range(self.dim):
+                            omegap_ab[a,b]-=2*lambda_i*cc2[i,a]*cc2[i,b]
+                Om=np.zeros_like(omegap_ab)
+                for a in range(self.dim):
+                    for b in range(self.dim):
+                        Om[a,b]=omegap_ab[a,a]-omegap_ab[b,a]
                 # way 2:
                 # lambda_a=self.get_lambda_a()
                 # self._calc_weight_aabb()
@@ -194,29 +194,27 @@ class RedfieldTensor(RelTensorMarkov):
                 #     for b in range(self.dim):
                 #         Om[a,b]+=-2*lambda_a[a]+2*lambda_ab[a,b]
                 #way 3:
-                cc = self.U
-                gamma_MNKL = np.zeros([self.dim,self.dim,self.dim,self.dim])
-                for M in range(self.dim):
-                    for N in range(self.dim):
-                        for K in range(self.dim):
-                            for L in range (self.dim):
-                                for m in range(self.dim):
-                                    gamma_MNKL[M,N,K,L] += cc[m,M]*cc[m,N]*cc[m,K]*cc[m,L]
-                gamma_MK = np.einsum('MKKM->MK',gamma_MNKL)
-                omegap_KM = np.zeros([self.dim,self.dim])
-                reorg = self.specden.Reorg[0]
+#                 cc = self.U
+#                 gamma_MNKL = np.zeros([self.dim,self.dim,self.dim,self.dim])
+#                 for M in range(self.dim):
+#                     for N in range(self.dim):
+#                         for K in range(self.dim):
+#                             for L in range (self.dim):
+#                                 for m in range(self.dim):
+#                                     gamma_MNKL[M,N,K,L] += cc[m,M]*cc[m,N]*cc[m,K]*cc[m,L]
+#                 gamma_MK = np.einsum('MKKM->MK',gamma_MNKL)
+#                 omegap_KM = np.zeros([self.dim,self.dim])
+#                 reorg = self.specden.Reorg[0]
 
-                for K in range(self.dim):
-                    for M in range(self.dim):
-                        omegap_KM[K,M] = self.ene[K]-2*reorg*gamma_MK[M,K]
+#                 for K in range(self.dim):
+#                     for M in range(self.dim):
+#                         omegap_KM[K,M] = self.ene[K]-2*reorg*gamma_MK[M,K]
                 
                 
-                Om = np.zeros([self.dim,self.dim])
-                for M in range(self.dim):
-                    for K in range(self.dim):
-                        Om[M,K] = omegap_KM[M,M]-omegap_KM[K,M]
-                        #print('here')
-            #print(Om)
+#                 Om = np.zeros([self.dim,self.dim])
+#                 for M in range(self.dim):
+#                     for K in range(self.dim):
+#                         Om[M,K] = omegap_KM[M,M]-omegap_KM[K,M]
             cc = self.U
             dephasing = np.zeros([self.dim],dtype=np.complex128)
             

@@ -268,7 +268,6 @@ class SecularSpectraCalculator(SpectraCalculator):
         FL: np.array(dtype = np.float), shape = (freq.size)
             fluorescence intensity.
             units: same as dipoles^2"""
-        print(eq_pop)
         self._calc_time_fluo_a(dipoles,eq_pop=eq_pop)
                
         self.fluo_lineshape_a = np.zeros([self.dim,self.freq.size])
@@ -312,8 +311,6 @@ class SecularSpectraCalculator(SpectraCalculator):
         include_lamb_shift: Bool
             if True, the equiliubrium populations are calculated including the lamb-shift"""
             
-        print(eq_pop)
-        
         self._initialize()
         self._get_xi_fluo()
         g_a = self.g_a.copy()
@@ -357,7 +354,6 @@ class SecularSpectraCalculator(SpectraCalculator):
         FL: np.array(dtype = np.float), shape = (freq.size)
             fluorescence lineshape.
             units: same as dipoles^2"""
-        print(eq_pop)
         freq,fluo_lineshape_a = self.calc_fluo_lineshape_a(dipoles,freq=freq,eq_pop=eq_pop)
         fluo_lineshape = fluo_lineshape_a.sum(axis=0)
         return freq,fluo_lineshape
