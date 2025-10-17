@@ -185,6 +185,7 @@ class RedfieldTensor(RelTensorMarkov):
                 for a in range(self.dim):
                     for b in range(self.dim):
                         Om[a,b]=omegap_ab[a,a]-omegap_ab[b,a]
+                
                 # way 2:
                 # lambda_a=self.get_lambda_a()
                 # self._calc_weight_aabb()

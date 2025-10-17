@@ -964,37 +964,48 @@ class HCE(NonSecularSpectraCalculator):
         "This function calculates and stores the K_RI term, used to calculate fluorescence spectra."
         
         time_axis = self.rel_tensor.specden.time
-        nsds = self.rel_tensor.specden.nsds
         nchrom = self.dim
         Om = self.rel_tensor.Om
         tmp_abt = np.exp(1j*Om[:,:,np.newaxis]*time_axis[np.newaxis,np.newaxis,:])
+        SD_id_list = self.rel_tensor.SD_id_list
         
         Gamma_Zt = self.rel_tensor.specden.get_Gamma_HCE()
-        integrand = contract('Zt,abt->Zabt',Gamma_Zt,tmp_abt)
-        Gamma_tilde_Zabt = np.zeros([nsds,nchrom,nchrom,time_axis.size],dtype=np.complex128)
-        Gamma_tilde_Zabt[:,:,:,1:] = cumtrapz(integrand,time_axis,axis=3)
+        Gamma_it = np.asarray([Gamma_Zt[SD_id_list[i]] for i in range(nchrom)])
+        integrand = contract('it,abt->iabt',Gamma_it,tmp_abt)
+        Gamma_tilde_iabt = np.zeros([nchrom,nchrom,nchrom,time_axis.size],dtype=np.complex128)
+        Gamma_tilde_iabt[:,:,:,1:] = cumtrapz(integrand,time_axis,axis=3)
         
+#        nsds = self.rel_tensor.specden.nsds
+#         Gamma_Zt = self.rel_tensor.specden.get_Gamma_HCE()
+#         integrand = contract('Zt,abt->Zabt',Gamma_Zt,tmp_abt)
+#         Gamma_tilde_Zabt = np.zeros([nsds,nchrom,nchrom,time_axis.size],dtype=np.complex128)
+#         Gamma_tilde_Zabt[:,:,:,1:] = cumtrapz(integrand,time_axis,axis=3)
+
         c_ia = self.rel_tensor.U
-        K_RI_ab = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
-        SD_id_list = self.rel_tensor.SD_id_list
+#        K_RI_ab = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
         c_ia_sq = c_ia**2
         
-        #fisrt term
-        for Z in [*set(SD_id_list)]:
-            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == Z]
-            K_RI_ab += contract('ia,ib,act,ic->abt',c_ia[mask,:],c_ia[mask,:],Gamma_tilde_Zabt[Z,:,:,:],c_ia_sq[mask,:])
+        #first term
+        K_RI_ab = contract('ia,ib,iact,ic->abt',c_ia,c_ia,Gamma_tilde_iabt,c_ia_sq)
+            
+        # for Z in [*set(SD_id_list)]:
+        #     mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == Z]
+        #     K_RI_ab += contract('ia,ib,act,ic->abt',c_ia[mask,:],c_ia[mask,:],Gamma_tilde_Zabt[Z,:,:,:],c_ia_sq[mask,:])
 
-        #second term
-        c_ia = self.rel_tensor.U
-        V_abi = np.einsum('ia,ib->abi',c_ia,c_ia)
 
-        cc_Gamma_tilde_abit = np.zeros([nchrom,nchrom,nchrom,time_axis.size],dtype=np.complex128)
-        for Z in [*set(SD_id_list)]:
-            mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == Z]
-            cc_Gamma_tilde_abit += contract('ia,ib,Zabt->abit',c_ia[mask],c_ia[mask],Gamma_tilde_Zabt)
+#         #second term
+        cc_Gamma_tilde_abit = contract('ia,ib,iabt->abit',c_ia,c_ia,Gamma_tilde_iabt)
+#         V_abi = np.einsum('ia,ib->abi',c_ia,c_ia)
+#         cc_Gamma_tilde_abit = np.zeros([nchrom,nchrom,nchrom,time_axis.size],dtype=np.complex128)
+#         for Z in [*set(SD_id_list)]:
+#             mask = [chrom_idx for chrom_idx,x in enumerate(SD_id_list) if x == Z]
+#             cc_Gamma_tilde_abit += contract('ia,ib,Zabt->abit',c_ia[mask],c_ia[mask],Gamma_tilde_Zabt)
 
         rho_eq_exc_inv = np.linalg.inv(rho_eq_exc)
-        K_RI_ab += contract('abit,bc,cdi,de->aet',cc_Gamma_tilde_abit,rho_eq_exc,V_abi,rho_eq_exc_inv)
+        K_RI_ab += contract('ia,ib,abit,bc,ic,id,de->aet',c_ia,c_ia,cc_Gamma_tilde_abit,rho_eq_exc,c_ia,c_ia,rho_eq_exc_inv)
+        
+#         rho_eq_exc_inv = np.linalg.inv(rho_eq_exc)
+#         K_RI_ab += contract('abit,bc,cdi,de->aet',cc_Gamma_tilde_abit,rho_eq_exc,V_abi,rho_eq_exc_inv)
         
         K_RI_ab *= 1j
         

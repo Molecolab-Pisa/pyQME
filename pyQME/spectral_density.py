@@ -601,7 +601,7 @@ class SpectralDensity():
         coth = 1/np.tanh(beta*w/2)
 
         Ct_complex = np.zeros([time_axis.size,time_axis_0_to_beta.size],dtype=np.complex128)
-        for s_idx,s_i in tqdm(enumerate(time_axis)):
+        for s_idx,s_i in enumerate(tqdm(time_axis)):
             for tau_idx,tau_i in enumerate(time_axis_0_to_beta):
                 integrand  = np.cosh(w*(0.5*beta-1j*(s_i-1j*tau_i)))
                 integrand /= np.sinh(0.5*w*beta)

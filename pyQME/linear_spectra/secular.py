@@ -315,7 +315,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         self._get_xi_fluo()
         g_a = self.g_a.copy()
         xi = self.xi_at_fluo.copy()
-        RWA = self.RWA.copy()
+        RWA = self.RWA
         t = self.time.copy()
         lambda_a = self.rel_tensor.get_lambda_a()
         
@@ -325,8 +325,8 @@ class SecularSpectraCalculator(SpectraCalculator):
 
         if eq_pop is None:
             eq_pop = self.rel_tensor.get_eq_pop_fluo()
-            Z = (eq_pop*self.excd2).sum()
-            eq_pop = eq_pop/Z
+        Z = (eq_pop*self.excd2).sum()
+        eq_pop = eq_pop/Z
         self.eq_pop = eq_pop
         
         #compute the spectra in the time domain for each exciton without summing up
