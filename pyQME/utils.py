@@ -558,7 +558,7 @@ def transform_back(arr,H,ndim=None):
 
     return transform(arr,H,ndim=ndim,inverse=True)
 
-def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tensor,freq=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_components=False,approx=None,SD_id_list=None,marcus_renger=None,**kwargs):
+def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tensor,freq=None,dephasing_localized=None,spec_type='abs',units_type='lineshape',spec_components=None,threshold_fact=0.001,return_components=False,approx=None,SD_id_list=None,marcus_renger=None,eq_pop_fluo=None,**kwargs):
     """This function computes the absorption spectrum treating as localized one part of the spectral density.
 
     Arguments
@@ -696,11 +696,17 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
                 H_no_localized_part[i,j] = H[i,j]*exp[i]*exp[j]
     
     #first contribution to the spectrum: delocalized 0-0 band without sideband
-    try:
-        tensor_low = rel_tensor(H_no_localized_part,SDobj_delocalized,marcus_renger=marcus_renger,SD_id_list=SD_id_list)
-    except:
-        tensor_low = rel_tensor(H_no_localized_part,SDobj_delocalize,SD_id_list=SD_id_list)
-    #FIXME: implement the use of marcus_renger option in a more robust way
+    if marcus_renger is None:
+        tensor_low = rel_tensor(H_no_localized_part,SDobj_delocalized,SD_id_list=SD_id_list)
+    else:
+        try:
+            tensor_low = rel_tensor(H_no_localized_part,SDobj_delocalized,marcus_renger=marcus_renger,SD_id_list=SD_id_list)
+        except:   #just in case someone gives the marcus_renger option to a tensor which does not implement the Marcus Renger theory
+            raise ValueError('This tensor does not implement the marcus_renger option')
+        #FIXME: implement the use of marcus_renger option in a more robust way
+        
+    if eq_pop_fluo is not None:
+        tensor_low.eq_pop_fluo=eq_pop_fluo
         
     spec_obj_low = SecularSpectraCalculator(tensor_low,approximation=approx)
     _,spec_low_a  = spec_obj_low.get_spectrum(dipoles_low,spec_type=spec_type,units_type=units_type,spec_components='exciton',freq=freq,**kwargs)
