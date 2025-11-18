@@ -271,7 +271,7 @@ class PumpProbeCalculator():
         W_GSB_a = -W_GSB_a
         
         #SE LINESHAPE
-        _,W_SE_a = self.lin_spec_calculator.calc_fluo_lineshape_a(dipoles,eq_pop=np.ones(self.dim_single),freq=self.freq)
+        _,W_SE_a = self.lin_spec_calculator.calc_fluo_lineshape_a(dipoles,eq_pop=np.ones(self.dim_single),freq=self.freq,normalize_eqpop=False)
         W_SE_a = -W_SE_a
 
         #ESA LINESHAPE

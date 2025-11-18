@@ -44,7 +44,11 @@ def _calc_exp_K(K_abt,threshold_cond_num=1.02):
             exp_K_abt[:, :, t_idx] = eigvecs_K @ np.diag(np.exp(eigvals_K)) @ eigvecs_K.conj().T        
         #if the condition number is greater than the treshold, calculate the exponential matrix numerically (slower)
         else:
-            exp_K_abt[:, :, t_idx] = expmat(K_abt[:, :, t_idx])
+            try:
+                exp_K_abt[:, :, t_idx] = expmat(K_abt[:, :, t_idx])
+            except:
+                print('t_idx: ',t_idx,'  K_abt[:, :, t_idx].max()):  ',K_abt[:, :, t_idx].max())
+                raise ValueError('Dead here')
     return exp_K_abt
 
         
@@ -922,7 +926,9 @@ class FCE(NonSecularSpectraCalculator):
     def _calc_K_fluo(self):
         "This function calculates and stores the fluorescence lineshape matrix."
         
-        self._calc_K_II()
+        if not hasattr(self,'K_II_ab'):
+            self._calc_K_II()
+        
         self._calc_K_RR()
         self._calc_K_RI()
         K_fluo_abt = self.K_RR_ab-1j*self.K_RI_ab-self.K_II_ab[:,:,np.newaxis]
@@ -1002,10 +1008,7 @@ class HCE(NonSecularSpectraCalculator):
 #             cc_Gamma_tilde_abit += contract('ia,ib,Zabt->abit',c_ia[mask],c_ia[mask],Gamma_tilde_Zabt)
 
         rho_eq_exc_inv = np.linalg.inv(rho_eq_exc)
-        K_RI_ab += contract('ia,ib,abit,bc,ic,id,de->aet',c_ia,c_ia,cc_Gamma_tilde_abit,rho_eq_exc,c_ia,c_ia,rho_eq_exc_inv)
-        
-#         rho_eq_exc_inv = np.linalg.inv(rho_eq_exc)
-#         K_RI_ab += contract('abit,bc,cdi,de->aet',cc_Gamma_tilde_abit,rho_eq_exc,V_abi,rho_eq_exc_inv)
+        K_RI_ab += contract('abit,bc,ic,id,de->aet',cc_Gamma_tilde_abit,rho_eq_exc,c_ia,c_ia,rho_eq_exc_inv)
         
         K_RI_ab *= 1j
         

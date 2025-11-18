@@ -372,6 +372,9 @@ class RelTensor():
         if propagation_mode == 'exp_then_eig' and t_switch_exp_to_eig is None:
             raise ValueError('You must input t_switch_exp_to_eig')
         
+        #create a copy to avoid overwriting
+        t=t.copy()
+        
         if units == 'ps':
             t = t*wn2ips
             if t_switch_exp_to_eig is not None:
@@ -448,6 +451,9 @@ class RelTensor():
 
         if propagation_mode == 'exp_then_eig' and t_switch_exp_to_eig is None:
             raise ValueError('You must input t_switch_exp_to_eig')
+        
+        #create a copy to avoid overwriting
+        t=t.copy()
         
         if units == 'ps':
             t = t*wn2ips
@@ -816,13 +822,16 @@ class RelTensorMarkov(RelTensor):
         
         return RTen_secular
     
-    def _calc_eq_pop_fluo(self,include_deph=False,include_lamb=True,normalize=False,include_deph_real=False):
+    def _calc_eq_pop_fluo(self,include_deph_imag=False,include_lamb=True,normalize=False,include_deph_real=False):
         """This function computes and stores the Boltzmann equilibrium population for fluorescence intensity.
         
         Arguments
         -------
-        include_deph: Bool
+        include_deph_imag: Bool
             if True, the energies used for the calculation of the eq. pop. will be shifted by the imaginary part of the dephasing
+            if False, the energies are not shifted
+        include_deph_real: Bool
+            if True, the energies used for the calculation of the eq. pop. will be shifted by the real part of the dephasing, multiplied by the imaginary unit i
             if False, the energies are not shifted
             
         include_lamb: Bool
@@ -839,7 +848,7 @@ class RelTensorMarkov(RelTensor):
             ene = ene + 1j*0
         if include_lamb:
             ene -= self.get_lambda_a()
-        if include_deph:
+        if include_deph_imag:
             ene += self.get_dephasing().imag
         if include_deph_real:
             ene -= 1j*self.get_dephasing().real
@@ -847,8 +856,8 @@ class RelTensorMarkov(RelTensor):
         ene -= ene.min()
         
         boltz = np.exp(-ene*self.specden.beta)
-        if include_deph_real:
-            boltz=boltz.real
+        # if include_deph_real:
+        #     boltz=boltz.real
 
         #the populations are not normalized because the normalization must be done taking into account also of dipoles, which is managed by the SpectraCalculator 
         if normalize:

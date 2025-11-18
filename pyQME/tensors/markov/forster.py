@@ -64,7 +64,7 @@ class ForsterTensor(RelTensorMarkov):
         
         self.rates = self.transform(rates)
         
-    def _calc_rates_freq_domain(self,*args,**kwargs):
+    def _calc_rates_freq_domain(self,*args,return_spec=False,**kwargs):
             """This function computes the Forster energy transfer rates by directly calculating the overlap between the fluorescence spectrum of the donor and the absorption spectrum of the acceptor."""
 
             lin_spec = SecularSpectraCalculator(self,*args,**kwargs)
@@ -90,6 +90,9 @@ class ForsterTensor(RelTensorMarkov):
             rates[np.diag_indices_from(rates)] = -np.sum(rates,axis=0)
 
             self.rates = rates #self.transform(rates)
+            
+            if return_spec:
+                return w,OD_a,FL_a
 
     
     def _calc_tensor(self):

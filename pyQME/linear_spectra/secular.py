@@ -251,7 +251,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         return freq,abs_OD_i
     
     @add_attributes(spec_type='fluo',units_type='lineshape',spec_components='exciton')
-    def calc_fluo_lineshape_a(self,dipoles,eq_pop=None,freq=None):
+    def calc_fluo_lineshape_a(self,dipoles,eq_pop=None,freq=None,normalize_eqpop=True):
         """Compute fluorescence spectrum.
 
         Arguments
@@ -268,7 +268,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         FL: np.array(dtype = np.float), shape = (freq.size)
             fluorescence intensity.
             units: same as dipoles^2"""
-        self._calc_time_fluo_a(dipoles,eq_pop=eq_pop)
+        self._calc_time_fluo_a(dipoles,eq_pop=eq_pop,normalize_eqpop=normalize_eqpop)
                
         self.fluo_lineshape_a = np.zeros([self.dim,self.freq.size])
         for a in range(self.dim):
@@ -298,7 +298,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         if not self.include_xi_imag:
             self.xi_at_fluo.imag = 0.
     
-    def _calc_time_fluo_a(self,dipoles,eq_pop=None):
+    def _calc_time_fluo_a(self,dipoles,eq_pop=None,normalize_eqpop=True):
         """This function calculates and stores the single-exciton contribution to the fluorescence spectrum in the time domain.
         
         Arguments
@@ -325,8 +325,9 @@ class SecularSpectraCalculator(SpectraCalculator):
 
         if eq_pop is None:
             eq_pop = self.rel_tensor.get_eq_pop_fluo()
-        Z = (eq_pop*self.excd2).sum()
-        eq_pop = eq_pop/Z
+        if normalize_eqpop:
+            Z = (eq_pop*self.excd2).sum()
+            eq_pop = eq_pop/Z
         self.eq_pop = eq_pop
         
         #compute the spectra in the time domain for each exciton without summing up

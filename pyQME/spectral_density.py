@@ -101,6 +101,9 @@ class SpectralDensity():
             units in which the time_axis is provided
             can be 'cm', 'ps' or 'fs'"""
 
+        #create a copy to avoid overwriting
+        time_axis=time_axis.copy()
+        
         #convert time_axis to cm
         if units=='ps':
             time_axis *= wn2ips
@@ -159,12 +162,12 @@ class SpectralDensity():
     def _symm_freqs(self):
         "This function creates symmetrical freq axis and spectral densities."
 
-        if self.w[0] == 0:
-            self.omega = np.concatenate((-self.w[:1:-1],self.w))
-            self.Cw = np.asarray([(np.concatenate((-SD[:1:-1],SD))) for SD in self.SD])
-        else:
-            self.omega = np.concatenate((-self.w[::-1],self.w))
-            self.Cw = np.asarray([np.concatenate((-SD[::-1],SD)) for SD in self.SD])
+        # if self.w[0] == 0:
+        #     self.omega = np.concatenate((-self.w[:1:-1],self.w))
+        #     self.Cw = np.asarray([(np.concatenate((-SD[:1:-1],SD))) for SD in self.SD])
+        # else:
+        self.omega = np.concatenate((-self.w[::-1],self.w))
+        self.Cw = np.asarray([np.concatenate((-SD[::-1],SD)) for SD in self.SD])
         pass
 
     def _gen_spline_repr(self,imag=True,derivs=False):
