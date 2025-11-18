@@ -564,6 +564,8 @@ class RelTensor():
         effective_rates: np.array(dtype=np.float),size=(self.dim,self.dim)
             effective rates in cm-1"""
         
+        dt=dt.copy()
+        
         if units == 'ps':
             dt = dt*wn2ips #transform from ps to cm
             

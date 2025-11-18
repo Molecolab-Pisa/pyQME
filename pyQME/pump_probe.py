@@ -283,7 +283,7 @@ class PumpProbeCalculator():
         self.W_ESA_a = W_ESA_a
 
         if freq is None:
-          return self.freq, self.W_GSB_a, self.W_SE_a, self.W_ESA_a
+            return self.freq, self.W_GSB_a, self.W_SE_a, self.W_ESA_a
 
         else:
             # Possibly interpolate results and calculate them on the provided frequency axis
