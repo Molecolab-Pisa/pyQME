@@ -31,7 +31,7 @@ class ForsterTensor(RelTensorMarkov):
         ham = np.diag(np.diag(ham))
         super().__init__(H=ham.copy(),specden=specden,SD_id_list=SD_id_list,initialize=initialize,specden_adiabatic=specden_adiabatic)
     
-    def _calc_rates(self):
+    def _calc_rates(self, threshold=1e-2):
         """This function computes the Forster energy transfer rates"""
         
         gt = self.specden.get_gt()
@@ -42,21 +42,22 @@ class ForsterTensor(RelTensorMarkov):
             gD = gt[self.SD_id_list[D]]
             ReorgD = Reorg[self.SD_id_list[D]]
             for A in range(D+1,self.dim):
-                gA = gt[self.SD_id_list[A]]
-                ReorgA = Reorg[self.SD_id_list[A]]
+                if abs(self.V[A,D]) >= threshold: # do not compute the rate if the coupling is negligible
+                    gA = gt[self.SD_id_list[A]]
+                    ReorgA = Reorg[self.SD_id_list[A]]
 
-                # D-->A rate
-                energy_gap = self.H[A,A]-self.H[D,D]
-                exponent = 1j*(energy_gap+2*ReorgD)*time_axis+gD+gA
-                integrand = np.exp(-exponent)
-                integral = np.trapz(integrand,time_axis)
-                rates[A,D] =  2. * ((self.V[A,D]/h_bar)**2) * integral.real
+                    # D-->A rate
+                    energy_gap = self.H[A,A]-self.H[D,D]
+                    exponent = 1j*(energy_gap+2*ReorgD)*time_axis+gD+gA
+                    integrand = np.exp(-exponent)
+                    integral = np.trapz(integrand,time_axis)
+                    rates[A,D] =  2. * ((self.V[A,D]/h_bar)**2) * integral.real
 
-                # A-->D rate
-                exponent = 1j*(-energy_gap+2*ReorgA)*time_axis+gD+gA
-                integrand = np.exp(-exponent)
-                integral = np.trapz(integrand,time_axis)
-                rates[D,A] =  2. * ((self.V[A,D]/h_bar)**2) * integral.real
+                    # A-->D rate
+                    exponent = 1j*(-energy_gap+2*ReorgA)*time_axis+gD+gA
+                    integrand = np.exp(-exponent)
+                    integral = np.trapz(integrand,time_axis)
+                    rates[D,A] =  2. * ((self.V[A,D]/h_bar)**2) * integral.real
 
         #fix diagonal
         rates[np.diag_indices_from(rates)] = 0.0
