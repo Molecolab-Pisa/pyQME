@@ -70,6 +70,11 @@ class SpectralDensity():
             SD = np.atleast_2d(SD)[:,1:]
             warn('Removing zero from frequency axis!')
             
+        #check that the frequency axis is equally spaced
+        diffs = np.diff(w)
+        if not np.allclose(diffs, diffs[0]):
+            raise ValueError('Frequency axis is not uniformly spaced!')
+
         #check that the frequency axis hasn't holes bewteen zero and the first element
         if w[0]-1e-10>w[1]-w[0]:
             raise ValueError('The frequency axis of the Spectral Density must not contain holes between zero and the first element!')
