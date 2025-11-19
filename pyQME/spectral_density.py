@@ -3,6 +3,7 @@ import numpy as np
 import scipy.fftpack as fftpack
 import psutil
 from tqdm import tqdm
+from warnings import warn
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 
@@ -67,6 +68,11 @@ class SpectralDensity():
         if np.abs(w[0]) < 1e-15:
             w = w[1:]
             SD = np.atleast_2d(SD)[:,1:]
+            warn('Removing zero from frequency axis!')
+            
+        #check that the frequency axis hasn't holes bewteen zero and the first element
+        if w[0]-1e-10>w[1]-w[0]:
+            raise ValueError('The frequency axis of the Spectral Density must not contain holes between zero and the first element!')
 
         #store the variables given as input
         self.w  = w.copy()
