@@ -98,7 +98,7 @@ class ForsterTensorDouble(RelTensorDoubleMarkov):
         dephasing: np.array(np.complex), shape = (self.dim)
             dephasing rates in cm^-1-"""
         
-        if not hasattr(self,'rates'):
-            self._calc_rates()
-        dephasing = -0.5*np.diag(self.rates)
-        self.dephasing = dephasing
+        # if not hasattr(self,'rates'):
+        #     self._calc_rates()
+        # dephasing = -0.5*np.diag(self.rates)
+        self.dephasing = np.zeros(self.dim,dtype=np.complex128)

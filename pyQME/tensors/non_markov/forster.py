@@ -90,9 +90,9 @@ class ForsterTensor(RelTensorNonMarkov):
         time_axis = self.specden.time
         xi_at = np.zeros([self.dim,time_axis.size],dtype=np.complex128)
         
-        rates_abt = self.get_rates()
-        rates_aat = np.einsum('aat->at',rates_abt)
-        xi_at.real = contract('at,t->at',-0.5*rates_aat,time_axis)
+        # rates_abt = self.get_rates()
+        # rates_aat = np.einsum('aat->at',rates_abt)
+        # xi_at.real = contract('at,t->at',-0.5*rates_aat,time_axis)
         self.xi_at = xi_at
         
     def _calc_xi_fluo(self):

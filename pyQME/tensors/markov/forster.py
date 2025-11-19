@@ -65,18 +65,21 @@ class ForsterTensor(RelTensorMarkov):
         
         self.rates = self.transform(rates)
         
-    def _calc_rates_freq_domain(self,*args,return_spec=False,**kwargs):
+    def _calc_rates_freq_domain(self,*args,return_spec=False,w=None,**kwargs):
             """This function computes the Forster energy transfer rates by directly calculating the overlap between the fluorescence spectrum of the donor and the absorption spectrum of the acceptor."""
 
+            if return_spec and w is None:
+                raise ValueError('Please provide frequency axis as input using the optional argument w')
+            
             lin_spec = SecularSpectraCalculator(self,*args,**kwargs)
 
             dipoles = np.zeros([self.dim,3])
             dipoles[:,0] = np.sqrt(1./self.dim)
 
-            w,OD_a = lin_spec.calc_abs_lineshape_a(dipoles)
+            _,OD_a = lin_spec.calc_abs_lineshape_a(dipoles,freq=w)
             OD_a /= np.trapz(OD_a,axis=1,x=w)[:,None]
 
-            w,FL_a = lin_spec.calc_fluo_lineshape_a(dipoles,eq_pop=np.ones(self.dim))
+            _,FL_a = lin_spec.calc_fluo_lineshape_a(dipoles,eq_pop=np.ones(self.dim),freq=w)
             FL_a /= np.trapz(FL_a,axis=1,x=w)[:,None]
 
             rates = np.zeros([self.dim,self.dim])
@@ -93,7 +96,7 @@ class ForsterTensor(RelTensorMarkov):
             self.rates = rates #self.transform(rates)
             
             if return_spec:
-                return w,OD_a,FL_a
+                return OD_a,FL_a
 
     
     def _calc_tensor(self):
@@ -109,13 +112,16 @@ class ForsterTensor(RelTensorMarkov):
         pass
     
     def _calc_dephasing(self):
-        """This function calculates and stores the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation."""
+        self.dephasing = np.zeros(self.dim,dtype=np.complex128)
+    
+#     def _calc_dephasing(self):
+#         """This function calculates and stores the dephasing rates due to the finite lifetime of excited states. This is used for optical spectra simulation."""
         
-        if hasattr(self,'RTen'):
-            dephasing = -0.5*np.einsum('aaaa->a',self.RTen)
-        else:
-            dephasing = np.zeros(self.dim,dtype=np.complex128)
-            if not hasattr(self,'rates'):
-                self._calc_rates()
-            dephasing.real = -0.5*np.diag(self.rates)
-        self.dephasing = dephasing
+#         if hasattr(self,'RTen'):
+#             dephasing = -0.5*np.einsum('aaaa->a',self.RTen)
+#         else:
+#             dephasing = np.zeros(self.dim,dtype=np.complex128)
+#             if not hasattr(self,'rates'):
+#                 self._calc_rates()
+#             dephasing.real = -0.5*np.diag(self.rates)
+#         self.dephasing = dephasing

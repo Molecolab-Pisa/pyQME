@@ -322,7 +322,7 @@ class SecularSpectraCalculator(SpectraCalculator):
         #get the squared modulus of dipoles in the exciton basis
         self.excdip = self.rel_tensor.transform(dipoles,ndim=1)
         self.excd2 = np.sum(self.excdip**2,axis=1)
-
+        
         if eq_pop is None:
             eq_pop = self.rel_tensor.get_eq_pop_fluo()
         if normalize_eqpop:
