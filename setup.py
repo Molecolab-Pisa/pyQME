@@ -2,7 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="pyQME",
-    version="0.0.1",
+    use_scm_version=True,           # <-- legge la versione dai tag Git
+    setup_requires=['setuptools_scm'],
     url="https://molimen1.dcci.unipi.it/p.saraceno/pyQME",
     author="Piermarco Saraceno, Lorenzo Cupellini",
     author_email="piermarco.saraceno@phd.unipi.it",
