@@ -10,7 +10,7 @@ from scipy.sparse.linalg import expm_multiply
 from pyQME.spectral_density import SpectralDensity
 from pyQME.linear_spectra import FCE
 from pyQME.tensors import RelTensorMarkov
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis
+from pyQME.utils import overdamped_brownian,underdamped_brownian
 
 
 # # Define the system
@@ -55,6 +55,9 @@ SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
 
 
+SD_obj._calc_Ct_complex_plane()
+
+
 # **Relaxation Tensor (Complex Redfield)**
 
 rel_tens_obj = RelTensorMarkov(H,SD_obj)
@@ -65,7 +68,7 @@ rel_tens_obj = RelTensorMarkov(H,SD_obj)
 spectrum_obj = FCE(rel_tens_obj)   #I didn't check the convergence of this spectrum
 
 
-freq_axis_FL,FL = spectrum_obj.calc_fluo_OD(dipoles=dipoles)   #to be saved
+freq_axis_FL,FL = spectrum_obj.calc_FL(dipoles=dipoles)   #to be saved
 
 
 

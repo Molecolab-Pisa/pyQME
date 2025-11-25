@@ -10,7 +10,7 @@ from pyQME.spectral_density import SpectralDensity
 from pyQME.pump_probe import PumpProbeCalculator
 from pyQME.tensors.markov import RedfieldTensor
 from pyQME.tensors_double.markov import RedfieldTensorDouble
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
+from pyQME.utils import overdamped_brownian,underdamped_brownian,wn2ips
 
 
 # # Define the system
@@ -59,13 +59,6 @@ SD_1_data = SD_1_data + underdamped_brownian(freq_axis_SD,5,30,1000)
 SD_obj = SpectralDensity(freq_axis_SD,[SD_0_data,SD_1_data],temperature=temp)
 
 
-# **Time axis (cm)**
-
-energies = np.diag(H)
-time_axis = get_timeaxis(SD_obj.Reorg,energies,5)
-SD_obj.time = time_axis
-
-
 # **Relaxation Tensors**
 
 rel_tens_obj = RedfieldTensor(H,SD_obj,SD_id_list=[0,1])
@@ -97,7 +90,7 @@ pop_t_exc = np.einsum('tkk->tk',rho_t_exc)
 spectrum_obj = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double)
 
 
-freq_axis,GSB,SE,ESA,PP = spectrum_obj.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
+freq_axis,GSB,SE,ESA,PP = spectrum_obj.calc_pump_probe(dipoles,pop_t_exc)     #to be saved
 
 
 

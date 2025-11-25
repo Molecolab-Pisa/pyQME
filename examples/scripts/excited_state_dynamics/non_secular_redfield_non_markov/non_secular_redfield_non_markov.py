@@ -8,7 +8,7 @@ import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.tensors.non_markov import RedfieldTensor
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
+from pyQME.utils import overdamped_brownian,underdamped_brownian,wn2ips
 
 
 # # Define the system

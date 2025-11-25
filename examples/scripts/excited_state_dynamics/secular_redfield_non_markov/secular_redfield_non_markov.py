@@ -8,7 +8,7 @@ import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.tensors.non_markov import RedfieldTensor
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
+from pyQME.utils import overdamped_brownian,underdamped_brownian,wn2ips
 
 
 # # Define the system
@@ -55,8 +55,9 @@ SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
 
 
 # **Time axis (cm)**
+# 
+# We define an internal time axis for computing integrals
 
-energies = np.diag(H)
 time_axis_ps = np.arange(0,2,0.001)     #to be saved
 time_axis_cm = time_axis_ps*wn2ips
 SD_obj.time = time_axis_cm

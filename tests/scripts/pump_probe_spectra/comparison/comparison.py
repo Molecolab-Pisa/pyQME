@@ -11,7 +11,7 @@ from pyQME.spectral_density import SpectralDensity
 from pyQME.pump_probe import PumpProbeCalculator
 from pyQME.tensors.markov import RedfieldTensor,RedfieldTensor
 from pyQME.tensors_double.markov import RedfieldTensorDouble,RedfieldTensorDouble
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
+from pyQME.utils import overdamped_brownian,underdamped_brownian,wn2ips
 
 
 # # Define the system
@@ -56,13 +56,6 @@ SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
 
 
-# **Time axis (cm)**
-
-energies = np.diag(H)
-time_axis = get_timeaxis(SD_obj.Reorg,energies,5)
-SD_obj.time = time_axis
-
-
 # **Relaxation Tensors**
 
 rel_tens_obj = RedfieldTensor(H,SD_obj)
@@ -91,16 +84,16 @@ pop_t_exc = np.einsum('tkk->tk',rho_t_exc)
 
 # # Spectra calculation
 
-spectrum_obj_diag_approx = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'no xi')
-spectrum_obj_real = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'rR')
+spectrum_obj_diag_approx = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'diag. approx.')
+spectrum_obj_standard = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'sR')
 spectrum_obj_complex = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'cR')
 spectrum_obj_imag = PumpProbeCalculator(rel_tens_obj,rel_tens_obj_double,approximation = 'iR')
 
 
-freq_axis,GSB_diag_approx,SE_diag_approx,ESA_diag_approx,PP_diag_approx = spectrum_obj_diag_approx.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
-_,GSB_real,SE_real,ESA_real,PP_real = spectrum_obj_real.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
-_,GSB_complex,SE_complex,ESA_complex,PP_complex = spectrum_obj_complex.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
-_,GSB_imag,SE_imag,ESA_imag,PP_imag = spectrum_obj_imag.calc_pump_probe_OD(dipoles,pop_t_exc)     #to be saved
+freq_axis,GSB_diag_approx,SE_diag_approx,ESA_diag_approx,PP_diag_approx = spectrum_obj_diag_approx.calc_pump_probe(dipoles,pop_t_exc)     #to be saved
+_,GSB_standard,SE_standard,ESA_standard,PP_standard = spectrum_obj_standard.calc_pump_probe(dipoles,pop_t_exc)     #to be saved
+_,GSB_complex,SE_complex,ESA_complex,PP_complex = spectrum_obj_complex.calc_pump_probe(dipoles,pop_t_exc)     #to be saved
+_,GSB_imag,SE_imag,ESA_imag,PP_imag = spectrum_obj_imag.calc_pump_probe(dipoles,pop_t_exc)     #to be saved
 
 
 
@@ -112,10 +105,10 @@ np.save('GSB_diag_approx',GSB_diag_approx)
 np.save('SE_diag_approx',SE_diag_approx)
 np.save('ESA_diag_approx',ESA_diag_approx)
 np.save('PP_diag_approx',PP_diag_approx)
-np.save('GSB_real',GSB_real)
-np.save('SE_real',SE_real)
-np.save('ESA_real',ESA_real)
-np.save('PP_real',PP_real)
+np.save('GSB_standard',GSB_standard)
+np.save('SE_standard',SE_standard)
+np.save('ESA_standard',ESA_standard)
+np.save('PP_standard',PP_standard)
 np.save('GSB_complex',GSB_complex)
 np.save('SE_complex',SE_complex)
 np.save('ESA_complex',ESA_complex)

@@ -9,7 +9,7 @@ import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.tensors.markov import ModifiedRedfieldTensor
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips
+from pyQME.utils import overdamped_brownian,underdamped_brownian,wn2ips
 
 
 # # Define the system
@@ -53,13 +53,6 @@ SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
-
-
-# **Time axis (cm)**
-
-energies = np.diag(H)
-time_axis = get_timeaxis(SD_obj.Reorg,energies,5)
-SD_obj.time = time_axis
 
 
 # **Relaxation Tensor**

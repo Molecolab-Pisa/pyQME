@@ -4,7 +4,7 @@ from .utils import factOD
 from copy import deepcopy
 from .linear_spectra.spectracalculator import _do_FFT
 from .linear_spectra import SecularSpectraCalculator
-
+from scipy.special import factorial
 
 class PumpProbeCalculator():
     """Class for calculations of pump-probe spectra in the doorway-windows approximation.
@@ -32,9 +32,9 @@ class PumpProbeCalculator():
     approximation: string
         approximation used for the lineshape theory.
         The use of this variable overwrites the use of the "include_xi_single_real","include_xi_double_real",include_xi_single_imag and "include_xi_double_imag" variables.
-        if 'no xi', the xi isn't included (Redfield theory with diagonal approximation).
+        if 'diag. approx.', the xi isn't included (Redfield theory with diagonal approximation).
         if 'iR', the imaginary Redfield theory is used.
-        if 'rR', the real Redfield theory is used.
+        if 'sR', the real Redfield theory is used.
         if 'cR', the complex Redfield theory is used."""
 
     def __init__(self,rel_tensor_single,rel_tensor_double,RWA=None,include_xi_single_real=True,include_xi_single_imag=True,include_xi_double_real=True,include_xi_double_imag=True,approximation=None):
@@ -77,7 +77,7 @@ class PumpProbeCalculator():
                 self.include_xi_double_real = True
                 self.include_xi_double_imag = True
                 
-            elif approximation == 'rR':
+            elif approximation == 'sR':
                 self.include_xi_single_real = True
                 self.include_xi_single_imag = False
                 self.include_xi_double_real = True
@@ -89,7 +89,7 @@ class PumpProbeCalculator():
                 self.include_xi_double_real = False
                 self.include_xi_double_imag = True
                 
-            elif approximation == 'no xi':
+            elif approximation == 'diag. approx.':
                 self.include_xi_single_real = False
                 self.include_xi_single_imag = False
                 self.include_xi_double_real = False
@@ -98,9 +98,9 @@ class PumpProbeCalculator():
                 raise NotImplementedError
                 
         # Get RWA freq
-        self.RWA = RWA
-        if self.RWA is None:
-            self.RWA = self.rel_tensor_single.H.diagonal().min()
+        self._RWA = RWA
+        if self._RWA is None:
+            self._RWA = self.rel_tensor_single.H.diagonal().min()
             
         #consistency checks
         if rel_tensor_single.SD_id_list == rel_tensor_double.SD_id_list:
@@ -109,11 +109,24 @@ class PumpProbeCalculator():
             raise ValueError('Sigle and double excitation relaxation tensor must share the same list of SD ID.')
 
         #consistency checks
-        if not rel_tensor_single.dim == 1 and not rel_tensor_double.dim == int(0.5 * np.math.factorial(rel_tensor_single.dim)/np.math.factorial(rel_tensor_single.dim-2)):
+        if not rel_tensor_single.dim == 1 and not rel_tensor_double.dim == int(0.5 * factorial(rel_tensor_single.dim,exact=False)/factorial(rel_tensor_single.dim-2,exact=False)):
             raise ValueError('The number of double excitons is not compatible with the number of single excitons!')
 
         self.lin_spec_calculator = SecularSpectraCalculator(self.rel_tensor_single,RWA=RWA,include_xi_imag=include_xi_single_imag,include_xi_real=include_xi_single_real,approximation=approximation)
 
+    @property
+    def RWA(self):
+        return self._RWA
+
+    @RWA.setter
+    def RWA(self, value):
+        "This decorator is used when the RWA is changed."
+        
+        self._RWA = value
+
+        #update the frequency axis
+        self._get_freqaxis()
+        
     def _get_freqaxis(self):
         "This function gets the frequency axis for FFT as conjugate axis of self.time and stores it into self.freq."
         
@@ -311,7 +324,7 @@ class PumpProbeCalculator():
 
             return freq, spl_GSB_a, spl_SE_a, spl_ESA_a
 
-    def calc_pump_probe_lineshape_a(self,dipoles,pop_t,freq=None):
+    def calc_pump_probe_exc(self,dipoles,pop_t,freq=None,include_fact=True):
         """This function computes the time-dependent pump probe components for all excitons a, b ... . As such is very memory intensive (BEWARE) 
         
         Arguments
@@ -321,6 +334,8 @@ class PumpProbeCalculator():
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
+        include_fact: Bool (deafult=True)
+            if true, the spectrum is multiplied by factOD and by the frequency axis, to convert from Dipole**2 to optical density units (L · mol-1 · cm-1)
             
         Returns
         -------
@@ -346,14 +361,19 @@ class PumpProbeCalculator():
         GSB_a = W_GSB_a*pop_tot
         t_SE_a = np.einsum('ta,aw->atw',pop_t,W_SE_a)
         t_ESA_a = np.einsum('ta,aw->atw',pop_t,W_ESA_a)
-        
-        tmp_GSB = np.broadcast_to(GSB_a[:, None, :], (GSB_a.shape[0], time_axis_prop_size,GSB_a.shape[1]))
-        t_PP_a = t_SE_a + t_ESA_a + tmp_GSB
-
+                
+        if include_fact:
+            GSB_a *= freq[None,:]*factOD
+            t_SE_a *= freq[None,None,:]*factOD
+            t_ESA_a *= freq[None,None,:]*factOD
+            
+        t_GSB_a = np.broadcast_to(GSB_a[:, None, :], (GSB_a.shape[0], time_axis_prop_size,GSB_a.shape[1]))
+        t_PP_a = t_SE_a + t_ESA_a + t_GSB_a
+            
         return freq,GSB_a,t_SE_a,t_ESA_a,t_PP_a
 
 
-    def calc_pump_probe_components(self,dipoles,pop_t,freq):
+    def calc_pump_probe(self,dipoles,pop_t,freq=None,include_fact=True):
         """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be .
         
         Arguments
@@ -363,6 +383,8 @@ class PumpProbeCalculator():
         freq: np.array(dtype = np.float)
             array of frequencies used to evaluate the spectra in cm^-1.
             if None, the frequency axis is computed using FFT on self.time.
+        include_fact: Bool (deafult=True)
+            if true, the spectrum is multiplied by factOD and by the frequency axis, to convert from Dipole**2 to optical density units (L · mol-1 · cm-1)
             
         Returns
         -------
@@ -386,96 +408,23 @@ class PumpProbeCalculator():
         freq, W_GSB_a, W_SE_a, W_ESA_a = self.calc_components_lineshape(dipoles=dipoles, freq=freq)
                 
         #compute the component of the pump-probe spectra at different delay times according to the populations providd
-        t_GSB = np.einsum('aw->w',W_GSB_a)*pop_tot
+        GSB = np.einsum('aw->w',W_GSB_a)*pop_tot
         t_SE  = np.einsum('ta,aw->tw',pop_t,W_SE_a)
         t_ESA = np.einsum('ta,aw->tw',pop_t,W_ESA_a)
         
-        return freq,t_GSB,t_SE,t_ESA
-
-    def calc_pump_probe_lineshape(self,dipoles,pop_t,freq=None):
-        """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be .
+        if include_fact:
+            GSB *= freq*factOD
+            t_SE *= freq[None,:]*factOD
+            t_ESA *= freq[None,:]*factOD
         
-        Arguments
-        ---------
-        pop_t: np.array(dtype = np.float), shape = (time.size,rel_tensor_single.dim)
-            exciton populations at different delay time.
-        freq: np.array(dtype = np.float)
-            array of frequencies used to evaluate the spectra in cm^-1.
-            if None, the frequency axis is computed using FFT on self.time.
-            
-        Returns
-        -------
-        freq: np.array(dtype = np.float)
-            frequency axis of the spectrum in cm^-1.
-        GSB,SE,ESA,PP: np.array(dtype = np.float), shape = (time.size,freq.size)
-            components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
-            
-        freq,GSB,SE,ESA = self.calc_pump_probe_components(dipoles,pop_t,freq=freq)
-     
-        tmp_GSB = np.broadcast_to(GSB[None, :], (SE.shape[0], GSB.shape[0]))
-        PP = SE + ESA + tmp_GSB
-     
-        return freq,GSB,SE,ESA,PP
+        t_GSB = np.broadcast_to(GSB[None, :], (t_SE.shape[0], GSB.shape[0]))           
+        t_PP = t_GSB+t_SE+t_ESA
+        return freq,GSB,t_SE,t_ESA,t_PP
 
-
-    def calc_pump_probe_OD(self,dipoles,pop_t,freq=None):
-        """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
-        
-        Arguments
-        ---------
-        pop_t: np.array(dtype = np.float), shape = (time.size,rel_tensor_single.dim)
-            exciton populations at different delay time.
-        freq: np.array(dtype = np.float)
-            array of frequencies used to evaluate the spectra in cm^-1.
-            if None, the frequency axis is computed using FFT on self.time.
-            
-        Returns
-        -------
-        freq: np.array(dtype = np.float)
-            frequency axis of the spectrum in cm^-1.
-        GSB,SE,ESA,PP: np.array(dtype = np.float), shape = (time.size,freq.size)
-            components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
-        
-        
-        freq,GSB,SE,ESA,PP = self.calc_pump_probe_lineshape(dipoles,pop_t,freq=freq)
-        GSB *= freq*factOD
-        SE *= freq[None,:]*factOD
-        ESA *= freq[None,:]*factOD
-        PP *= freq[None,:]*factOD
-        return freq,GSB,SE,ESA,PP
-
-    def calc_pump_probe_OD_a(self,dipoles,pop_t,freq=None):
-        """This function computes the pump-probe spectrum. Please note that the function "calc_components_lineshape" must be used before "get_pump_probe".
-        
-        Arguments
-        ---------
-        pop_t: np.array(dtype = np.float), shape = (time.size,rel_tensor_single.dim)
-            exciton populations at different delay time.
-        freq: np.array(dtype = np.float)
-            array of frequencies used to evaluate the spectra in cm^-1.
-            if None, the frequency axis is computed using FFT on self.time.
-            
-        Returns
-        -------
-        freq: np.array(dtype = np.float)
-            frequency axis of the spectrum in cm^-1.
-        GSB,SE,ESA,PP: np.array(dtype = np.float), shape = (time.size,freq.size)
-            components of the pump-probe spectra (molar extinction coefficient in L · cm-1 · mol-1)."""
-        
-        
-        freq,GSB_a,SE_a,ESA_a,PP_a = self.calc_pump_probe_lineshape_a(dipoles,pop_t,freq=freq)
-        GSB_a *= freq[None,:]*factOD
-        SE_a *= freq[None,None,:]*factOD
-        ESA_a *= freq[None,None,:]*factOD
-        PP_a *= freq[None,None,:]*factOD
-        return freq,GSB_a,SE_a,ESA_a,PP_a
-
-
-
-
-
-
-
+    calc_pump_probe_lineshape_a = lambda *args, **kwargs: self.calc_pump_probe_exc(*args, include_fact=False, **kwargs)
+    calc_pump_probe_OD = calc_pump_probe
+    calc_pump_probe_OD_a = calc_pump_probe_exc
+    
 def _interpolate_components(freq,components,new_freq):
     """
     Interpolate spectral components (e.g. GSB,SE,x)
@@ -506,8 +455,3 @@ def _interpolate_components(freq,components,new_freq):
         new_components.append(new_comp)
 
     return new_components
-
-
-
-
-

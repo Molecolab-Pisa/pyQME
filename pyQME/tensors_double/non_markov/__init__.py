@@ -1,1 +1,2 @@
 from .redfield_double import RedfieldTensorDouble
+from .redfield_double import RedfieldTensorDouble as TDRedfieldTensorDouble 

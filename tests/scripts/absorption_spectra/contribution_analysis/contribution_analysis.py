@@ -10,7 +10,7 @@ from scipy.sparse.linalg import expm_multiply
 from pyQME.spectral_density import SpectralDensity
 from pyQME.linear_spectra import SecularSpectraCalculator
 from pyQME.tensors.markov import RedfieldTensor
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis
+from pyQME.utils import overdamped_brownian,underdamped_brownian
 
 
 # # Define the system
@@ -55,13 +55,6 @@ SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
 
 
-# **Time axis (cm)**
-
-energies = np.diag(H)
-time_axis = get_timeaxis(SD_obj.Reorg,energies,5)
-SD_obj.time = time_axis
-
-
 # **Relaxation Tensor (Complex Redfield)**
 
 rel_tens_obj = RedfieldTensor(H,SD_obj)
@@ -72,13 +65,15 @@ rel_tens_obj = RedfieldTensor(H,SD_obj)
 spectrum_obj = SecularSpectraCalculator(rel_tens_obj)
 
 
-freq_axis_OD,OD = spectrum_obj.calc_abs_OD(dipoles=dipoles)
-_,OD_i = spectrum_obj.calc_abs_OD_i(dipoles=dipoles)   #to be saved
-_,OD_a = spectrum_obj.calc_abs_OD_a(dipoles=dipoles)   #to be saved
+freq_axis_OD,OD = spectrum_obj.calc_OD(dipoles=dipoles)
+_,OD_i = spectrum_obj.calc_OD_site(dipoles=dipoles)   #to be saved
+_,OD_ij = spectrum_obj.calc_OD_sitemat(dipoles=dipoles)   #to be saved
+_,OD_a = spectrum_obj.calc_OD_exc(dipoles=dipoles)   #to be saved
 
 
 
 
 #Save to file
 np.save('OD_i',OD_i)
+np.save('OD_ij',OD_ij)
 np.save('OD_a',OD_a)

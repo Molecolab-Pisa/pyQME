@@ -1,9 +1,12 @@
 from scipy.interpolate import UnivariateSpline
 import numpy as np
+from scipy.signal import find_peaks
 import scipy.fftpack as fftpack
 import psutil
 from tqdm import tqdm
-from warnings import warn
+import warnings
+warnings.simplefilter("always")
+
 Kb = 0.695034800 #Boltzmann constant in cm per Kelvin
 wn2ips = 0.188495559215 #conversion factor from ps to cm
 
@@ -68,7 +71,7 @@ class SpectralDensity():
         if np.abs(w[0]) < 1e-15:
             w = w[1:]
             SD = np.atleast_2d(SD)[:,1:]
-            warn('Removing zero from frequency axis!')
+            warnings.warn('Removing zero from frequency axis!')
             
         #check that the frequency axis is equally spaced
         diffs = np.diff(w)
@@ -82,25 +85,23 @@ class SpectralDensity():
         #store the variables given as input
         self.w  = w.copy()
         self.SD = np.atleast_2d(SD).copy()
-
-        #if not given as input, get the time axis as FT conjugate axis of the frequency axis
-        if time is None:
-            time = 2*np.pi*np.fft.fftshift(np.fft.fftfreq(len(self.w),self.w[1]-self.w[0]))
-            time = time[time>=0]
-        self.time = time.copy()
-
-        self.temperature = temperature
-
+        
         #symmetrize the frequency axis and the spectral densities
         self._symm_freqs()
+
+        self.temperature = temperature
        
         #generate a spline representation of each spectral density
         self._gen_spline_repr()
-        
-    
-        #calculate lineshape function
-        self._calc_gt()
 
+        #if not given as input, get the time axis as FT conjugate axis of the frequency axis
+        if time is None:
+            self.find_and_set_opt_time_axis()
+        else:
+            self.time = time.copy()
+            
+        self._calc_gt()
+        
     def set_time_axis(self,time_axis,units='cm'):
         """This function helps the user to set the time axis in arbitrary units
         
@@ -140,6 +141,12 @@ class SpectralDensity():
         #update the lineshape function
         if hasattr(self,'gt'):
             self._calc_gt()
+
+        if hasattr(self,'Ct'):
+            self._calc_Ct()
+
+        if hasattr(self,'Ct_complex_plane'):
+            self._calc_Ct_complex_plane()
 
     def set_temperature(self,T):
         """This function sets the temperature.
@@ -340,7 +347,7 @@ class SpectralDensity():
         "Computes the correlation function of the spectral densities as inverse FT of the real part of the spectral densities."
 
         #perform inverse fourier transform on each spectral density
-        Ct_list = [_do_ifft_complete(self.omega,integ[::-1],self.time) for integ in self.ThermalSD_real]
+        Ct_list = [_do_ifft_complete(self.omega,integ[::-1],self.time) for integ in self.ThermalSD_real ]
 
         self.Ct = np.asarray(Ct_list)
         pass
@@ -743,6 +750,182 @@ class SpectralDensity():
 
         self.Ct_imag_time = Ct_imag_time
         
+    def calc_reorg_from_Ct_imag(self):
+        Ct = self.get_Ct()
+        reorg = -np.trapz(Ct.imag,self.time,axis=1)
+        return reorg
+
+    def find_and_set_opt_time_axis(
+            self,
+            tmax=0.1,
+            dt=None,
+            threshold=0.0001,
+            maxiter=50,
+            n_sample_period=30):
+        """
+        Automatically determines an optimal time axis for computing C(t).
+
+        The procedure performs two tasks:
+
+        1. **Optimize tmax**  
+           Increase tmax iteratively until all correlation functions C(t)  
+           decay below a given threshold (based on the average of the final values).
+
+        2. **Optimize dt (if dt_init is not provided)**  
+           Estimate the dominant oscillation period using peak-finding on C(t)
+           and set dt so that each oscillation is sampled with `n_sample_period` points.
+
+        Parameters
+        ----------
+        tmax : float, optional
+            Initial guess for the end of the time axis.
+        dt : float or None, optional
+            time step. If None, it a first estimate is computed as pi / w_max, and then it's optimized iteratively.
+        threshold : float, optional
+            Threshold used to determine whether C(t) has “stabilized”.
+        maxiter : int, optional
+            Maximum number of iterations allowed when increasing tmax.
+        n_sample_period : int, optional
+            Desired number of sample points per oscillation period.
+
+        Notes
+        -----
+        - If the optimization of tmax fails (after `maxiter` iterations),
+          a warning is issued.
+        - If dt_init is provided, the dt refinement step is skipped.
+        """
+
+        reorg = self.Reorg
+        count = 0
+        found_optimal = False
+
+        # ----------------------------------------------------------
+        # 1) Initial dt estimate
+        # ----------------------------------------------------------
+        dt_is_None=False
+        if dt is None:
+            dt_is_None=True
+            # Use highest vibrational frequency: dt ≈ π / ω_max
+            dt = np.pi / self.w[-1]
+
+        # ----------------------------------------------------------
+        # 2) Initial computation of C(t)
+        # ----------------------------------------------------------
+        self.time = np.arange(0, tmax, dt)
+        self._calc_Ct()
+
+        # Evaluate whether C(t) is already sufficiently decayed
+        avg_final_values = find_final_avg_values(self.time, self.Ct.real)
+        if np.all(avg_final_values < threshold):
+            found_optimal = True
+        else:
+            # ----------------------------------------------------------
+            # 3) Increase tmax until the tail of C(t) is below threshold
+            # ----------------------------------------------------------
+            while not found_optimal:
+                tmax *= 1.2  # expand simulation time by 20%
+                self.time = np.arange(0, tmax, dt)
+                self._calc_Ct()
+
+                avg_final_values = find_final_avg_values(self.time, self.Ct.real)
+                if np.all(avg_final_values < threshold):
+                    found_optimal = True
+
+                count += 1
+                if count > maxiter:
+                    warnings.warn("Automatic optimization of the time axis failed. "
+                         "Please, check the correlation function using the get_Ct() method. If it diverges, provide a more dense frequency axis."
+                         "If it hasn't diverged, please call SpectralDensity.find_and_set_opt_time_axis manually with a larger threshold (default=0.0001)")
+                    break
+
+        # ----------------------------------------------------------
+        # 4) If dt_init was NOT provided, refine dt using oscillation periods
+        # ----------------------------------------------------------
+        if dt_is_None:
+            dt_list = np.empty(self.nsds)
+
+            for i in range(self.nsds):
+                # Locate positive peaks of C_i(t)
+                peaks, _ = find_peaks(self.Ct[i].real, height=0.)
+
+                # Need at least two peaks to estimate a period
+                if len(peaks) < 2:
+                    continue
+
+                # Estimate oscillation period from first two peaks
+                period = self.time[peaks[1]] - self.time[peaks[0]]
+
+                # dt = period / number of desired samples per period
+                dt_list[i] = period / n_sample_period
+
+            # Use smallest dt to ensure adequate sampling
+            dt = dt_list.min()
+
+        # ----------------------------------------------------------
+        # 5) Recompute C(t) on the final optimized time grid
+        # ----------------------------------------------------------
+        self.time = np.arange(0, tmax, dt)
+        self._calc_Ct()
+
+def find_final_avg_values(time, C):
+    """
+    Compute the average tail value of each C_i(t),
+    used to check whether the dynamics has 'converged'.
+
+    Parameters
+    ----------
+    time : array
+        Time grid.
+    C : array (nsds, nt)
+        Real part of C(t) for each spectral density.
+
+    Returns
+    -------
+    avg_values : array (nsds,)
+        Average value of the tail of each C_i(t).
+    """
+    nsds = C.shape[0]
+    avg_values = np.zeros(nsds)
+
+    for i in range(nsds):
+        C_i = C[i]             # FIXED: previously incorrectly used C[0]
+        avg_values[i] = find_final_avg_value(time, C_i)
+
+    return avg_values
+
+    
+def find_final_avg_value(time, C):
+    """
+    Find the average of the last two maxima of a correlation function using scipy.signal.find_peaks.
+
+    Parameters
+    ----------
+    time : array-like
+        The time axis corresponding to the correlation function values.
+    C : array-like
+        The correlation function values.
+
+    Returns
+    -------
+    float or None
+        The average value of the last two maxima in C(t).
+        Returns None if fewer than two maxima are found.
+    """
+
+    # Find positive peaks in the correlation function
+    peaks, _ = find_peaks(C,height=0.)
+
+    # If fewer than two peaks are found, return None
+    if len(peaks) < 2:
+        return None
+
+    # Extract the last two peak values
+    last_two_values = C[peaks[-2:]]  # last two peaks
+    avg_value = np.mean(last_two_values)
+
+    return avg_value/C[0]
+    
+    
 def is_ascending(arr):
     """This function determines whether the Numpy array given as input is ascending.
     

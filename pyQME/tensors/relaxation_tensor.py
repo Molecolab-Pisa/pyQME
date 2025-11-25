@@ -5,6 +5,8 @@ from ..utils import wn2ips
 from copy import deepcopy
 from opt_einsum import contract
 import warnings
+warnings.simplefilter("always")
+from ..spectral_density import SpectralDensity
 
 class RelTensor():
     """Relaxation tensor class in the single-exciton manifold.
@@ -55,8 +57,15 @@ class RelTensor():
         self._calc_weight_aaaa()
         self.Om = self.ene[:,None] - self.ene[None,:]
         
-        if self.Om.max() > self.specden.omega.max():
-            warnings.warn("The frequency axis of the Spectral Density should be defined up to the maximum energy gap of the excitons!")
+        if self.Om.max() > self.specden.w.max():
+            warnings.warn("Warning: The frequency axis of the spectral density does not extend to the maximum exciton energy gap. The missing region will be zero-padded.")
+            w_old = self.specden.w
+            dw = w_old[1]-w_old[0]
+            w_new = np.arange(0,self.Om.max()+dw,dw)
+            zeros = np.zeros((self.specden.nsds,w_new.size-w_old.size))
+            SD_new = np.concatenate((self.specden.SD,zeros),axis=1)
+            self.specden = SpectralDensity(w_new,SD_new,temperature=self.specden.temperature,time=self.specden.time)
+            self._diagonalize_ham()
 
         #if required, compute the relaxation tensor
         if initialize:

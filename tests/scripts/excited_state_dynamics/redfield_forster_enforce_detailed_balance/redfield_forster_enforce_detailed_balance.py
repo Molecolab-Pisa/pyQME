@@ -8,7 +8,7 @@ import numpy as np
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.tensors.markov import RedfieldForsterTensor
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,wn2ips,partition_by_clusters,clusterize_popt,enforce_detailed_balance
+from pyQME.utils import overdamped_brownian,underdamped_brownian,wn2ips,partition_by_clusters,clusterize_popt,enforce_detailed_balance
 
 
 # # Define the system
@@ -69,15 +69,6 @@ SD_data = SD_data + underdamped_brownian(freq_axis_SD,5,50,518)
 
 # Build the spectral density object
 SD_obj = SpectralDensity(freq_axis_SD,SD_data,temperature=temp)
-
-
-# **Time axis (cm)**
-# 
-# We define an internal time axis for computing integrals
-
-energies = np.diag(H)
-time_axis = get_timeaxis(SD_obj.Reorg,energies,5)
-SD_obj.time = time_axis
 
 
 # **Relaxation Tensor**

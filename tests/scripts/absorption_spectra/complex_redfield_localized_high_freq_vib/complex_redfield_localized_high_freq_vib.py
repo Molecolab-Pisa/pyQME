@@ -9,7 +9,7 @@ from scipy.sparse.linalg import expm_multiply
 
 from pyQME.spectral_density import SpectralDensity
 from pyQME.tensors.markov import RedfieldTensor
-from pyQME.utils import overdamped_brownian,underdamped_brownian,get_timeaxis,calc_spec_localized_vib
+from pyQME.utils import overdamped_brownian,underdamped_brownian,calc_spec_localized_vib
 
 
 # # Define the system
@@ -55,7 +55,7 @@ SD_obj_low = SpectralDensity(freq_axis_SD,SD_data_low,temperature=temp)
 SD_obj_high = SpectralDensity(freq_axis_SD,SD_data_high,temperature=temp)
 
 
-freq_axis_OD,OD = calc_spec_localized_vib(SD_obj_low,SD_obj_high,H,dipoles,RedfieldTensor,spec_type='abs',units_type='OD')   #to be saved
+freq_axis_OD,OD = calc_spec_localized_vib(SD_obj_low,SD_obj_high,H,dipoles,RedfieldTensor,spec_type='abs')   #to be saved
 
 
 

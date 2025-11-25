@@ -76,10 +76,10 @@ class ForsterTensor(RelTensorMarkov):
             dipoles = np.zeros([self.dim,3])
             dipoles[:,0] = np.sqrt(1./self.dim)
 
-            _,OD_a = lin_spec.calc_abs_lineshape_a(dipoles,freq=w)
+            _,OD_a = lin_spec.calc_OD_exc(dipoles,freq=w,include_fact=False)
             OD_a /= np.trapz(OD_a,axis=1,x=w)[:,None]
 
-            _,FL_a = lin_spec.calc_fluo_lineshape_a(dipoles,eq_pop=np.ones(self.dim),freq=w)
+            _,FL_a = lin_spec.calc_fluo_exc(dipoles,eq_pop=np.ones(self.dim),freq=w,include_fact=False)
             FL_a /= np.trapz(FL_a,axis=1,x=w)[:,None]
 
             rates = np.zeros([self.dim,self.dim])
