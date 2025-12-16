@@ -2,7 +2,7 @@ import numpy as np
 from ..relaxation_tensor import RelTensor
 from .modified_redfield import ModifiedRedfieldTensor
 from ...utils import h_bar
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from opt_einsum import contract
 
 class ModifiedRedfieldForsterTensor(ModifiedRedfieldTensor):
@@ -219,7 +219,7 @@ def MRF_rates_loop_non_markov(Om,V_exc,redf_xi_abs,redf_xi_fluo,time_axis,g_aabb
                 square_brakets = 2*(gdot_abbb[D,A] - gdot_abbb[A,D] - 2*1j*reorg_aaab[D,A])
                 integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag
 
-                rates[A,D,1:] = cumtrapz(integrand,x=time_axis)
+                rates[A,D,1:] = cumulative_trapezoid(integrand,x=time_axis)
 
                 #A-->D rate
 
@@ -234,7 +234,7 @@ def MRF_rates_loop_non_markov(Om,V_exc,redf_xi_abs,redf_xi_fluo,time_axis,g_aabb
                 square_brakets = 2*(gdot_abbb[A,D] - gdot_abbb[D,A] - 2*1j*reorg_aaab[A,D])
                 integrand = integrand + 2*V_exc[D,A]*(spectral_overlap_time*square_brakets).imag    
 
-                rates[D,A,1:] = cumtrapz(integrand,x=time_axis)
+                rates[D,A,1:] = cumulative_trapezoid(integrand,x=time_axis)
                 
     nchrom=Om.shape[0]
     
