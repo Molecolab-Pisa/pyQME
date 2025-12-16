@@ -318,7 +318,7 @@ class SpectralDensity():
             array of reorganization energies of the spectral densities."""
 
         #integrate the spectral density
-        reorg = np.trapz(self.Cw/self.omega,self.omega,axis=1)
+        reorg = np.trapezoid(self.Cw/self.omega,self.omega,axis=1)
 
         #scaling factor
         reorg = reorg/(2*np.pi)
@@ -339,7 +339,7 @@ class SpectralDensity():
         #integrate each spectral density
         for Cw in self.Cw:
             integ = Cw[self.omega>0]/(np.pi*(self.omega[self.omega>0])**2)
-            hr.append(np.trapz( integ,self.omega[self.omega>0]))
+            hr.append(np.trapezoid( integ,self.omega[self.omega>0]))
         hr = np.asarray(hr)
         return hr
 
@@ -593,8 +593,8 @@ class SpectralDensity():
         integrand /= np.sinh(0.5*w[:,np.newaxis,np.newaxis]*beta)
         integrand *= SD[:, np.newaxis, np.newaxis] / (np.pi)
         
-        # Perform the integration using np.trapz along the w axis
-        Ct_complex = np.trapz(integrand, w, axis=0)
+        # Perform the integration using np.trapezoid along the w axis
+        Ct_complex = np.trapezoid(integrand, w, axis=0)
         
         del integrand
 
@@ -627,7 +627,7 @@ class SpectralDensity():
                 integrand  = np.cosh(w*(0.5*beta-1j*(s_i-1j*tau_i)))
                 integrand /= np.sinh(0.5*w*beta)
                 integrand *= SD/np.pi
-                Ct_complex[s_idx,tau_idx] = np.trapz(integrand,w)
+                Ct_complex[s_idx,tau_idx] = np.trapezoid(integrand,w)
         return Ct_complex
 
     def calc_Ct_complex_plane_one_loop_0_to_beta(self,SD):
@@ -657,7 +657,7 @@ class SpectralDensity():
             integrand  = np.cosh(w[:,np.newaxis]*(0.5*beta-1j*(time_axis[np.newaxis,:]-1j*tau_i)))
             integrand /= np.sinh(0.5*w[:,np.newaxis]*beta)
             integrand *= SD[:,np.newaxis]/np.pi
-            Ct_complex[:,tau_idx] = np.trapz(integrand,w,axis=0)
+            Ct_complex[:,tau_idx] = np.trapezoid(integrand,w,axis=0)
         return Ct_complex
 
     def calc_Ct_complex_plane_one_loop_0_to_tmax(self,SD):
@@ -687,7 +687,7 @@ class SpectralDensity():
             integrand  = np.cosh(w[:,np.newaxis]*(0.5*beta-1j*(s_i-1j*time_axis_0_to_beta[np.newaxis,:])))
             integrand /= np.sinh(0.5*w[:,np.newaxis]*beta)
             integrand *= SD[:,np.newaxis]/np.pi
-            Ct_complex[s_idx] = np.trapz(integrand,w,axis=0)
+            Ct_complex[s_idx] = np.trapezoid(integrand,w,axis=0)
         return Ct_complex
     
     def _calc_Gamma_HCE_loop_over_time(self):
@@ -700,7 +700,7 @@ class SpectralDensity():
             SD_i = SD_list[Z]
             for t_idx in tqdm(range(time_axis.size)):
                 integrand = SD_i*np.cos(w*time_axis[t_idx])/w
-                Gamma_HCE_Zt[Z,t_idx] = np.trapz(integrand,w)
+                Gamma_HCE_Zt[Z,t_idx] = np.trapezoid(integrand,w)
         Gamma_HCE_Zt /= np.pi
         self.Gamma_HCE_Zt = Gamma_HCE_Zt
     
@@ -743,8 +743,8 @@ class SpectralDensity():
             integrand /= np.sinh(0.5*w[:,np.newaxis]*beta)
             integrand *= SD[:, np.newaxis] / (np.pi)
         
-            # Perform the integration using np.trapz along the w axis
-            Ct_imag_time[Z] = np.trapz(integrand, w, axis=0)
+            # Perform the integration using np.trapezoid along the w axis
+            Ct_imag_time[Z] = np.trapezoid(integrand, w, axis=0)
         
         del integrand
 
@@ -752,7 +752,7 @@ class SpectralDensity():
         
     def calc_reorg_from_Ct_imag(self):
         Ct = self.get_Ct()
-        reorg = -np.trapz(Ct.imag,self.time,axis=1)
+        reorg = -np.trapezoid(Ct.imag,self.time,axis=1)
         return reorg
 
     def find_and_set_opt_time_axis(

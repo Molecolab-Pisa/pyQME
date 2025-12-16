@@ -2,7 +2,7 @@ import numpy as np
 from ..relaxation_tensor_double import RelTensorDoubleNonMarkov
 from ...utils import _get_H_double
 from opt_einsum import contract
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 
 class RedfieldTensorDouble(RelTensorDoubleNonMarkov):
     """Redfield Tensor class where Redfield Theory (https://doi.org/10.1016/B978-1-4832-3114-3.50007-6) is used to model energy transfer processes.
@@ -71,7 +71,7 @@ class RedfieldTensorDouble(RelTensorDoubleNonMarkov):
                     exp = np.exp(1j*deltaE_qr[q,r]*time_axis)
                     for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
                         integrand = exp*Ct_list[SD_id]
-                        rates_qrt[q,r,1:] += cumtrapz(integrand,x=time_axis)*weight_qqrr[SD_id,q,r]
+                        rates_qrt[q,r,1:] += cumulative_trapezoid(integrand,x=time_axis)*weight_qqrr[SD_id,q,r]
                    
         rates_qt = np.zeros([nchrom,time_axis.size],dtype=np.complex128)
         for q in range(nchrom):
@@ -79,6 +79,6 @@ class RedfieldTensorDouble(RelTensorDoubleNonMarkov):
                 if not q==r:
                         rates_qt[q] += rates_qrt[q,r]
         xi_qt = np.zeros([nchrom,time_axis.size],dtype=np.complex128)
-        xi_qt[:,1:] += cumtrapz(rates_qt,x=time_axis)
+        xi_qt[:,1:] += cumulative_trapezoid(rates_qt,x=time_axis)
         
         return xi_qt

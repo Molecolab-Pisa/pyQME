@@ -1,7 +1,7 @@
 import numpy as np
 from .redfield import RedfieldTensor
 from ...utils import h_bar
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from opt_einsum import contract
 
    
@@ -213,7 +213,7 @@ def RF_rates_loop_non_markov(time_axis,Om,gt_exc,Reorg_exc,V_exc,redf_xi_abs,red
                 if exponent_yang is not None:
                     exponent = exponent + exponent_yang[A,D]
                 integrand = np.exp(-exponent)
-                integral = cumtrapz(integrand,time_axis)
+                integral = cumulative_trapezoid(integrand,time_axis)
                 rates[A,D,1:] =  2. * ((V_exc[D,A]/h_bar)**2) * integral.real                    
 
                 #A-->D rate
@@ -222,7 +222,7 @@ def RF_rates_loop_non_markov(time_axis,Om,gt_exc,Reorg_exc,V_exc,redf_xi_abs,red
                 if exponent_yang is not None:
                     exponent = exponent + exponent_yang[D,A]
                 integrand = np.exp(-exponent)
-                integral = cumtrapz(integrand,x=time_axis)
+                integral = cumulative_trapezoid(integrand,x=time_axis)
                 rates[D,A,1:] =  2. * ((V_exc[D,A]/h_bar)**2) * integral.real
 
     nchrom=Om.shape[0]
