@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import simps
+from scipy.integrate import simpson
 from scipy.special import comb
 from scipy.interpolate import UnivariateSpline
 from .linear_spectra import SecularSpectraCalculator
@@ -39,7 +39,7 @@ def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
     freq_step = freq_axis[1]-freq_axis[0]
     
     for k,OD in enumerate(OD_k):
-        overlap = simps(OD*pulse) * freq_step  # Overlap of the abs with the pump
+        overlap = simpson(OD*pulse) * freq_step  # Overlap of the abs with the pump
         rho0[k,k] = overlap
     rho0 = rho0/rho0.trace()
     return rho0
@@ -259,7 +259,11 @@ def overdamped_brownian(freq_axis,gamma,lambd):
     -------
     SD: np.array(np.float), shape = (freq_axis.size)
         spectral density modelled using the Overdamped Brownian oscillator model in cm^-1
-        the convention adopted is such that, if you want to check the reorganization energy, you have to divide by the frequency axis and 2*pi"""
+        the convention adopted is such that, if you want to check the reorganization energy, you have to divide by the frequency axis and 2*pi
+        
+    Notes
+    -------
+    This is the same as a Drude-Lorentz spectral density."""
     
     num = 2*lambd*freq_axis*gamma 
     den = freq_axis**2 + gamma**2
@@ -291,34 +295,53 @@ def underdamped_brownian(freq_axis,gamma,lambd,omega):
     den = (omega**2-freq_axis**2)**2 + (freq_axis*gamma)**2
     return num/den
 
-def drude_lorentz_shifted(freq_axis,lam,gamma,omega):
-    eta = lam/gamma
-    num = eta*freq_axis**2*omega
-    den = ((freq_axis+omega)**2+gamma**2) + eta*gamma**2*omega/((freq_axis-omega)**2+gamma**2)
-    spectrum = num/den
-    return spectrum
+def shifted_drude_lorentz(freq_axis, reorg, gamma, shift):
+    """
+    Computes a shifted Drude-Lorentz spectral density (SD) for a set of frequencies.
 
-def drude_lorentz(freq_axis,gamma,lamda):
-    """This function returns a spectral density modelled using the Drude-Lorentz model (S. Mukamel, Principles of Nonlinear Optical Spectroscopy).
+    ```
+    The spectral density is expressed in cm^-1 and models the coupling of a
+    vibrational mode to a thermal bath, with a frequency shift applied.
 
-    Arguments
-    ---------
-    freq_axis: np.array(np.float), shape = (freq_axis.size)
-        frequency axis in cm^-1
-    gamma: np.float
-        damping factor in cm^-1
-    lambd: np.float
-        reorganization energy in cm^-1         
+    Parameters
+    ----------
+    freq_axis : array_like
+        Array of frequencies (in cm^-1) at which the spectral density is evaluated.
+    reorg : float
+        Reorganization energy (in cm^-1), representing the coupling strength
+        between the electronic state and the vibrational bath.
+    gamma : float
+        Damping (or linewidth) parameter (in cm^-1) controlling the broadening
+        of the vibrational mode.
+    shift : float
+        Frequency shift (in cm^-1) applied to the vibrational mode. The spectral
+        density is symmetric with respect to +shift and -shift.
 
     Returns
     -------
-    SD: np.array(np.float), shape = (freq_axis.size)
-    spectral density modelled using the Drude-Lorentz model in cm^-1
-    the convention adopted is such that, if you want to check the reorganization energy, you have to divide by the frequency axis and 2*pi"""
+    SD : ndarray
+        Spectral density evaluated at each frequency in freq_axis (in cm^-1).
 
-    num = 2*lamda*gamma*freq_axis
-    den = (freq_axis)**2 + gamma**2
-    return num/den
+    Notes
+    -----
+    The formula implemented is a sum of two Lorentzian-like terms:
+        SD(ω) = (λ * ω * γ) / ((ω - ω₀)^2 + γ^2) + (λ * ω * γ) / ((ω + ω₀)^2 + γ^2)
+    where λ is the reorganization energy, γ the damping, and ω₀ the shift.
+
+    All quantities are expressed in wavenumbers (cm^-1).
+    """
+
+    # Numerator: reorganization energy times frequency times damping
+    num = reorg * freq_axis * gamma  # [cm^-1 * cm^-1 * cm^-1 = cm^-3]
+
+    # Denominators for shifted Lorentzian terms
+    den = (freq_axis - shift)**2 + gamma**2  # [(cm^-1)^2 + (cm^-1)^2 = cm^-2]
+    den1 = (freq_axis + shift)**2 + gamma**2
+
+    # Shifted Drude-Lorentz spectral density (sum of two terms)
+    SD = num / den + num / den1  # [cm^-3 / cm^-2 = cm^-1]
+
+    return SD
 
 def get_timeaxis(reorg,energies,maxtime):
     """This function returns a time axis. The time step is calculated appropriately to treat a system with exciton energies and corresponding reorganization energies given as input.
@@ -630,7 +653,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
         
     #initialize spectral densities from input
     w_changed=False
-    t_change=False
+    t_changed=False
     
     #make sure that all SD objects have the same frequency axis
     if np.array_equal(SDobj_delocalized.w,SDobj_localized.w):
@@ -735,7 +758,7 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     spec_high_a = spec_diag_a - spec_low_no_coup_a
     #sometimes, for numerical reasons, the localized 0-0 band doesn't cancel perfectly when the difference above is calculated, and spec_high is negative.. below we make sure that this happens, exciton by exciton, and where it is negative, we set it to zero (we also set the corresponding positive part to zero)
     for a in range(nchrom):
-        if np.any(spec_high_a[a]<1e-3):
+        if np.any(spec_high_a[a]<-1e-3) and spec_high_a[a].max()>0.:
             msk=np.abs(spec_high_a[a]/spec_high_a[a].max())<threshold_fact
             spec_high_a[a,msk] = 0 #FIXME IMPLEMENT THIS CHECK: if w_vib is small, we cannot just set the spec_high[a,mask] = 0.
 
@@ -753,9 +776,9 @@ def calc_spec_localized_vib(SDobj_delocalized,SDobj_localized,H,dipoles,rel_tens
     #return the results, separating the cases
     if return_components:
         if spec_components is None:
-            return freq,spec_low,spec_high,spec
+            return freq,spec_low,spec_diag,spec_low_no_coup,spec
         elif spec_components=='exciton':
-            return freq,spec_low_a,spec_high_a,spec_a
+            return freq,spec_low_a,spec_diag_a,spec_low_no_coup_a,spec_a
     else:
         if spec_components is None:
             return freq,spec
