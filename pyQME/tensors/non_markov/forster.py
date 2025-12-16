@@ -1,7 +1,7 @@
 import numpy as np
 from ..relaxation_tensor import RelTensorNonMarkov
 from ...utils import h_bar,factOD
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from opt_einsum import contract
 
 class ForsterTensor(RelTensorNonMarkov):
@@ -54,13 +54,13 @@ class ForsterTensor(RelTensorNonMarkov):
                 energy_gap = self.H[A,A]-self.H[D,D]
                 exponent = 1j*(energy_gap+2*ReorgD)*time_axis+gD+gA
                 integrand = np.exp(-exponent)
-                integral = cumtrapz(integrand,x=time_axis)
+                integral = cumulative_trapezoid(integrand,x=time_axis)
                 rates[A,D,1:] =  2. * ((self.V[A,D]/h_bar)**2) * integral.real
 
                 # A-->D rate
                 exponent = 1j*(-energy_gap+2*ReorgA)*time_axis+gD+gA
                 integrand = np.exp(-exponent)
-                integral = cumtrapz(integrand,x=time_axis)
+                integral = cumulative_trapezoid(integrand,x=time_axis)
                 rates[D,A,1:] =  2. * ((self.V[A,D]/h_bar)**2) * integral.real
 
         #fix diagonal
