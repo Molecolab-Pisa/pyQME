@@ -3,8 +3,6 @@
 
 # pyQME
 
-![Project Logo](assets/logo.png)
-
 pyQME is a Package for Open Quantum System Dynamics and spectroscopies simulations in the exciton framework, written in Python 3.
 
 ## Disclaimer and Copyright

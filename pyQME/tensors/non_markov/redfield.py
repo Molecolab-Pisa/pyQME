@@ -3,7 +3,7 @@ from ..relaxation_tensor import RelTensorNonMarkov
 from opt_einsum import contract
 from tqdm import tqdm
 from scipy.sparse.linalg import expm_multiply
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import cumtrapz
 from scipy import linalg as la
 
 class RedfieldTensor(RelTensorNonMarkov):
@@ -62,7 +62,7 @@ class RedfieldTensor(RelTensorNonMarkov):
                     exp = np.exp(-1j*deltaE_ab[a,b]*time_axis)
                     for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
                         integrand = exp*Ct_list[SD_id]
-                        rates_abt[a,b,1:] += 2*cumulative_trapezoid(integrand.real,x=time_axis)*weight_aabb[SD_id,a,b]
+                        rates_abt[a,b,1:] += 2*cumtrapz(integrand.real,x=time_axis)*weight_aabb[SD_id,a,b]
                             
         #fix diagonal
         for t_idx in range(time_axis.size):
@@ -106,7 +106,7 @@ class RedfieldTensor(RelTensorNonMarkov):
             for b in range(nchrom):
                 exp = np.exp(1j*deltaE_ab[a,b]*time_axis)
                 for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
-                    integral = cumulative_trapezoid(exp*Ct_list[SD_id],x=time_axis)
+                    integral = cumtrapz(exp*Ct_list[SD_id],x=time_axis)
                     gamma_abcdt[a,b,:,:,1:] += contract('t,cd->cdt',integral,weight_abcd[SD_id,a,b])
                     
         RTen = self._from_GammaF_to_RTen(gamma_abcdt)        
@@ -168,7 +168,7 @@ class RedfieldTensor(RelTensorNonMarkov):
                     exp = np.exp(1j*deltaE_ab[a,b]*time_axis)
                     for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
                         integrand = exp*Ct_list[SD_id]
-                        rates_abt[a,b,1:] += cumulative_trapezoid(integrand,x=time_axis)*weight_aabb[SD_id,a,b]
+                        rates_abt[a,b,1:] += cumtrapz(integrand,x=time_axis)*weight_aabb[SD_id,a,b]
                    
         rates_at = np.zeros([nchrom,time_axis.size],dtype=np.complex128)
         for a in range(nchrom):
@@ -176,7 +176,7 @@ class RedfieldTensor(RelTensorNonMarkov):
                 if not a==b:
                         rates_at[a] += rates_abt[a,b]
         xi_at = np.zeros([nchrom,time_axis.size],dtype=np.complex128)
-        xi_at[:,1:] += cumulative_trapezoid(rates_at,x=time_axis)
+        xi_at[:,1:] += cumtrapz(rates_at,x=time_axis)
         
         return xi_at
     
@@ -244,10 +244,10 @@ class RedfieldTensor(RelTensorNonMarkov):
                     exp = np.exp(1j*deltaE_ab[a,b]*time_axis)
                     for SD_idx,SD_id in enumerate([*set(SD_id_list)]):
                         integrand = exp*Ct_list[SD_id].conj()
-                        rates_abt[a,b,1:] += cumulative_trapezoid(integrand,x=time_axis)*weight_aabb[SD_id,a,b]
+                        rates_abt[a,b,1:] += cumtrapz(integrand,x=time_axis)*weight_aabb[SD_id,a,b]
                    
         xi_tilde_cc_abt = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
-        xi_tilde_cc_abt[:,:,1:] += cumulative_trapezoid(rates_abt,x=time_axis)        
+        xi_tilde_cc_abt[:,:,1:] += cumtrapz(rates_abt,x=time_axis)        
         return xi_tilde_cc_abt
     
     def _calc_xi_fluo(self):
