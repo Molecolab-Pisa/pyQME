@@ -1,6 +1,6 @@
 import numpy as np
 from .redfield import RedfieldTensor
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import cumtrapz
 
 class ModifiedRedfieldTensor(RedfieldTensor):
     """Modified Redfield Tensor class where Modified Redfield Theory (https://doi.org/10.1063/1.476212) is used to model energy transfer processes.
@@ -154,7 +154,7 @@ class ModifiedRedfieldTensor(RedfieldTensor):
         return RTen
     
 def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis,xi_abs,xi_fluo):
-    r"""This function computes the Modified Redfield energy transfer rates in cm^-1
+    """This function computes the Modified Redfield energy transfer rates in cm^-1
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier.
     
     Arguments
@@ -215,7 +215,7 @@ def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,g
     return rates
 
 def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,xi_abs,xi_fluo,weight_aabb):
-    r"""This function computes the Modified Redfield energy transfer rates in cm^-1.
+    """This function computes the Modified Redfield energy transfer rates in cm^-1.
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier.
     
     Arguments
@@ -258,7 +258,7 @@ def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,t
                 tmp = gdot_abbb[A,D]-gdot_abbb[D,A]+2*1j*reorg_aaab[D,A]
                 g_derivatives_term = gddot_abba[D,A]-tmp**2
                 integrand = np.exp(-exponent)*g_derivatives_term
-                integrals = cumulative_trapezoid(integrand*damper,time_axis)
+                integrals = cumtrapz(integrand*damper,time_axis)
                 rates[A,D,1:] = 2.*integrals.real
     
     return rates
