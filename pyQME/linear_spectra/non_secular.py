@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import norm as scipy_norm
 from opt_einsum import contract
 import psutil
@@ -193,12 +193,12 @@ class NonSecularSpectraCalculator(SpectraCalculator):
                     for Z_idx,Z in enumerate([*set(SD_id_list)]):
                         Ct_complex = Ct_list[Z]
                         integrand_s = np.exp(1j*Om[b,c]*time_axis)*Ct_complex
-                        integrand_sp[1:] = cumtrapz(integrand_s,x=time_axis)                                
+                        integrand_sp[1:] = cumulative_trapezoid(integrand_s,x=time_axis)                                
 
                         integrand_sp *= np.exp(1j*Om[a,b]*time_axis) 
 
                         factor = weight_abbc[Z_idx,a,c,b]*np.exp(beta*Om[a,b])
-                        K_RR_ab[a,b,1:] += factor*cumtrapz(integrand_sp,x=time_axis)
+                        K_RR_ab[a,b,1:] += factor*cumulative_trapezoid(integrand_sp,x=time_axis)
         self.K_RR_ab = K_RR_ab
         
     def _calc_F_abw(self,include_fact=True,rho_eq_exc=None):
@@ -279,7 +279,7 @@ class FCE(NonSecularSpectraCalculator):
                 for Z_idx,Z in enumerate([*set(SD_id_list)]):
                     C_Z = Ct_list[Z]
                     integrand = C_Z*exp_abt
-                    G_abZt[a,b,Z_idx,1:] = cumtrapz(integrand,x=time_axis)
+                    G_abZt[a,b,Z_idx,1:] = cumulative_trapezoid(integrand,x=time_axis)
         self.G_abZt = G_abZt
         
     def _calc_H(self):
@@ -299,7 +299,7 @@ class FCE(NonSecularSpectraCalculator):
                 for Z_idx,Z in enumerate([*set(SD_id_list)]):
                     C_Z = Ct_list[Z]
                     integrand = time_axis*exp_abt*C_Z
-                    H_abZt[a,b,Z_idx,1:] = cumtrapz(integrand,x=time_axis)
+                    H_abZt[a,b,Z_idx,1:] = cumulative_trapezoid(integrand,x=time_axis)
         self.H_abZt = H_abZt
         
     def _calc_F(self,w_cutoff=1e-3):
@@ -400,7 +400,7 @@ class FCE(NonSecularSpectraCalculator):
                     for Z_idx,Z in enumerate([*set(SD_id_list)]):
                         Ct_imag = Ct_imag_list[Z]
                         integrand_tau = np.exp(Om[b,c]*time_axis_0_to_beta)*Ct_imag
-                        integrand_taup[1:] = cumtrapz(integrand_tau,x=time_axis_0_to_beta)
+                        integrand_taup[1:] = cumulative_trapezoid(integrand_tau,x=time_axis_0_to_beta)
 
                         integrand_taup*= np.exp(Om[a,b]*time_axis_0_to_beta)
 
@@ -442,7 +442,7 @@ class FCE(NonSecularSpectraCalculator):
                         integrand_s = np.trapz(integrand_s_tau,time_axis_0_to_beta,axis=1)
 
                         factor = weight_abbc[Z_idx,a,c,b]*np.exp(beta*Om[a,c])
-                        K_RI_ab[a,b,1:] += factor*cumtrapz(integrand_s,x=time_axis)
+                        K_RI_ab[a,b,1:] += factor*cumulative_trapezoid(integrand_s,x=time_axis)
         self.K_RI_ab = K_RI_ab
         
     def _calc_I_abt(self):
@@ -912,13 +912,13 @@ class HCE(NonSecularSpectraCalculator):
         Gamma_it = np.asarray([Gamma_Zt[SD_id_list[i]] for i in range(nchrom)])
         integrand = contract('it,abt->iabt',Gamma_it,tmp_abt)
         Gamma_tilde_iabt = np.zeros([nchrom,nchrom,nchrom,time_axis.size],dtype=np.complex128)
-        Gamma_tilde_iabt[:,:,:,1:] = cumtrapz(integrand,time_axis,axis=3)
+        Gamma_tilde_iabt[:,:,:,1:] = cumulative_trapezoid(integrand,time_axis,axis=3)
         
 #        nsds = self.rel_tensor.specden.nsds
 #         Gamma_Zt = self.rel_tensor.specden.get_Gamma_HCE()
 #         integrand = contract('Zt,abt->Zabt',Gamma_Zt,tmp_abt)
 #         Gamma_tilde_Zabt = np.zeros([nsds,nchrom,nchrom,time_axis.size],dtype=np.complex128)
-#         Gamma_tilde_Zabt[:,:,:,1:] = cumtrapz(integrand,time_axis,axis=3)
+#         Gamma_tilde_Zabt[:,:,:,1:] = cumulative_trapezoid(integrand,time_axis,axis=3)
 
         c_ia = self.rel_tensor.U
 #        K_RI_ab = np.zeros([nchrom,nchrom,time_axis.size],dtype=np.complex128)
