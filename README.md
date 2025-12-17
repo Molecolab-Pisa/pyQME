@@ -1,9 +1,9 @@
 <div align="center">
+<img src="assets/logo.png" alt="logo"></img>
 </div>
 
-# pyQME
 
-![Project Logo](assets/logo.png)
+# pyQME
 
 pyQME is a Package for Open Quantum System Dynamics and spectroscopies simulations in the exciton framework, written in Python 3.
 
