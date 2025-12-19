@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import simpson
+from scipy.integrate import simps
 from scipy.special import comb
 from scipy.interpolate import UnivariateSpline
 from .linear_spectra import SecularSpectraCalculator
@@ -39,7 +39,7 @@ def calc_rho0_from_overlap(freq_axis,OD_k,pulse):
     freq_step = freq_axis[1]-freq_axis[0]
     
     for k,OD in enumerate(OD_k):
-        overlap = simpson(OD*pulse) * freq_step  # Overlap of the abs with the pump
+        overlap = simps(OD*pulse) * freq_step  # Overlap of the abs with the pump
         rho0[k,k] = overlap
     rho0 = rho0/rho0.trace()
     return rho0

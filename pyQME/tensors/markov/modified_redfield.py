@@ -129,7 +129,7 @@ class ModifiedRedfieldTensor(RedfieldTensor):
         return RTen
     
 def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,gdot_site,gddot_site,damper,time_axis,dephasing):
-    """This function computes the Modified Redfield energy transfer rates in cm^-1
+    r"""This function computes the Modified Redfield energy transfer rates in cm^-1
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier.
     
     Arguments
@@ -190,7 +190,7 @@ def _calc_modified_redfield_rates(Om,weight_aabb,weight_aaab,reorg_site,g_site,g
     return rates
 
 def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,time_axis,dephasing,weight_aabb):
-    """This function computes the Modified Redfield energy transfer rates in cm^-1.
+    r"""This function computes the Modified Redfield energy transfer rates in cm^-1.
     This part of code is in a separate function because in this way its parallelization using a jitted function is easier.
     
     Arguments

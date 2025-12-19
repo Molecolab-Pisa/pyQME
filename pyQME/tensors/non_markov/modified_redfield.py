@@ -1,6 +1,6 @@
 import numpy as np
 from .redfield import RedfieldTensor
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import cumtrapz
 
 class ModifiedRedfieldTensor(RedfieldTensor):
     """Modified Redfield Tensor class where Modified Redfield Theory (https://doi.org/10.1063/1.476212) is used to model energy transfer processes.
@@ -258,7 +258,7 @@ def _mr_rates_loop(Om,g_aabb,gdot_abbb,gddot_abba,reorg_aabb,reorg_aaab,damper,t
                 tmp = gdot_abbb[A,D]-gdot_abbb[D,A]+2*1j*reorg_aaab[D,A]
                 g_derivatives_term = gddot_abba[D,A]-tmp**2
                 integrand = np.exp(-exponent)*g_derivatives_term
-                integrals = cumulative_trapezoid(integrand*damper,time_axis)
+                integrals = cumtrapz(integrand*damper,time_axis)
                 rates[A,D,1:] = 2.*integrals.real
     
     return rates
